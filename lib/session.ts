@@ -1,0 +1,86 @@
+import { SignJWT, jwtVerify } from 'jose';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+
+const SESSION_SECRET = new TextEncoder().encode(
+  process.env.SESSION_SECRET || 'fallback-secret-change-in-production'
+);
+
+export interface AdminSessionData {
+  userId: string;
+  role: 'admin';
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface SessionData {
+  userId: string;
+  role: 'admin' | 'viewer';
+}
+
+export async function createAdminSession(userId: string = 'admin'): Promise<string> {
+  const expiresAt = Date.now() + (8 * 60 * 60 * 1000); // 8 hours
+  
+  const sessionData: AdminSessionData = {
+    userId,
+    role: 'admin',
+    createdAt: Date.now(),
+    expiresAt,
+  };
+
+  const token = await new SignJWT({ ...sessionData })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime(new Date(expiresAt))
+    .sign(SESSION_SECRET);
+
+  return token;
+}
+
+export async function verifyAdminSession(token: string): Promise<AdminSessionData | null> {
+  try {
+    const verified = await jwtVerify(token, SESSION_SECRET);
+    return verified.payload as unknown as AdminSessionData;
+  } catch {
+    return null;
+  }
+}
+
+export async function getAdminSession(): Promise<AdminSessionData | null> {
+  const cookieStore = cookies();
+  const token = cookieStore.get('admin_session')?.value;
+  
+  if (!token) return null;
+  
+  return verifyAdminSession(token);
+}
+
+export function setAdminSessionCookie(response: NextResponse, token: string) {
+  response.cookies.set('admin_session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 8 * 60 * 60, // 8 hours in seconds
+    path: '/',
+  });
+}
+
+export function clearAdminSessionCookie(response: NextResponse) {
+  response.cookies.delete('admin_session');
+}
+
+// General session getter that works for both admin and viewer contexts
+export async function getSession(): Promise<SessionData | null> {
+  // Try to get admin session first
+  const adminSession = await getAdminSession();
+  if (adminSession) {
+    return {
+      userId: adminSession.userId,
+      role: 'admin',
+    };
+  }
+  
+  // For viewers, we rely on client-side localStorage
+  // The API endpoints will accept userId from request body
+  return null;
+}
+

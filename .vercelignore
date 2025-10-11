@@ -1,0 +1,9 @@
+node_modules
+.next
+.env*.local
+*.log
+.DS_Store
+slices
+PRD.md
+foundation-setup.plan.md
+
