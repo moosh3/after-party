@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
+import { supabase } from '@/lib/supabase';
 
 interface VideoPlayerProps {
   playbackId: string;
   token: string;
   title: string;
+  isAdmin?: boolean; // Allow admin to control playback manually
 }
 
-export default function VideoPlayer({ playbackId, token, title }: VideoPlayerProps) {
+export default function VideoPlayer({ playbackId, token, title, isAdmin = false }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,6 +20,8 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [currentQuality, setCurrentQuality] = useState<string>('auto');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -32,10 +36,16 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
       return;
     }
     
-    // Don't add token parameter if it's a placeholder (for public Mux videos)
-    const playbackUrl = token === 'placeholder-token' 
-      ? `https://stream.mux.com/${playbackId}.m3u8`
-      : `https://stream.mux.com/${playbackId}.m3u8?token=${token}`;
+    // Construct playback URL with subtitles parameter
+    const baseUrl = `https://stream.mux.com/${playbackId}.m3u8`;
+    const params = new URLSearchParams();
+    
+    if (token !== 'placeholder-token') {
+      params.append('token', token);
+    }
+    params.append('default_subtitles_lang', 'en');
+    
+    const playbackUrl = `${baseUrl}?${params.toString()}`;
 
     // Initialize HLS.js
     if (Hls.isSupported()) {
@@ -89,6 +99,114 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
       setError('Your browser does not support HLS playback');
     }
   }, [playbackId, token]);
+
+  // Synchronized playback effect - subscribe to admin's playback control
+  useEffect(() => {
+    if (!videoRef.current || isAdmin) return; // Admins control manually
+
+    const video = videoRef.current;
+
+    // Function to sync video state
+    const syncPlaybackState = async (
+      state: string,
+      position: number,
+      updatedAt: string
+    ) => {
+      if (!video || isSyncing) return;
+      
+      setIsSyncing(true);
+
+      try {
+        // Calculate actual position based on when the state was updated
+        const updatedTime = new Date(updatedAt).getTime();
+        const now = Date.now();
+        const elapsed = (now - updatedTime) / 1000; // seconds since update
+        
+        let targetPosition = position;
+        if (state === 'playing') {
+          targetPosition = position + elapsed;
+        }
+
+        // Seek if we're more than 3 seconds off
+        const currentTime = video.currentTime;
+        const timeDiff = Math.abs(currentTime - targetPosition);
+        
+        if (timeDiff > 3) {
+          console.log(`Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
+          video.currentTime = targetPosition;
+        }
+
+        // Sync play/pause state
+        if (state === 'playing' && video.paused) {
+          await video.play();
+          setIsPlaying(true);
+        } else if (state === 'paused' && !video.paused) {
+          video.pause();
+          setIsPlaying(false);
+        }
+      } catch (err) {
+        console.error('Error syncing playback:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    // Load initial playback state
+    async function loadPlaybackState() {
+      try {
+        const response = await fetch('/api/admin/playback-control');
+        if (response.ok) {
+          const data = await response.json();
+          await syncPlaybackState(
+            data.playback_state,
+            data.playback_position,
+            data.playback_updated_at
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load playback state:', err);
+      }
+    }
+
+    loadPlaybackState();
+
+    // Subscribe to playback state changes via Supabase realtime
+    const channel = supabase
+      .channel('playback-sync')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'current_stream',
+          filter: 'id=eq.1',
+        },
+        (payload) => {
+          const newState = payload.new as any;
+          if (newState.playback_state && newState.playback_position !== undefined) {
+            syncPlaybackState(
+              newState.playback_state,
+              newState.playback_position,
+              newState.playback_updated_at
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Periodic sync check every 10 seconds to handle drift
+    const syncInterval = setInterval(() => {
+      loadPlaybackState();
+    }, 10000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(syncInterval);
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [playbackId, isAdmin, isSyncing]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -166,11 +284,25 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
 
       {/* Custom Controls */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Sync Mode Indicator for Viewers */}
+        {!isAdmin && (
+          <div className="absolute -top-8 left-4 bg-twitch-purple/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <span>Watching Together - Synced</span>
+          </div>
+        )}
+        
         <div className="flex items-center gap-3">
-          {/* Play/Pause */}
+          {/* Play/Pause - Disabled for viewers */}
           <button
             onClick={togglePlay}
-            className="text-white hover:text-twitch-purple transition-colors p-1"
+            disabled={!isAdmin}
+            className={`text-white transition-colors p-1 ${
+              isAdmin 
+                ? 'hover:text-twitch-purple cursor-pointer' 
+                : 'opacity-50 cursor-not-allowed'
+            }`}
+            title={isAdmin ? 'Play/Pause' : 'Playback controlled by host'}
           >
             {isPlaying ? (
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">

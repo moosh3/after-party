@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import PlaybackControls from './PlaybackControls';
 
 interface MuxItem {
   id: string;
@@ -185,6 +186,9 @@ export default function StreamControl() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold mb-4 text-twitch-text">Stream Control</h2>
+        
+        {/* Synchronized Playback Controls */}
+        <PlaybackControls />
         
         {currentStream && (
           <div className="twitch-card p-4 mb-6 border-l-4 border-twitch-purple">

@@ -2,12 +2,20 @@
 
 A private event streaming platform built with Next.js 14, Supabase, and Mux for live and VOD content delivery.
 
+## 📚 Quick Links
+
+- **[Quick Mux Setup](QUICK_MUX_SETUP.md)** - Get a video playing in 10 minutes
+- **[Mux Video Guide](MUX_VIDEO_GUIDE.md)** - Comprehensive video upload guide
+- **[Vercel Deployment](VERCEL_DEPLOYMENT.md)** - Deploy to production
+- **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Pre-deployment checklist
+
 ## Features
 
 - 🎥 Live and VOD video streaming powered by Mux
-- 💬 Real-time chat system
+- 💬 Real-time chat system with persistent display names
 - 📊 Interactive polls
-- 🔐 Password-protected access
+- 🔐 Password-protected admin access
+- 👥 Viewer registration with display names
 - 👨‍💼 Admin panel for content management
 - 🎨 Modern, responsive UI with Tailwind CSS
 
