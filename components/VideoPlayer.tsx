@@ -208,15 +208,35 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
     };
   }, [playbackId, isAdmin, isSyncing]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!videoRef.current) return;
     
-    if (videoRef.current.paused) {
+    const wasPaused = videoRef.current.paused;
+    
+    // Update local video state
+    if (wasPaused) {
       videoRef.current.play();
       setIsPlaying(true);
     } else {
       videoRef.current.pause();
       setIsPlaying(false);
+    }
+
+    // If admin, sync the command to all viewers
+    if (isAdmin) {
+      try {
+        const action = wasPaused ? 'play' : 'pause';
+        await fetch('/api/admin/playback-control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action,
+            position: videoRef.current.currentTime 
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to sync playback control:', err);
+      }
     }
   };
 
@@ -248,6 +268,24 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
     }
   };
 
+  // Handle seeking - sync to all viewers if admin
+  const handleSeek = async () => {
+    if (!videoRef.current || !isAdmin) return;
+    
+    try {
+      await fetch('/api/admin/playback-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'seek',
+          position: videoRef.current.currentTime 
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to sync seek:', err);
+    }
+  };
+
   if (error) {
     return (
       <div className="aspect-video bg-twitch-darker flex items-center justify-center">
@@ -271,6 +309,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         className="w-full h-full"
         playsInline
         onClick={togglePlay}
+        onSeeked={handleSeek}
       />
 
       {isLoading && (

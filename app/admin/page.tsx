@@ -3,13 +3,22 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import StreamControl from '@/components/admin/StreamControl';
+import VideoPlayer from '@/components/VideoPlayer';
+
+interface StreamData {
+  playbackId: string;
+  token: string;
+  title: string;
+  kind: string;
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [streamData, setStreamData] = useState<StreamData | null>(null);
 
   useEffect(() => {
-    // Check admin authentication
+    // Check admin authentication and load stream
     async function checkAuth() {
       try {
         const response = await fetch('/api/admin/set-current');
@@ -24,7 +33,27 @@ export default function AdminDashboard() {
       }
     }
 
+    async function loadStream() {
+      try {
+        const response = await fetch('/api/current');
+        if (response.ok) {
+          const data = await response.json();
+          setStreamData(data);
+        }
+      } catch (error) {
+        console.error('Failed to load stream:', error);
+      }
+    }
+
     checkAuth();
+    loadStream();
+
+    // Reload stream when it changes (for realtime updates)
+    const interval = setInterval(() => {
+      loadStream();
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
   }, [router]);
 
   if (loading) {
@@ -64,7 +93,35 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto p-6">
-        <StreamControl />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Video Preview - Takes 2/3 width */}
+          <div className="lg:col-span-2">
+            <div className="twitch-card p-4 mb-4">
+              <h2 className="text-lg font-semibold mb-3 text-twitch-text">Video Preview</h2>
+              <p className="text-xs text-twitch-text-alt mb-4">
+                Control playback directly here - changes sync to all viewers
+              </p>
+              {streamData ? (
+                <VideoPlayer
+                  key={streamData.playbackId}
+                  playbackId={streamData.playbackId}
+                  token={streamData.token}
+                  title={streamData.title}
+                  isAdmin={true}
+                />
+              ) : (
+                <div className="aspect-video bg-twitch-darker flex items-center justify-center rounded">
+                  <p className="text-twitch-text-alt">No stream configured. Add a video below.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Controls - Takes 1/3 width */}
+          <div className="lg:col-span-1">
+            <StreamControl />
+          </div>
+        </div>
       </main>
     </div>
   );
