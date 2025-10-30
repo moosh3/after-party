@@ -1,0 +1,14 @@
+apiVersion: v2
+name: after-party
+description: A Helm chart for After Party streaming application
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - nextjs
+  - streaming
+  - video
+  - chat
+maintainers:
+  - name: After Party Team
+

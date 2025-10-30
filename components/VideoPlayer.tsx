@@ -23,7 +23,19 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
     if (!videoRef.current) return;
 
     const video = videoRef.current;
-    const playbackUrl = `https://stream.mux.com/${playbackId}.m3u8?token=${token}`;
+    
+    // Development mode: Skip video loading if using mock data
+    if (playbackId === 'demo-playback-id') {
+      console.log('⚠️  Development mode: Mock video player (configure Mux for real playback)');
+      setIsLoading(false);
+      setError('Configure Mux credentials in .env.local to enable video playback');
+      return;
+    }
+    
+    // Don't add token parameter if it's a placeholder (for public Mux videos)
+    const playbackUrl = token === 'placeholder-token' 
+      ? `https://stream.mux.com/${playbackId}.m3u8`
+      : `https://stream.mux.com/${playbackId}.m3u8?token=${token}`;
 
     // Initialize HLS.js
     if (Hls.isSupported()) {
@@ -120,12 +132,12 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
 
   if (error) {
     return (
-      <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
+      <div className="aspect-video bg-twitch-darker flex items-center justify-center">
         <div className="text-center p-6">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-error mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
+            className="twitch-button"
           >
             Refresh Page
           </button>
@@ -135,7 +147,7 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
   }
 
   return (
-    <div className="relative group aspect-video bg-black rounded-lg overflow-hidden">
+    <div className="relative group aspect-video bg-black overflow-hidden max-h-screen">
       <video
         ref={videoRef}
         className="w-full h-full"
@@ -144,21 +156,21 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
       />
 
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+        <div className="absolute inset-0 flex items-center justify-center bg-twitch-darker">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-slate-300">Loading video...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-twitch-purple mx-auto mb-4"></div>
+            <p className="text-twitch-text-alt">Loading video...</p>
           </div>
         </div>
       )}
 
       {/* Custom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="flex items-center gap-4">
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-3">
           {/* Play/Pause */}
           <button
             onClick={togglePlay}
-            className="text-white hover:text-blue-400 transition-colors"
+            className="text-white hover:text-twitch-purple transition-colors p-1"
           >
             {isPlaying ? (
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -173,7 +185,7 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
 
           {/* Volume */}
           <div className="flex items-center gap-2">
-            <button onClick={toggleMute} className="text-white hover:text-blue-400">
+            <button onClick={toggleMute} className="text-white hover:text-twitch-purple transition-colors p-1">
               {isMuted || volume === 0 ? (
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -199,14 +211,14 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
           <div className="flex-1" />
 
           {/* Quality Badge */}
-          <div className="text-xs text-slate-300 bg-slate-700/50 px-2 py-1 rounded">
+          <div className="text-xs text-white bg-twitch-hover px-2 py-1 rounded font-medium">
             {currentQuality}
           </div>
 
           {/* Fullscreen */}
           <button
             onClick={toggleFullscreen}
-            className="text-white hover:text-blue-400 transition-colors"
+            className="text-white hover:text-twitch-purple transition-colors p-1"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" />
@@ -215,9 +227,9 @@ export default function VideoPlayer({ playbackId, token, title }: VideoPlayerPro
         </div>
       </div>
 
-      {/* Title Overlay */}
-      <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 to-transparent p-4">
-        <h2 className="text-white font-semibold">{title}</h2>
+      {/* Title Overlay - Hidden like Twitch, shown on hover */}
+      <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <h2 className="text-white font-semibold text-sm">{title}</h2>
       </div>
     </div>
   );

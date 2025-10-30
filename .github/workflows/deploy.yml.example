@@ -1,0 +1,131 @@
+name: Build and Deploy to Digital Ocean Kubernetes
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: registry.digitalocean.com
+  IMAGE_NAME: your-registry-name/after-party
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Log in to DO Container Registry
+        run: doctl registry login --expiry-seconds 1200
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save DO kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ secrets.CLUSTER_NAME }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.13.0'
+
+      - name: Create namespace if not exists
+        run: kubectl create namespace after-party --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create secrets
+        run: |
+          kubectl create secret generic after-party-secrets \
+            --from-literal=NEXT_PUBLIC_SUPABASE_URL='${{ secrets.SUPABASE_URL }}' \
+            --from-literal=NEXT_PUBLIC_SUPABASE_ANON_KEY='${{ secrets.SUPABASE_ANON_KEY }}' \
+            --from-literal=SUPABASE_SERVICE_ROLE_KEY='${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
+            --from-literal=MUX_TOKEN_ID='${{ secrets.MUX_TOKEN_ID }}' \
+            --from-literal=MUX_TOKEN_SECRET='${{ secrets.MUX_TOKEN_SECRET }}' \
+            --from-literal=ADMIN_PASSWORD_HASH='${{ secrets.ADMIN_PASSWORD_HASH }}' \
+            --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}' \
+            --namespace after-party \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install after-party ./helm/after-party \
+            --namespace after-party \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ needs.build-and-push.outputs.image-tag }} \
+            --set ingress.hosts[0].host=${{ secrets.DOMAIN_NAME }} \
+            --set ingress.tls[0].hosts[0]=${{ secrets.DOMAIN_NAME }} \
+            --wait \
+            --timeout 5m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/after-party -n after-party
+          kubectl get pods -n after-party
+          kubectl get ingress -n after-party
+
+      - name: Run smoke tests
+        run: |
+          # Wait for the service to be ready
+          sleep 30
+          
+          # Get the service URL
+          INGRESS_HOST=$(kubectl get ingress after-party -n after-party -o jsonpath='{.spec.rules[0].host}')
+          
+          # Test health endpoint
+          curl -f https://$INGRESS_HOST/api/health || exit 1
+          
+          echo "Deployment successful and health check passed!"
+
+# Required GitHub Secrets:
+# - DIGITALOCEAN_ACCESS_TOKEN: Your DO API token
+# - CLUSTER_NAME: Your DO Kubernetes cluster name
+# - DOMAIN_NAME: Your domain (e.g., after-party.example.com)
+# - SUPABASE_URL: Supabase project URL
+# - SUPABASE_ANON_KEY: Supabase anonymous key
+# - SUPABASE_SERVICE_ROLE_KEY: Supabase service role key
+# - MUX_TOKEN_ID: Mux token ID
+# - MUX_TOKEN_SECRET: Mux token secret
+# - ADMIN_PASSWORD_HASH: Bcrypt hash of admin password
+# - JWT_SECRET: JWT secret key
+

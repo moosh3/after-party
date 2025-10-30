@@ -9,7 +9,10 @@
     "lint": "next lint",
     "test:supabase": "node -r dotenv/config scripts/test-supabase.js dotenv_config_path=.env.local",
     "test:mux": "node -r dotenv/config scripts/test-mux.js dotenv_config_path=.env.local",
-    "generate-admin-hash": "tsx scripts/generate-admin-hash.ts"
+    "generate-admin-hash": "tsx scripts/generate-admin-hash.ts",
+    "setup:db": "tsx -r dotenv/config scripts/setup-database.ts dotenv_config_path=.env.local",
+    "seed:demo": "tsx -r dotenv/config scripts/seed-demo-data.ts dotenv_config_path=.env.local",
+    "enable:realtime": "tsx -r dotenv/config scripts/enable-realtime.ts dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@mux/mux-node": "^8.0.0",

@@ -1,4 +1,70 @@
+/* Ethna Font */
+@font-face {
+  font-family: 'Ethna';
+  src: url('/assets/fonts/Ethna.otf') format('opentype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Scary Font */
+@font-face {
+  font-family: 'Scary';
+  src: url('/assets/fonts/scary.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-twitch-darker text-twitch-text antialiased;
+    background-color: #0e0e10;
+  }
+  
+  /* Twitch-style streaming theme */
+  h1, h2, h3 {
+    @apply font-semibold;
+  }
+}
+
+@layer components {
+  /* Twitch-themed components */
+  .twitch-card {
+    @apply bg-twitch-gray rounded-md shadow-twitch;
+  }
+  
+  .twitch-button {
+    @apply bg-twitch-purple text-white font-semibold px-4 py-2 rounded hover:bg-purple-600 transition-colors duration-200;
+  }
+  
+  .twitch-button-secondary {
+    @apply bg-twitch-hover text-twitch-text font-semibold px-4 py-2 rounded hover:bg-twitch-border transition-colors duration-200;
+  }
+  
+  .twitch-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-twitch-purple text-white;
+  }
+  
+  .twitch-input {
+    @apply bg-twitch-hover border border-twitch-border rounded px-3 py-2 text-twitch-text placeholder-twitch-text-alt focus:border-twitch-purple focus:outline-none transition-colors;
+  }
+  
+  /* Chat message styles */
+  .chat-message {
+    @apply py-1 px-2 hover:bg-twitch-hover transition-colors duration-100;
+  }
+  
+  .chat-username {
+    @apply font-bold cursor-pointer hover:underline;
+  }
+  
+  .live-indicator {
+    @apply inline-flex items-center gap-1 px-2 py-1 bg-twitch-red text-white text-xs font-bold uppercase rounded;
+  }
+}
 

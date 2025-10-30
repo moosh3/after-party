@@ -37,14 +37,16 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-slate-800 rounded-lg shadow-xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-white mb-2">Admin Login</h1>
-        <p className="text-slate-400 mb-6">Enter admin credentials to continue</p>
+    <div className="min-h-screen bg-twitch-darker flex items-center justify-center p-4">
+      <div className="twitch-card p-8 w-full max-w-md">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-twitch-text mb-2">Admin Login</h1>
+          <p className="text-twitch-text-alt">Enter admin credentials to continue</p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-twitch-text mb-2">
               Admin Password
             </label>
             <input
@@ -52,7 +54,7 @@ export default function AdminLogin() {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="twitch-input w-full"
               placeholder="Enter admin password"
               required
               disabled={loading}
@@ -60,7 +62,7 @@ export default function AdminLogin() {
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-error/10 border border-error text-error px-4 py-3 rounded text-sm">
               {error}
             </div>
           )}
@@ -68,10 +70,17 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
+            className="w-full twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed"
           >
             {loading ? 'Authenticating...' : 'Login as Admin'}
           </button>
+          
+          <a 
+            href="/"
+            className="block text-center text-twitch-text-alt hover:text-twitch-text text-sm transition-colors"
+          >
+            ← Back to home
+          </a>
         </form>
       </div>
     </div>

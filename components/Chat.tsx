@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getViewerData } from '@/lib/viewer';
 import PollCard from './PollCard';
 
 interface Message {
@@ -30,15 +31,15 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
-  // Load user name from localStorage
+  // Load user name from viewer registration data
   useEffect(() => {
-    const savedName = localStorage.getItem('chat_username');
-    if (savedName) {
-      setUserName(savedName);
+    const viewerData = getViewerData();
+    if (viewerData?.displayName) {
+      setUserName(viewerData.displayName);
     } else {
+      // Fallback for guests who haven't registered
       const randomName = `Guest${Math.floor(Math.random() * 1000)}`;
       setUserName(randomName);
-      localStorage.setItem('chat_username', randomName);
     }
   }, []);
 
@@ -49,10 +50,29 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
         const response = await fetch(`/api/chat/messages?room=${room}&limit=100`);
         if (response.ok) {
           const data = await response.json();
-          setMessages(data.messages);
+          setMessages(data.messages || []);
+        } else {
+          // Development mode: Show a helpful system message
+          console.log('⚠️  Development mode: Chat requires Supabase configuration');
+          setMessages([{
+            id: 1,
+            user_id: 'system',
+            user_name: 'System',
+            body: '💡 Chat is ready! Configure Supabase in .env.local to enable real-time messaging.',
+            kind: 'system' as const,
+            created_at: new Date().toISOString(),
+          }]);
         }
       } catch (err) {
         console.error('Failed to load messages:', err);
+        setMessages([{
+          id: 1,
+          user_id: 'system',
+          user_name: 'System',
+          body: '⚠️ Unable to connect to chat server. Check your network connection.',
+          kind: 'system' as const,
+          created_at: new Date().toISOString(),
+        }]);
       } finally {
         setLoading(false);
       }
@@ -173,17 +193,18 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
     return date.toLocaleDateString();
   }
 
-  function getAvatarColor(name: string): string {
+  function getUsernameColor(name: string): string {
+    // Twitch-style username colors
     const colors = [
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-yellow-500',
-      'bg-red-500',
-      'bg-indigo-500',
+      '#FF0000', '#0000FF', '#00FF00', '#B22222', '#FF7F50',
+      '#9ACD32', '#FF4500', '#2E8B57', '#DAA520', '#D2691E',
+      '#5F9EA0', '#1E90FF', '#FF69B4', '#8A2BE2', '#00FF7F',
     ];
-    const index = name.charCodeAt(0) % colors.length;
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
     return colors[index];
   }
 
@@ -196,31 +217,32 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-800 rounded-lg">
+    <div 
+      className="flex flex-col h-full bg-black border-l border-twitch-border"
+      style={{ fontFamily: 'Inter, Helvetica, Arial, sans-serif' }}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-slate-700">
-        <h2 className="text-lg font-semibold">Chat</h2>
-        <p className="text-xs text-slate-400">
-          {messages.length} {messages.length === 1 ? 'message' : 'messages'}
-        </p>
+      <div className="p-3 border-b border-twitch-border bg-black">
+        <h2 className="text-sm font-semibold uppercase text-twitch-text">Stream Chat</h2>
       </div>
 
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3"
-        style={{ maxHeight: '400px' }}
+        className="flex-1 overflow-y-auto"
       >
         {messages.length === 0 ? (
-          <p className="text-slate-400 text-sm text-center">
-            No messages yet. Start the conversation!
-          </p>
+          <div className="p-4 text-center">
+            <p className="text-sm text-twitch-text-alt">
+              Welcome to the chat!
+            </p>
+          </div>
         ) : (
           messages.map((message) => {
             // Render poll messages differently
             if (message.kind === 'poll') {
               return (
-                <div key={message.id}>
+                <div key={message.id} className="p-2">
                   <PollCard 
                     pollId={message.body} 
                     userId={userId} 
@@ -233,33 +255,27 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
             // Render system messages differently
             if (message.kind === 'system') {
               return (
-                <div key={message.id} className="flex justify-center">
-                  <div className="bg-slate-700/50 rounded-lg px-4 py-2 max-w-md">
-                    <p className="text-xs text-slate-300 text-center">
-                      {message.body}
-                    </p>
+                <div key={message.id} className="chat-message">
+                  <div className="text-xs text-twitch-text-alt italic">
+                    {message.body}
                   </div>
                 </div>
               );
             }
 
-            // Render regular user messages
+            // Render regular user messages (Twitch-style: compact, inline)
+            const userColor = getUsernameColor(message.user_name);
             return (
-              <div key={message.id} className="flex gap-3">
-                {/* Avatar */}
-                <div className={`w-8 h-8 rounded-full ${getAvatarColor(message.user_name)} flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}>
-                  {message.user_name.charAt(0).toUpperCase()}
-                </div>
-
-                {/* Message */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-medium text-sm">{message.user_name}</span>
-                    <span className="text-xs text-slate-500">
-                      {formatTimestamp(message.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-200 break-words">{message.body}</p>
+              <div key={message.id} className="chat-message">
+                <div className="flex flex-wrap items-baseline gap-1 text-sm leading-relaxed">
+                  <span 
+                    className="chat-username"
+                    style={{ color: userColor }}
+                  >
+                    {message.user_name}
+                  </span>
+                  <span className="text-twitch-text-alt">:</span>
+                  <span className="text-twitch-text break-words">{message.body}</span>
                 </div>
               </div>
             );
@@ -270,67 +286,44 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
       {/* Scroll to bottom indicator */}
       {!autoScroll && (
-        <div className="px-4 py-2">
+        <div className="px-2 py-1 border-t border-twitch-border">
           <button
             onClick={() => {
               messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
               setAutoScroll(true);
             }}
-            className="w-full text-xs text-blue-400 hover:text-blue-300 py-1"
+            className="w-full text-xs text-twitch-purple hover:text-purple-400 py-1"
           >
-            ↓ New messages
+            ↓ More messages below
           </button>
         </div>
       )}
 
       {/* Input */}
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-2 border-t border-twitch-border bg-black">
         {error && (
-          <div className="text-xs text-red-400 mb-2">{error}</div>
+          <div className="text-xs text-error mb-1 px-2">{error}</div>
         )}
         
-        <form onSubmit={handleSend} className="space-y-2">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={messageBody}
-              onChange={(e) => setMessageBody(e.target.value)}
-              placeholder="Type a message..."
-              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={sending || rateLimitSeconds > 0}
-              maxLength={600}
-            />
-            <button
-              type="submit"
-              disabled={sending || !messageBody.trim() || rateLimitSeconds > 0}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-            >
-              {sending ? '...' : 'Send'}
-            </button>
+        {rateLimitSeconds > 0 && (
+          <div className="text-xs text-twitch-text-alt mb-1 px-2">
+            Slow mode: {rateLimitSeconds}s
           </div>
-          
-          {rateLimitSeconds > 0 && (
-            <p className="text-xs text-slate-400">
-              You can send another message in {rateLimitSeconds}s
-            </p>
-          )}
-
-          <div className="flex justify-between items-center text-xs text-slate-500">
-            <span>{messageBody.length}/600</span>
-            <button
-              type="button"
-              onClick={() => {
-                const newName = prompt('Enter your name:', userName);
-                if (newName && newName.trim()) {
-                  setUserName(newName.trim());
-                  localStorage.setItem('chat_username', newName.trim());
-                }
-              }}
-              className="text-blue-400 hover:text-blue-300"
-            >
-              Change name ({userName})
-            </button>
+        )}
+        
+        <form onSubmit={handleSend} className="flex flex-col gap-2">
+          <div className="text-xs text-twitch-text-alt mb-1 px-2">
+            Chatting as: <span className="text-twitch-text font-medium">{userName}</span>
           </div>
+          <input
+            type="text"
+            value={messageBody}
+            onChange={(e) => setMessageBody(e.target.value)}
+            placeholder="Send a message"
+            className="twitch-input w-full text-sm"
+            disabled={sending || rateLimitSeconds > 0}
+            maxLength={600}
+          />
         </form>
       </div>
     </div>

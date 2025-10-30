@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin } from './supabase-admin';
 
 export async function sendSystemMessage(
   room: string,

@@ -1,0 +1,118 @@
+# Production values example
+# Copy this file to values-production.yaml and fill in your actual values
+# NEVER commit values-production.yaml to git!
+
+replicaCount: 2
+
+image:
+  repository: registry.digitalocean.com/your-registry/after-party
+  pullPolicy: IfNotPresent
+  tag: "v1.0.0"
+
+# If using a private registry, create and reference image pull secrets
+imagePullSecrets:
+  # - name: regcred
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Rate limiting (optional)
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    # Client body size for uploads
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: your-domain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: after-party-tls
+      hosts:
+        - your-domain.com
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Non-sensitive environment variables
+env:
+  NODE_ENV: "production"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+# Sensitive configuration - FILL IN YOUR ACTUAL VALUES
+secrets:
+  # Supabase configuration
+  NEXT_PUBLIC_SUPABASE_URL: "https://your-project-id.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  
+  # Mux configuration
+  MUX_TOKEN_ID: "your-mux-token-id"
+  MUX_TOKEN_SECRET: "your-mux-token-secret"
+  
+  # Admin configuration (use npm run generate-admin-hash to create)
+  ADMIN_PASSWORD_HASH: "$2a$10$..."
+  
+  # JWT configuration (generate a strong random string)
+  # Example: openssl rand -base64 32
+  JWT_SECRET: "your-jwt-secret-key-min-32-chars"
+
+# Digital Ocean specific settings
+digitalocean:
+  loadBalancer:
+    # Set to true if you want to use DO Load Balancer instead of Ingress
+    enabled: false
+    annotations:
+      service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
+      service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
+      service.beta.kubernetes.io/do-loadbalancer-healthcheck-path: "/api/health"
+      service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol: "http"
+
+# Pod anti-affinity to spread pods across nodes
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - after-party
+          topologyKey: kubernetes.io/hostname
+
+# Node selector (optional - use if you have specific node pools)
+nodeSelector: {}
+  # node.kubernetes.io/instance-type: s-2vcpu-4gb
+
+# Tolerations (optional - use if nodes have taints)
+tolerations: []
+

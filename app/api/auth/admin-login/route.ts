@@ -3,7 +3,7 @@ import { verifyPassword } from '@/lib/auth';
 import { createAdminSession, setAdminSessionCookie } from '@/lib/session';
 import { checkRateLimit, getRateLimitIdentifier } from '@/lib/rate-limit';
 import { config } from '@/lib/config';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {
   const identifier = getRateLimitIdentifier(request);

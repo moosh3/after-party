@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generatePlaybackToken } from '@/lib/mux';
 import { getViewerData } from '@/lib/viewer';
 
@@ -20,6 +20,29 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error || !data) {
+      // DEVELOPMENT MODE: Return mock data if database is not configured
+      // This allows the UI to be tested without full Supabase setup
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const isDevelopment = supabaseUrl.includes('placeholder') || supabaseUrl === '';
+      
+      if (isDevelopment || error?.message?.includes('connect')) {
+        console.log('⚠️  Development mode: Returning mock stream data');
+        const mockToken = 'mock-token-for-development';
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        
+        return NextResponse.json({
+          playbackId: 'demo-playback-id',
+          title: 'Demo Stream - Configure Supabase & Mux for real video',
+          kind: 'vod',
+          token: mockToken,
+          expiresAt,
+        }, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        });
+      }
+      
       return NextResponse.json(
         { error: 'No active stream configured' },
         { status: 404 }

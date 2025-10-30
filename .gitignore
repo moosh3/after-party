@@ -35,3 +35,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# kubernetes & helm
+helm/after-party/values-production.yaml
+helm/**/values-production.yaml
+
+# large assets (optional - uncomment if needed)
+# public/assets/videos/*.mp4
+# public/assets/videos/*.webm
+# public/assets/**/*.psd
+# public/assets/**/*.ai
+

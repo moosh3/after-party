@@ -29,26 +29,37 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-twitch-darker flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-twitch-purple"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <header className="border-b border-slate-800 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <button
-            onClick={async () => {
-              await fetch('/api/auth/admin-logout', { method: 'POST' });
-              router.push('/admin/login');
-            }}
-            className="text-slate-400 hover:text-white"
-          >
-            Logout
-          </button>
+    <div className="min-h-screen bg-twitch-darker text-twitch-text">
+      <header className="bg-twitch-dark border-b border-twitch-border">
+        <div className="max-w-7xl mx-auto flex justify-between items-center px-4 py-3">
+          <div>
+            <h1 className="text-2xl font-bold text-twitch-purple">Admin Dashboard</h1>
+            <p className="text-sm text-twitch-text-alt">Manage your stream</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <a 
+              href="/event"
+              className="twitch-button-secondary text-sm"
+            >
+              View Stream
+            </a>
+            <button
+              onClick={async () => {
+                await fetch('/api/auth/admin-logout', { method: 'POST' });
+                router.push('/admin/login');
+              }}
+              className="text-twitch-text-alt hover:text-twitch-text transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
