@@ -1,18 +1,3 @@
-[INFORMATION]
-[TITLE]
-[AUTHOR]
-[SOURCE]
-[PRG]
-[FILEPATH]
-[DELAY]0
-[CD TRACK]0
-[COMMENT]
-[END INFORMATION]
-[SUBTITLE]
-[COLF]&HFFFFFF,[STYLE]bd,[SIZE]24,[FONT]Tahoma
-00:00:05.00,00:00:15.00
-Created and Encoded by --  Bokutox -- of  www.YIFY-TORRENTS.com. The Best 720p/1080p/3d movies with the lowest file size on the internet. World of Warcraft - Outland PVP (EU) - Torporr (name)
-
 00:01:55.64,00:02:02.01
 Here ye, here ye, 10 minutes to go[br]till Van Dort's wedding rehearsal.
 
