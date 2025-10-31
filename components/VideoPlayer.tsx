@@ -284,6 +284,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
           video_title: title,
         }}
         defaultShowRemainingTime
+        defaultHiddenCaptions={false}
         accentColor="#9147FF"
         className="w-full h-full"
         onPlay={isAdmin ? handlePlay : undefined}
