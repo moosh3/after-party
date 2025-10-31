@@ -54,7 +54,7 @@ export default function AdminLogin() {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="twitch-input w-full"
+              className="twitch-input w-full min-h-[44px]"
               placeholder="Enter admin password"
               required
               disabled={loading}
@@ -70,14 +70,14 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed"
+            className="w-full twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
           >
             {loading ? 'Authenticating...' : 'Login as Admin'}
           </button>
           
           <a 
             href="/"
-            className="block text-center text-twitch-text-alt hover:text-twitch-text text-sm transition-colors"
+            className="block text-center text-twitch-text-alt hover:text-twitch-text text-sm transition-colors py-2 min-h-[44px] flex items-center justify-center"
           >
             ← Back to home
           </a>

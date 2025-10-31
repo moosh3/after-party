@@ -51,7 +51,7 @@
   }
   
   .twitch-input {
-    @apply bg-twitch-hover border border-twitch-border rounded px-3 py-2 text-twitch-text placeholder-twitch-text-alt focus:border-twitch-purple focus:outline-none transition-colors;
+    @apply bg-twitch-hover border border-twitch-border rounded px-3 py-2 text-twitch-text placeholder-twitch-text-alt focus:border-twitch-purple focus:outline-none transition-colors min-h-[44px];
   }
   
   /* Chat message styles */

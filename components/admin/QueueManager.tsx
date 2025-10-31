@@ -315,7 +315,7 @@ export default function QueueManager() {
         <button
           onClick={handleNextVideo}
           disabled={loading || queue.length === 0}
-          className="w-full mb-4 bg-success hover:bg-green-600 disabled:bg-twitch-gray disabled:cursor-not-allowed text-white py-2 px-4 rounded font-medium text-sm transition-colors"
+          className="w-full mb-4 bg-success hover:bg-green-600 disabled:bg-twitch-gray disabled:cursor-not-allowed text-white py-3 px-4 rounded font-medium text-sm transition-colors min-h-[44px]"
         >
           {queue.length > 0 ? '▶ Play Next in Queue' : 'Queue is Empty'}
         </button>
@@ -339,31 +339,9 @@ export default function QueueManager() {
                 
                 return (
                   <div key={item.id} className="bg-twitch-hover border border-twitch-border rounded p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex flex-col gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => handleMoveUp(index)}
-                          disabled={loading || index === 0}
-                          className="text-twitch-text hover:text-twitch-purple disabled:text-twitch-text-alt disabled:cursor-not-allowed p-1"
-                          title="Move up"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleMoveDown(index)}
-                          disabled={loading || index === queue.length - 1}
-                          className="text-twitch-text hover:text-twitch-purple disabled:text-twitch-text-alt disabled:cursor-not-allowed p-1"
-                          title="Move down"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                      {/* Content - full width on mobile */}
+                      <div className="flex-1 min-w-0 order-2 sm:order-2">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-semibold text-twitch-purple bg-twitch-purple/20 px-2 py-1 rounded">
                             #{index + 1}
@@ -382,16 +360,41 @@ export default function QueueManager() {
                         )}
                       </div>
 
-                      <button
-                        onClick={() => handleRemoveFromQueue(item.id, muxItem?.label || 'video')}
-                        disabled={loading}
-                        className="text-error hover:text-red-600 disabled:text-twitch-text-alt disabled:cursor-not-allowed p-1 flex-shrink-0"
-                        title="Remove from queue"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+                      {/* Controls - horizontal on mobile, vertical on desktop */}
+                      <div className="flex sm:flex-col gap-2 order-1 sm:order-1 justify-between sm:justify-start">
+                        <div className="flex gap-2 sm:flex-col">
+                          <button
+                            onClick={() => handleMoveUp(index)}
+                            disabled={loading || index === 0}
+                            className="text-twitch-text hover:text-twitch-purple disabled:text-twitch-text-alt disabled:cursor-not-allowed p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-twitch-dark rounded sm:bg-transparent"
+                            title="Move up"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleMoveDown(index)}
+                            disabled={loading || index === queue.length - 1}
+                            className="text-twitch-text hover:text-twitch-purple disabled:text-twitch-text-alt disabled:cursor-not-allowed p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-twitch-dark rounded sm:bg-transparent"
+                            title="Move down"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveFromQueue(item.id, muxItem?.label || 'video')}
+                          disabled={loading}
+                          className="text-error hover:text-red-600 disabled:text-twitch-text-alt disabled:cursor-not-allowed p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-twitch-dark rounded sm:bg-transparent"
+                          title="Remove from queue"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -412,31 +415,33 @@ export default function QueueManager() {
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {muxItems.map((item) => (
-                <div key={item.id} className="bg-twitch-darker border border-twitch-border rounded p-3 flex justify-between items-center">
-                  <div className="flex-1 min-w-0 mr-3">
-                    <p className="font-medium text-sm text-twitch-text truncate">
-                      {item.label}
-                    </p>
-                    <p className="text-xs text-twitch-text-alt font-mono truncate">
-                      {item.playback_id}
-                    </p>
-                    {item.duration_seconds && (
-                      <p className="text-xs text-twitch-text-alt mt-1">
-                        {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
+                <div key={item.id} className="bg-twitch-darker border border-twitch-border rounded p-3">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-twitch-text truncate">
+                        {item.label}
                       </p>
-                    )}
+                      <p className="text-xs text-twitch-text-alt font-mono truncate">
+                        {item.playback_id}
+                      </p>
+                      {item.duration_seconds && (
+                        <p className="text-xs text-twitch-text-alt mt-1">
+                          {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleAddToQueue(item.id, item.label)}
+                      disabled={loading || isInQueue(item.id)}
+                      className={`w-full sm:w-auto px-4 py-2 rounded text-sm font-medium transition-colors min-h-[44px] ${
+                        isInQueue(item.id)
+                          ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
+                          : 'bg-twitch-purple hover:bg-purple-600 text-white'
+                      }`}
+                    >
+                      {isInQueue(item.id) ? 'In Queue' : 'Add to Queue'}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleAddToQueue(item.id, item.label)}
-                    disabled={loading || isInQueue(item.id)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors flex-shrink-0 ${
-                      isInQueue(item.id)
-                        ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
-                        : 'bg-twitch-purple hover:bg-purple-600 text-white'
-                    }`}
-                  >
-                    {isInQueue(item.id) ? 'In Queue' : 'Add to Queue'}
-                  </button>
                 </div>
               ))}
             </div>

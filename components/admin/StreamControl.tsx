@@ -444,36 +444,38 @@ export default function StreamControl({
             ) : (
               <div className="space-y-2">
                 {muxItems.map(item => (
-                  <div key={item.id} className="twitch-card p-4 flex justify-between items-center">
-                    <div className="flex-1">
-                      <p className="font-medium text-twitch-text">{item.label}</p>
-                      <p className="text-xs text-twitch-text-alt font-mono">{item.playback_id}</p>
-                      {item.duration_seconds && (
-                        <p className="text-xs text-twitch-text-alt">
-                          Duration: {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0 ml-4">
-                      <button
-                        onClick={() => handleSetStream(item.playback_id, item.label, item.kind)}
-                        disabled={loading || currentStream?.playback_id === item.playback_id}
-                        className={`px-4 py-2 rounded text-sm transition-colors ${
-                          currentStream?.playback_id === item.playback_id
-                            ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
-                            : 'twitch-button'
-                        }`}
-                      >
-                        {currentStream?.playback_id === item.playback_id ? 'Current' : 'Make Current'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMuxItem(item.id, item.label)}
-                        disabled={loading}
-                        className="px-4 py-2 rounded text-sm transition-colors bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed text-white"
-                        title="Delete this item from library"
-                      >
-                        Delete
-                      </button>
+                  <div key={item.id} className="twitch-card p-4">
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-twitch-text">{item.label}</p>
+                        <p className="text-xs text-twitch-text-alt font-mono break-all">{item.playback_id}</p>
+                        {item.duration_seconds && (
+                          <p className="text-xs text-twitch-text-alt">
+                            Duration: {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
+                        <button
+                          onClick={() => handleSetStream(item.playback_id, item.label, item.kind)}
+                          disabled={loading || currentStream?.playback_id === item.playback_id}
+                          className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
+                            currentStream?.playback_id === item.playback_id
+                              ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
+                              : 'twitch-button'
+                          }`}
+                        >
+                          {currentStream?.playback_id === item.playback_id ? 'Current' : 'Make Current'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMuxItem(item.id, item.label)}
+                          disabled={loading}
+                          className="px-4 py-2 rounded text-sm transition-colors bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed text-white min-h-[44px]"
+                          title="Delete this item from library"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -510,11 +512,11 @@ export default function StreamControl({
                   disabled={loading}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={handleAddMuxItem}
                   disabled={loading || !customPlaybackId || !customTitle}
-                  className="twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed"
+                  className="twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                 >
                   Add to Library
                 </button>
@@ -525,7 +527,7 @@ export default function StreamControl({
                     }
                   }}
                   disabled={loading || !customPlaybackId || !customTitle}
-                  className="twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed"
+                  className="twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                 >
                   Add & Make Current
                 </button>
@@ -576,7 +578,7 @@ export default function StreamControl({
                           <button
                             onClick={() => removePollOption(index)}
                             disabled={pollLoading}
-                            className="px-3 py-2 bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed rounded transition-colors text-white"
+                            className="px-3 py-2 bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed rounded transition-colors text-white min-h-[44px]"
                           >
                             Remove
                           </button>
@@ -598,7 +600,7 @@ export default function StreamControl({
                 <button
                   onClick={handleCreatePoll}
                   disabled={pollLoading || !pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
-                  className="w-full twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed font-medium"
+                  className="w-full twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed font-medium min-h-[44px]"
                 >
                   {pollLoading ? 'Creating Poll...' : 'Create Poll in Chat'}
                 </button>
@@ -632,30 +634,32 @@ export default function StreamControl({
                             </div>
                             
                             {isEditing ? (
-                              <div className="flex gap-2 mt-2">
+                              <div className="flex flex-col sm:flex-row gap-2 mt-2">
                                 <input
                                   type="text"
                                   value={editingQuestion}
                                   onChange={(e) => setEditingQuestion(e.target.value)}
-                                  className="twitch-input flex-1 text-sm"
+                                  className="twitch-input flex-1 text-sm min-h-[44px]"
                                   maxLength={300}
                                 />
-                                <button
-                                  onClick={() => handleUpdatePoll(poll.id, editingQuestion)}
-                                  disabled={loading}
-                                  className="px-3 py-1 bg-success hover:bg-green-600 rounded text-sm text-white"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setEditingPollId(null);
-                                    setEditingQuestion('');
-                                  }}
-                                  className="px-3 py-1 bg-twitch-gray hover:bg-twitch-hover rounded text-sm"
-                                >
-                                  Cancel
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleUpdatePoll(poll.id, editingQuestion)}
+                                    disabled={loading}
+                                    className="px-3 py-2 bg-success hover:bg-green-600 rounded text-sm text-white flex-1 sm:flex-none min-h-[44px]"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingPollId(null);
+                                      setEditingQuestion('');
+                                    }}
+                                    className="px-3 py-2 bg-twitch-gray hover:bg-twitch-hover rounded text-sm flex-1 sm:flex-none min-h-[44px]"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
                               </div>
                             ) : (
                               <p className="text-sm font-medium text-twitch-text">{poll.question}</p>
@@ -683,7 +687,7 @@ export default function StreamControl({
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-2 pt-2 border-t border-twitch-border">
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-twitch-border">
                           {poll.is_open && !isEditing && (
                             <button
                               onClick={() => {
@@ -691,7 +695,7 @@ export default function StreamControl({
                                 setEditingQuestion(poll.question);
                               }}
                               disabled={loading}
-                              className="px-3 py-1 text-xs bg-twitch-purple hover:bg-purple-600 rounded transition-colors text-white disabled:bg-twitch-gray"
+                              className="px-3 py-2 text-xs bg-twitch-purple hover:bg-purple-600 rounded transition-colors text-white disabled:bg-twitch-gray min-h-[44px]"
                             >
                               Edit Question
                             </button>
@@ -700,7 +704,7 @@ export default function StreamControl({
                             <button
                               onClick={() => handleClosePoll(poll.id)}
                               disabled={loading}
-                              className="px-3 py-1 text-xs bg-twitch-gray hover:bg-twitch-hover rounded transition-colors disabled:bg-twitch-gray disabled:cursor-not-allowed"
+                              className="px-3 py-2 text-xs bg-twitch-gray hover:bg-twitch-hover rounded transition-colors disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                             >
                               Close Poll
                             </button>
@@ -709,7 +713,7 @@ export default function StreamControl({
                             <button
                               onClick={() => loadVoterDetails(poll.id)}
                               disabled={loadingVoters}
-                              className="px-3 py-1 text-xs bg-twitch-purple hover:bg-purple-600 rounded transition-colors text-white disabled:bg-twitch-gray"
+                              className="px-3 py-2 text-xs bg-twitch-purple hover:bg-purple-600 rounded transition-colors text-white disabled:bg-twitch-gray min-h-[44px]"
                             >
                               {viewingVotersForPoll === poll.id ? 'Hide Voters' : 'View Voters'}
                             </button>
@@ -717,7 +721,7 @@ export default function StreamControl({
                           <button
                             onClick={() => handleDeletePoll(poll.id, poll.question)}
                             disabled={loading}
-                            className="px-3 py-1 text-xs bg-error hover:bg-red-600 rounded transition-colors text-white disabled:bg-twitch-gray disabled:cursor-not-allowed ml-auto"
+                            className="px-3 py-2 text-xs bg-error hover:bg-red-600 rounded transition-colors text-white disabled:bg-twitch-gray disabled:cursor-not-allowed sm:ml-auto min-h-[44px]"
                           >
                             Delete
                           </button>

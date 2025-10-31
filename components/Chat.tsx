@@ -218,7 +218,7 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
   return (
     <div 
-      className="flex flex-col h-screen bg-black border-l border-twitch-border"
+      className="flex flex-col h-full bg-black border-t lg:border-t-0 lg:border-l border-twitch-border"
       style={{ fontFamily: 'Inter, Helvetica, Arial, sans-serif' }}
     >
       {/* Header */}

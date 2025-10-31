@@ -228,26 +228,36 @@ export default function EventPage() {
   }
 
   return (
-    <div className="min-h-screen bg-twitch-darker text-twitch-text flex flex-col">
+    <div className="h-screen bg-twitch-darker text-twitch-text flex flex-col overflow-hidden">
       {/* Stream info bar */}
-      <div className="bg-twitch-dark border-b border-twitch-border px-4 py-3">
+      <div className="flex-shrink-0 bg-twitch-dark border-b border-twitch-border px-4 py-3">
         <div className="flex items-center gap-3">
           <img 
             src="/assets/logos/alecmklogo.png" 
             alt="Channel Avatar" 
             className="h-12 w-12 rounded-full object-cover"
           />
-          <div>
+          <div className="flex-1">
             <h2 className="text-lg font-semibold">{streamData.title}</h2>
             <p className="text-sm text-twitch-text-alt">After Party Movie Marathon</p>
           </div>
+          <h2 
+            className="text-xl md:text-2xl text-red-600 hidden md:block"
+            style={{ 
+              fontFamily: 'Scary, serif',
+              textShadow: '0 0 20px rgba(220, 38, 38, 0.6), 0 0 40px rgba(220, 38, 38, 0.4)',
+              letterSpacing: '0.05em'
+            }}
+          >
+            WELCOME TO THE AFTER PARTY MOVIE MARATHON
+          </h2>
         </div>
       </div>
 
       {/* Main content area */}
-      <main className="flex-1 flex">
+      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Video Player - Takes most of the width */}
-        <div className="flex-1 bg-black flex flex-col">
+        <div className="flex-1 bg-black flex flex-col overflow-y-auto min-h-0">
           <VideoPlayer
             key={streamData.playbackId}
             playbackId={streamData.playbackId}
@@ -257,18 +267,6 @@ export default function EventPage() {
           
           {/* Welcome Message & Links */}
           <div className="bg-gradient-to-b from-twitch-dark to-twitch-gray border-t border-twitch-border px-4 py-3">
-            {/* Welcome Title with Scary Font */}
-            <h2 
-              className="text-2xl text-center mb-3 text-red-600"
-              style={{ 
-                fontFamily: 'Scary, serif',
-                textShadow: '0 0 20px rgba(220, 38, 38, 0.6), 0 0 40px rgba(220, 38, 38, 0.4)',
-                letterSpacing: '0.05em'
-              }}
-            >
-              WELCOME TO THE AFTER PARTY MOVIE MARATHON
-            </h2>
-            
             {/* Styled Links */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <a 
@@ -384,8 +382,8 @@ export default function EventPage() {
           </div>
         </div>
 
-        {/* Chat Sidebar - Fixed width on desktop */}
-        <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
+        {/* Chat Sidebar - Full width on mobile, fixed width on desktop */}
+        <div className="w-full h-96 lg:h-auto lg:w-80 xl:w-96 flex-shrink-0">
           <Chat room="event" userId={userId} />
         </div>
       </main>

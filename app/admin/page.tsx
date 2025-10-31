@@ -92,16 +92,16 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-twitch-darker text-twitch-text">
       <header className="bg-twitch-dark border-b border-twitch-border">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-twitch-purple">Admin Dashboard</h1>
-              <p className="text-sm text-twitch-text-alt">Manage your stream</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-twitch-purple">Admin Dashboard</h1>
+              <p className="text-xs sm:text-sm text-twitch-text-alt">Manage your stream</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <a 
                 href="/event"
-                className="twitch-button-secondary text-sm"
+                className="twitch-button-secondary text-sm flex-1 sm:flex-none text-center min-h-[44px] flex items-center justify-center"
               >
                 View Stream
               </a>
@@ -110,7 +110,7 @@ export default function AdminDashboard() {
                   await fetch('/api/auth/admin-logout', { method: 'POST' });
                   router.push('/admin/login');
                 }}
-                className="text-twitch-text-alt hover:text-twitch-text transition-colors"
+                className="text-twitch-text-alt hover:text-twitch-text transition-colors min-h-[44px] px-3"
               >
                 Logout
               </button>
@@ -119,8 +119,8 @@ export default function AdminDashboard() {
           
           {/* Entry Screen Mode Toggle */}
           <div className="mt-4 pt-4 border-t border-twitch-border">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-sm font-semibold text-twitch-text mb-1">Entry Screen Mode</h3>
                 <p className="text-xs text-twitch-text-alt">
                   {posterMode 
@@ -132,24 +132,24 @@ export default function AdminDashboard() {
               <button
                 onClick={handleTogglePoster}
                 disabled={posterLoading}
-                className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] ${
                   posterMode
                     ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white'
                     : 'bg-gradient-to-r from-success to-green-600 hover:from-green-500 hover:to-success text-white'
                 }`}
               >
                 {posterLoading ? (
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center justify-center gap-2">
                     <span className="animate-spin">⟳</span>
-                    Switching...
+                    <span className="hidden sm:inline">Switching...</span>
                   </span>
                 ) : posterMode ? (
-                  <span className="flex items-center gap-2">
-                    🎬 POSTER MODE
+                  <span className="flex items-center justify-center gap-2">
+                    🎬 <span className="hidden xs:inline">POSTER MODE</span><span className="xs:hidden">Poster</span>
                   </span>
                 ) : (
-                  <span className="flex items-center gap-2">
-                    📝 REGISTRATION MODE
+                  <span className="flex items-center justify-center gap-2">
+                    📝 <span className="hidden xs:inline">REGISTRATION MODE</span><span className="xs:hidden">Registration</span>
                   </span>
                 )}
               </button>
@@ -158,8 +158,8 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="max-w-7xl mx-auto p-4 sm:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Column - Video Preview and Library Controls */}
           <div className="lg:col-span-2 space-y-6">
             {/* Video Preview */}
