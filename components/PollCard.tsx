@@ -160,21 +160,21 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
     poll.total_votes > 0 && winners.some((w) => w.id === option.id);
 
   return (
-    <div className="twitch-card p-4 space-y-3 border border-twitch-purple">
+    <div className={`twitch-card p-4 space-y-3 ${poll.is_open ? 'border border-twitch-purple' : 'border-2 border-success/50 bg-gradient-to-br from-twitch-dark to-twitch-darker'}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="twitch-badge">
-              Poll
+            <span className={`twitch-badge ${!poll.is_open && 'bg-success/20 text-success'}`}>
+              {poll.is_open ? 'Poll' : '🏆 Poll Closed'}
             </span>
-            {!poll.is_open && (
-              <span className="text-xs font-semibold text-twitch-text-alt">
-                • Closed
-              </span>
-            )}
           </div>
           <h3 className="text-sm font-semibold text-twitch-text">{poll.question}</h3>
+          {!poll.is_open && poll.total_votes > 0 && (
+            <p className="text-xs text-success font-semibold mt-2">
+              Winner{winners.length > 1 ? 's' : ''}: {winners.map(w => w.label).join(', ')}
+            </p>
+          )}
         </div>
       </div>
 
@@ -203,19 +203,24 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-sm font-medium text-twitch-text truncate">
+                  <span className={`text-sm font-medium truncate ${isWinner(option) && !poll.is_open ? 'text-success font-bold' : 'text-twitch-text'}`}>
                     {option.label}
                   </span>
                   {isVoted && poll.is_open && (
                     <span className="text-xs text-twitch-purple">✓</span>
                   )}
-                  {isWinner(option) && (
+                  {isWinner(option) && poll.is_open && (
                     <span className="text-xs font-semibold text-success flex-shrink-0">
                       🏆 Leading
                     </span>
                   )}
+                  {isWinner(option) && !poll.is_open && (
+                    <span className="text-xs font-bold text-success flex-shrink-0 animate-pulse">
+                      🏆 WINNER
+                    </span>
+                  )}
                 </div>
-                <span className="text-sm font-semibold text-twitch-text flex-shrink-0">
+                <span className={`text-sm font-semibold flex-shrink-0 ${isWinner(option) && !poll.is_open ? 'text-success font-bold text-base' : 'text-twitch-text'}`}>
                   {option.percentage}%
                 </span>
               </div>
@@ -225,7 +230,9 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
                 <div className="w-full bg-twitch-dark rounded-full h-2 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
-                      isWinner(option)
+                      isWinner(option) && !poll.is_open
+                        ? 'bg-gradient-to-r from-yellow-500 to-success'
+                        : isWinner(option)
                         ? 'bg-success'
                         : 'bg-twitch-purple'
                     }`}

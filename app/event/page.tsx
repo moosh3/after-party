@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import VideoPlayer from '@/components/VideoPlayer';
 import Chat from '@/components/Chat';
-import PollCard from '@/components/PollCard';
+import PollsTab from '@/components/PollsTab';
 import ViewerRegistration from '@/components/ViewerRegistration';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 import { useStreamUpdates } from '@/hooks/useStreamUpdates';
-import { supabase } from '@/lib/supabase';
 import { getViewerData } from '@/lib/viewer';
 
 interface StreamData {
@@ -19,19 +18,12 @@ interface StreamData {
   kind: string;
 }
 
-interface PollData {
-  id: string;
-  question: string;
-  is_open: boolean;
-}
-
 export default function EventPage() {
   const router = useRouter();
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('');
-  const [activePolls, setActivePolls] = useState<PollData[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
 
@@ -107,47 +99,6 @@ export default function EventPage() {
 
     loadStream();
   }, [router, isRegistered]);
-
-  // Load active polls
-  useEffect(() => {
-    async function loadActivePolls() {
-      try {
-        const { data, error } = await supabase
-          .from('polls')
-          .select('id, question, is_open')
-          .eq('is_open', true)
-          .order('created_at', { ascending: false });
-
-        if (!error && data) {
-          setActivePolls(data);
-        }
-      } catch (err) {
-        console.error('Failed to load polls:', err);
-      }
-    }
-
-    loadActivePolls();
-
-    // Subscribe to poll changes
-    const channel = supabase
-      .channel('active-polls')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'polls',
-        },
-        () => {
-          loadActivePolls();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   // Show registration form if not registered
   if (checkingRegistration) {
@@ -348,54 +299,35 @@ export default function EventPage() {
             </div>
           </div>
 
-          {/* Active Polls Section */}
-          {activePolls.length > 0 && (
-            <div className="bg-gradient-to-b from-twitch-gray to-black border-t-4 border-red-600 px-4 py-4">
-              {/* Polls Header */}
-              <div className="text-center mb-4">
-                <h3 
-                  className="text-3xl text-red-600 inline-block relative"
-                  style={{ 
-                    fontFamily: 'Scary, serif',
-                    textShadow: '0 0 20px rgba(220, 38, 38, 0.8), 3px 3px 0 #0891b2, 6px 6px 10px rgba(0, 0, 0, 0.9)',
-                    WebkitTextStroke: '1.5px #0891b2',
-                    letterSpacing: '0.1em'
-                  }}
-                >
-                  🗳️ VOTE NOW! 🗳️
-                </h3>
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
-                  <span className="text-xs uppercase tracking-wider text-twitch-text-alt font-bold">
-                    {activePolls.length} Active {activePolls.length === 1 ? 'Poll' : 'Polls'}
-                  </span>
-                  <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
-                </div>
-              </div>
-
-              {/* Polls Grid */}
-              <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto pr-2">
-                {activePolls.map((poll) => (
-                  <div 
-                    key={poll.id}
-                    className="relative"
-                  >
-                    {/* Dramatic border effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-purple-600 to-cyan-500 rounded-xl blur opacity-50 animate-pulse"></div>
-                    
-                    {/* Poll Card Container */}
-                    <div className="relative bg-twitch-dark rounded-xl border-2 border-cyan-500 overflow-hidden">
-                      <PollCard 
-                        pollId={poll.id} 
-                        userId={userId}
-                        room="event"
-                      />
-                    </div>
-                  </div>
-                ))}
+          {/* Polls Section */}
+          <div className="bg-gradient-to-b from-twitch-gray to-black border-t-4 border-red-600 px-4 py-4">
+            {/* Polls Header */}
+            <div className="text-center mb-4">
+              <h3 
+                className="text-3xl text-red-600 inline-block relative"
+                style={{ 
+                  fontFamily: 'Scary, serif',
+                  textShadow: '0 0 20px rgba(220, 38, 38, 0.8), 3px 3px 0 #0891b2, 6px 6px 10px rgba(0, 0, 0, 0.9)',
+                  WebkitTextStroke: '1.5px #0891b2',
+                  letterSpacing: '0.1em'
+                }}
+              >
+                🗳️ POLLS 🗳️
+              </h3>
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
+                <span className="text-xs uppercase tracking-wider text-twitch-text-alt font-bold">
+                  Vote & See Results
+                </span>
+                <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
               </div>
             </div>
-          )}
+
+            {/* Polls Tab Component */}
+            <div className="max-h-96 overflow-y-auto pr-2">
+              <PollsTab userId={userId} room="event" />
+            </div>
+          </div>
         </div>
 
         {/* Chat Sidebar - Fixed width on desktop */}

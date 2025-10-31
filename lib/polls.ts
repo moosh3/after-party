@@ -157,3 +157,102 @@ export async function announcePollResults(
   }
 }
 
+export async function getAllPolls(
+  room: string = 'event',
+  userId?: string
+): Promise<PollData[]> {
+  try {
+    // Fetch all polls for the room
+    const { data: polls, error: pollsError } = await supabaseAdmin
+      .from('polls')
+      .select('*')
+      .eq('room', room)
+      .order('created_at', { ascending: false });
+
+    if (pollsError || !polls) {
+      console.error('Failed to fetch polls:', pollsError);
+      return [];
+    }
+
+    // Fetch all polls data with results
+    const pollsWithResults = await Promise.all(
+      polls.map(async (poll) => {
+        const results = await getPollResults(poll.id, userId);
+        return results;
+      })
+    );
+
+    // Filter out any nulls
+    return pollsWithResults.filter((poll) => poll !== null) as PollData[];
+  } catch (error) {
+    console.error('Failed to get all polls:', error);
+    return [];
+  }
+}
+
+export async function updatePollQuestion(
+  pollId: string,
+  newQuestion: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!newQuestion || newQuestion.trim().length === 0) {
+      return { success: false, error: 'Question cannot be empty' };
+    }
+
+    if (newQuestion.length > 300) {
+      return { success: false, error: 'Question too long (max 300 characters)' };
+    }
+
+    // Check if poll exists and is open
+    const { data: poll, error: fetchError } = await supabaseAdmin
+      .from('polls')
+      .select('is_open')
+      .eq('id', pollId)
+      .single();
+
+    if (fetchError || !poll) {
+      return { success: false, error: 'Poll not found' };
+    }
+
+    if (!poll.is_open) {
+      return { success: false, error: 'Cannot edit a closed poll' };
+    }
+
+    // Update the question
+    const { error: updateError } = await supabaseAdmin
+      .from('polls')
+      .update({ question: newQuestion.trim() })
+      .eq('id', pollId);
+
+    if (updateError) {
+      console.error('Failed to update poll question:', updateError);
+      return { success: false, error: 'Failed to update poll' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating poll question:', error);
+    return { success: false, error: 'Internal error' };
+  }
+}
+
+export async function deletePoll(pollId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Delete poll (cascade will handle votes and options)
+    const { error } = await supabaseAdmin
+      .from('polls')
+      .delete()
+      .eq('id', pollId);
+
+    if (error) {
+      console.error('Failed to delete poll:', error);
+      return { success: false, error: 'Failed to delete poll' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting poll:', error);
+    return { success: false, error: 'Internal error' };
+  }
+}
+
