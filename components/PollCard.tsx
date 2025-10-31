@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { PollData, PollOption } from '@/lib/polls';
+import { getViewerData } from '@/lib/viewer';
 
 interface PollCardProps {
   pollId: string;
@@ -109,6 +110,10 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
     setError(null);
 
     try {
+      // Get viewer data to include userName
+      const viewerData = getViewerData();
+      const userName = viewerData?.displayName || 'Anonymous';
+
       const response = await fetch('/api/polls/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,6 +121,7 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
           pollId,
           optionId,
           userId,
+          userName,
         }),
       });
 

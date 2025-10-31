@@ -3,12 +3,19 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {
   try {
-    const { pollId, optionId, userId } = await request.json();
+    const { pollId, optionId, userId, userName } = await request.json();
 
     // Validate required fields
     if (!pollId || !optionId || !userId) {
       return NextResponse.json(
         { error: 'pollId, optionId, and userId are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!userName) {
+      return NextResponse.json(
+        { error: 'userName is required' },
         { status: 400 }
       );
     }
@@ -57,6 +64,7 @@ export async function POST(request: NextRequest) {
           poll_id: pollId,
           option_id: optionId,
           user_id: userId,
+          user_name: userName,
           voted_at: new Date().toISOString(),
         },
         {

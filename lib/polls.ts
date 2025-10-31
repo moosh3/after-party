@@ -7,6 +7,7 @@ export interface PollOption {
   idx: number;
   vote_count?: number;
   percentage?: number;
+  voters?: string[]; // Display names of voters (for admin view)
 }
 
 export interface PollData {
@@ -253,6 +254,67 @@ export async function deletePoll(pollId: string): Promise<{ success: boolean; er
   } catch (error) {
     console.error('Error deleting poll:', error);
     return { success: false, error: 'Internal error' };
+  }
+}
+
+export interface DetailedVoteResult {
+  option_id: string;
+  option_label: string;
+  voters: string[];
+  vote_count: number;
+}
+
+export async function getDetailedVoteResults(
+  pollId: string
+): Promise<{ 
+  poll: PollData | null; 
+  detailedResults: DetailedVoteResult[] 
+} | null> {
+  try {
+    // First get the poll data
+    const poll = await getPollResults(pollId);
+    
+    if (!poll) {
+      return null;
+    }
+
+    // Fetch all votes with user names
+    const { data: votes, error: votesError } = await supabaseAdmin
+      .from('poll_votes')
+      .select('option_id, user_name')
+      .eq('poll_id', pollId)
+      .order('user_name', { ascending: true });
+
+    if (votesError) {
+      console.error('Failed to fetch detailed votes:', votesError);
+      return null;
+    }
+
+    // Group votes by option
+    const votesByOption: Record<string, string[]> = {};
+    
+    votes?.forEach((vote) => {
+      if (!votesByOption[vote.option_id]) {
+        votesByOption[vote.option_id] = [];
+      }
+      votesByOption[vote.option_id].push(vote.user_name);
+    });
+
+    // Create detailed results
+    const detailedResults: DetailedVoteResult[] = poll.options.map((option) => ({
+      option_id: option.id,
+      option_label: option.label,
+      voters: votesByOption[option.id] || [],
+      vote_count: (votesByOption[option.id] || []).length,
+    }));
+
+    return {
+      poll,
+      detailedResults,
+    };
+  } catch (error) {
+    console.error('Failed to get detailed vote results:', error);
+    return null;
   }
 }
 

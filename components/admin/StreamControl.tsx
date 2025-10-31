@@ -33,6 +33,13 @@ interface Poll {
   }[];
 }
 
+interface DetailedVoteResult {
+  option_id: string;
+  option_label: string;
+  voters: string[];
+  vote_count: number;
+}
+
 interface StreamControlProps {
   showLibraryControls?: boolean;
   showPlaybackControls?: boolean;
@@ -59,6 +66,11 @@ export default function StreamControl({
   const [polls, setPolls] = useState<Poll[]>([]);
   const [editingPollId, setEditingPollId] = useState<string | null>(null);
   const [editingQuestion, setEditingQuestion] = useState('');
+  
+  // Voter details state
+  const [viewingVotersForPoll, setViewingVotersForPoll] = useState<string | null>(null);
+  const [voterDetails, setVoterDetails] = useState<Record<string, DetailedVoteResult[]>>({});
+  const [loadingVoters, setLoadingVoters] = useState(false);
 
   useEffect(() => {
     loadMuxItems();
@@ -348,6 +360,42 @@ export default function StreamControl({
       setMessage({ type: 'error', text: 'Network error occurred' });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadVoterDetails(pollId: string) {
+    // If already viewing this poll, toggle it off
+    if (viewingVotersForPoll === pollId) {
+      setViewingVotersForPoll(null);
+      return;
+    }
+
+    // If we already have the data, just show it
+    if (voterDetails[pollId]) {
+      setViewingVotersForPoll(pollId);
+      return;
+    }
+
+    setLoadingVoters(true);
+    try {
+      const response = await fetch(`/api/admin/polls/${pollId}/voters`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setVoterDetails(prev => ({
+          ...prev,
+          [pollId]: data.detailedResults,
+        }));
+        setViewingVotersForPoll(pollId);
+      } else {
+        const errorData = await response.json();
+        setMessage({ type: 'error', text: errorData.error || 'Failed to load voter details' });
+      }
+    } catch (error) {
+      console.error('Failed to load voter details:', error);
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoadingVoters(false);
     }
   }
 
@@ -657,6 +705,15 @@ export default function StreamControl({
                               Close Poll
                             </button>
                           )}
+                          {!poll.is_open && poll.total_votes > 0 && (
+                            <button
+                              onClick={() => loadVoterDetails(poll.id)}
+                              disabled={loadingVoters}
+                              className="px-3 py-1 text-xs bg-twitch-purple hover:bg-purple-600 rounded transition-colors text-white disabled:bg-twitch-gray"
+                            >
+                              {viewingVotersForPoll === poll.id ? 'Hide Voters' : 'View Voters'}
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeletePoll(poll.id, poll.question)}
                             disabled={loading}
@@ -665,6 +722,38 @@ export default function StreamControl({
                             Delete
                           </button>
                         </div>
+
+                        {/* Voter Details */}
+                        {!poll.is_open && viewingVotersForPoll === poll.id && voterDetails[poll.id] && (
+                          <div className="mt-3 p-3 bg-twitch-dark rounded border border-twitch-border">
+                            <h5 className="text-xs font-semibold text-twitch-purple mb-2 uppercase tracking-wider">
+                              Voter Breakdown
+                            </h5>
+                            <div className="space-y-3">
+                              {voterDetails[poll.id].map((result) => (
+                                <div key={result.option_id} className="border-l-2 border-twitch-purple pl-2">
+                                  <div className="text-xs font-medium text-twitch-text mb-1">
+                                    {result.option_label} ({result.vote_count} {result.vote_count === 1 ? 'vote' : 'votes'})
+                                  </div>
+                                  {result.voters.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {result.voters.map((voter, index) => (
+                                        <span
+                                          key={index}
+                                          className="text-xs px-2 py-1 bg-twitch-hover rounded text-twitch-text-alt"
+                                        >
+                                          {voter}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-twitch-text-alt italic">No votes</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
