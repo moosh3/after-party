@@ -22,6 +22,72 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
   const [currentQuality, setCurrentQuality] = useState<string>('auto');
   const [isSyncing, setIsSyncing] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
+
+  // Load auto-advance status for admin
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    async function loadAutoAdvanceStatus() {
+      try {
+        const response = await fetch('/api/admin/queue/auto-advance');
+        if (response.ok) {
+          const data = await response.json();
+          setAutoAdvanceEnabled(data.auto_advance_enabled || false);
+        }
+      } catch (err) {
+        console.error('Failed to load auto-advance status:', err);
+      }
+    }
+
+    loadAutoAdvanceStatus();
+
+    // Poll for status updates every 5 seconds
+    const interval = setInterval(loadAutoAdvanceStatus, 5000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
+
+  // Handle video ended - auto-advance to next in queue
+  useEffect(() => {
+    if (!videoRef.current || !isAdmin) return;
+
+    const video = videoRef.current;
+
+    const handleVideoEnded = async () => {
+      console.log('Video ended, auto-advance enabled:', autoAdvanceEnabled);
+
+      if (!autoAdvanceEnabled) {
+        console.log('Auto-advance is disabled');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/queue/next', {
+          method: 'POST',
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Advanced to next video:', data.advanced_to.title);
+        } else {
+          const data = await response.json();
+          if (data.empty) {
+            console.log('No more videos in queue');
+          } else {
+            console.error('Failed to advance to next video:', data.error);
+          }
+        }
+      } catch (err) {
+        console.error('Error advancing to next video:', err);
+      }
+    };
+
+    video.addEventListener('ended', handleVideoEnded);
+
+    return () => {
+      video.removeEventListener('ended', handleVideoEnded);
+    };
+  }, [isAdmin, autoAdvanceEnabled]);
 
   useEffect(() => {
     if (!videoRef.current) return;

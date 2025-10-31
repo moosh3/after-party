@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import StreamControl from '@/components/admin/StreamControl';
 import VideoPlayer from '@/components/VideoPlayer';
+import QueueManager from '@/components/admin/QueueManager';
 
 interface StreamData {
   playbackId: string;
@@ -186,9 +187,10 @@ export default function AdminDashboard() {
             <StreamControl showLibraryControls={true} showPlaybackControls={false} />
           </div>
 
-          {/* Right Column - Playback Controls */}
-          <div className="lg:col-span-1">
+          {/* Right Column - Playback Controls and Queue */}
+          <div className="lg:col-span-1 space-y-6">
             <StreamControl showLibraryControls={false} showPlaybackControls={true} />
+            <QueueManager />
           </div>
         </div>
       </main>
