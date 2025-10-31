@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import MuxPlayer, { MuxPlayerElement } from '@mux/mux-player-react';
+import MuxPlayer from '@mux/mux-player-react';
+import type MuxPlayerElement from '@mux/mux-player';
 import { supabase } from '@/lib/supabase';
 
 interface VideoPlayerProps {
