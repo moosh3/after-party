@@ -134,13 +134,11 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         if (state === 'playing' && video.paused) {
           try {
             await video.play();
-            setIsPlaying(true);
           } catch (err) {
             console.error('Failed to play video:', err);
           }
         } else if (state === 'paused' && !video.paused) {
           video.pause();
-          setIsPlaying(false);
         }
       } catch (err) {
         console.error('Error syncing playback:', err);
@@ -287,9 +285,12 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         defaultShowRemainingTime
         accentColor="#9147FF"
         className="w-full h-full"
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onSeeked={handleSeek}
+        onPlay={isAdmin ? handlePlay : undefined}
+        onPause={isAdmin ? handlePause : undefined}
+        onSeeked={isAdmin ? handleSeek : undefined}
+        // Only disable controls for viewers if you want admin-only control
+        // Leave commented to allow viewers to control their own playback
+        // disabled={!isAdmin}
       />
       
       {/* Sync Mode Indicator for Viewers */}
