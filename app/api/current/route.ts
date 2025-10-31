@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   // For now, we'll allow access if the request comes from a browser context
   
   try {
-    // Get current stream from database
+    // Get current stream from database (including poster mode flag)
     const { data, error } = await supabaseAdmin
       .from('current_stream')
       .select('*')
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
           kind: 'vod',
           token: mockToken,
           expiresAt,
+          showPoster: false,
         }, {
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
       kind: data.kind,
       token,
       expiresAt,
+      showPoster: data.show_poster || false,
     }, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',

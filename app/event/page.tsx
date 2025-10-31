@@ -6,6 +6,7 @@ import VideoPlayer from '@/components/VideoPlayer';
 import Chat from '@/components/Chat';
 import PollsTab from '@/components/PollsTab';
 import ViewerRegistration from '@/components/ViewerRegistration';
+import EventCountdown from '@/components/EventCountdown';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 import { useStreamUpdates } from '@/hooks/useStreamUpdates';
 import { getViewerData } from '@/lib/viewer';
@@ -16,6 +17,7 @@ interface StreamData {
   expiresAt: string;
   title: string;
   kind: string;
+  showPoster?: boolean;
 }
 
 export default function EventPage() {
@@ -26,6 +28,7 @@ export default function EventPage() {
   const [userId, setUserId] = useState<string>('');
   const [isRegistered, setIsRegistered] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
+  const [showPoster, setShowPoster] = useState(false);
 
   // Token refresh hook
   useTokenRefresh(streamData, setStreamData);
@@ -60,13 +63,27 @@ export default function EventPage() {
     }
   }, [updatedStream, streamData]);
 
-  // Check if viewer is registered
+  // Check poster mode and viewer registration
   useEffect(() => {
+    async function checkPosterMode() {
+      try {
+        const response = await fetch('/api/current');
+        if (response.ok) {
+          const data = await response.json();
+          setShowPoster(data.showPoster || false);
+        }
+      } catch (error) {
+        console.error('Failed to check poster mode:', error);
+      }
+    }
+
     const viewerData = getViewerData();
     if (viewerData) {
       setIsRegistered(true);
       setUserId(viewerData.id);
     }
+    
+    checkPosterMode();
     setCheckingRegistration(false);
   }, []);
 
@@ -117,6 +134,39 @@ export default function EventPage() {
     );
   }
 
+  // Show poster mode if enabled
+  if (showPoster && !isRegistered) {
+    return (
+      <div 
+        className="min-h-screen bg-twitch-darker flex flex-col items-center justify-center p-4"
+        style={{
+          backgroundImage: 'url(/assets/backgrounds/background_.png)',
+          backgroundRepeat: 'repeat',
+          backgroundSize: 'auto'
+        }}
+      >
+        <div className="absolute inset-0 bg-black/60"></div>
+        <div className="relative z-10 w-full max-w-5xl mx-auto">
+          {/* Event Poster */}
+          <div className="flex justify-center mb-8 animate-fade-in">
+            <img 
+              src="/assets/images/event-poster.png" 
+              alt="After Party Movie Marathon" 
+              className="w-full max-w-3xl h-auto rounded-lg shadow-2xl"
+              style={{
+                boxShadow: '0 0 50px rgba(220, 38, 38, 0.5), 0 0 100px rgba(8, 145, 178, 0.3)'
+              }}
+            />
+          </div>
+          
+          {/* Countdown Timer */}
+          <EventCountdown />
+        </div>
+      </div>
+    );
+  }
+
+  // Show registration form if poster is disabled
   if (!isRegistered) {
     return (
       <div 

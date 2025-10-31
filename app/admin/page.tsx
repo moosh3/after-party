@@ -16,6 +16,8 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [streamData, setStreamData] = useState<StreamData | null>(null);
+  const [posterMode, setPosterMode] = useState(false);
+  const [posterLoading, setPosterLoading] = useState(false);
 
   useEffect(() => {
     // Check admin authentication and load stream
@@ -39,6 +41,7 @@ export default function AdminDashboard() {
         if (response.ok) {
           const data = await response.json();
           setStreamData(data);
+          setPosterMode(data.showPoster || false);
         }
       } catch (error) {
         console.error('Failed to load stream:', error);
@@ -56,6 +59,27 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [router]);
 
+  async function handleTogglePoster() {
+    setPosterLoading(true);
+    try {
+      const response = await fetch('/api/admin/toggle-poster', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPosterMode(data.showPoster);
+      } else {
+        alert('Failed to toggle poster mode');
+      }
+    } catch (error) {
+      console.error('Failed to toggle poster:', error);
+      alert('Error toggling poster mode');
+    } finally {
+      setPosterLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-twitch-darker flex items-center justify-center">
@@ -67,27 +91,68 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-twitch-darker text-twitch-text">
       <header className="bg-twitch-dark border-b border-twitch-border">
-        <div className="max-w-7xl mx-auto flex justify-between items-center px-4 py-3">
-          <div>
-            <h1 className="text-2xl font-bold text-twitch-purple">Admin Dashboard</h1>
-            <p className="text-sm text-twitch-text-alt">Manage your stream</p>
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-twitch-purple">Admin Dashboard</h1>
+              <p className="text-sm text-twitch-text-alt">Manage your stream</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <a 
+                href="/event"
+                className="twitch-button-secondary text-sm"
+              >
+                View Stream
+              </a>
+              <button
+                onClick={async () => {
+                  await fetch('/api/auth/admin-logout', { method: 'POST' });
+                  router.push('/admin/login');
+                }}
+                className="text-twitch-text-alt hover:text-twitch-text transition-colors"
+              >
+                Logout
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <a 
-              href="/event"
-              className="twitch-button-secondary text-sm"
-            >
-              View Stream
-            </a>
-            <button
-              onClick={async () => {
-                await fetch('/api/auth/admin-logout', { method: 'POST' });
-                router.push('/admin/login');
-              }}
-              className="text-twitch-text-alt hover:text-twitch-text transition-colors"
-            >
-              Logout
-            </button>
+          
+          {/* Entry Screen Mode Toggle */}
+          <div className="mt-4 pt-4 border-t border-twitch-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-twitch-text mb-1">Entry Screen Mode</h3>
+                <p className="text-xs text-twitch-text-alt">
+                  {posterMode 
+                    ? 'Visitors see the event poster with countdown'
+                    : 'Visitors see the registration form'
+                  }
+                </p>
+              </div>
+              <button
+                onClick={handleTogglePoster}
+                disabled={posterLoading}
+                className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  posterMode
+                    ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white'
+                    : 'bg-gradient-to-r from-success to-green-600 hover:from-green-500 hover:to-success text-white'
+                }`}
+              >
+                {posterLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin">⟳</span>
+                    Switching...
+                  </span>
+                ) : posterMode ? (
+                  <span className="flex items-center gap-2">
+                    🎬 POSTER MODE
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    📝 REGISTRATION MODE
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </header>
