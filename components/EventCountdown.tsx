@@ -126,7 +126,7 @@ export default function EventCountdown() {
       </div>
 
       {/* Event Date */}
-      <p className="text-center mt-6 text-twitch-text-alt text-sm md:text-base">
+      <p className="text-center mt-6 text-twitch-text text-lg md:text-xl font-semibold">
         November 1st, 2025 • 8:30 AM Central Time
       </p>
     </div>
