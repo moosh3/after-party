@@ -218,18 +218,18 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
   return (
     <div 
-      className="flex flex-col h-full bg-black border-l border-twitch-border"
+      className="flex flex-col h-screen bg-black border-l border-twitch-border"
       style={{ fontFamily: 'Inter, Helvetica, Arial, sans-serif' }}
     >
       {/* Header */}
-      <div className="p-3 border-b border-twitch-border bg-black">
+      <div className="flex-shrink-0 p-3 border-b border-twitch-border bg-black">
         <h2 className="text-sm font-semibold uppercase text-twitch-text">Stream Chat</h2>
       </div>
 
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto min-h-0"
       >
         {messages.length === 0 ? (
           <div className="p-4 text-center">
@@ -286,7 +286,7 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
       {/* Scroll to bottom indicator */}
       {!autoScroll && (
-        <div className="px-2 py-1 border-t border-twitch-border">
+        <div className="flex-shrink-0 px-2 py-1 border-t border-twitch-border">
           <button
             onClick={() => {
               messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -300,7 +300,7 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
       )}
 
       {/* Input */}
-      <div className="p-2 border-t border-twitch-border bg-black">
+      <div className="flex-shrink-0 p-2 border-t border-twitch-border bg-black">
         {error && (
           <div className="text-xs text-error mb-1 px-2">{error}</div>
         )}
