@@ -136,6 +136,34 @@ export default function StreamControl({
     }
   }
 
+  async function handleDeleteMuxItem(id: string, label: string) {
+    if (!confirm(`Are you sure you want to delete "${label}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/mux-items?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await loadMuxItems();
+        setMessage({ type: 'success', text: `"${label}" deleted successfully` });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete item' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function addPollOption() {
     if (pollOptions.length < 5) {
       setPollOptions([...pollOptions, '']);
@@ -252,17 +280,27 @@ export default function StreamControl({
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleSetStream(item.playback_id, item.label, item.kind)}
-                      disabled={loading || currentStream?.playback_id === item.playback_id}
-                      className={`px-4 py-2 rounded text-sm transition-colors flex-shrink-0 ml-4 ${
-                        currentStream?.playback_id === item.playback_id
-                          ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
-                          : 'twitch-button'
-                      }`}
-                    >
-                      {currentStream?.playback_id === item.playback_id ? 'Current' : 'Make Current'}
-                    </button>
+                    <div className="flex gap-2 flex-shrink-0 ml-4">
+                      <button
+                        onClick={() => handleSetStream(item.playback_id, item.label, item.kind)}
+                        disabled={loading || currentStream?.playback_id === item.playback_id}
+                        className={`px-4 py-2 rounded text-sm transition-colors ${
+                          currentStream?.playback_id === item.playback_id
+                            ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
+                            : 'twitch-button'
+                        }`}
+                      >
+                        {currentStream?.playback_id === item.playback_id ? 'Current' : 'Make Current'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMuxItem(item.id, item.label)}
+                        disabled={loading}
+                        className="px-4 py-2 rounded text-sm transition-colors bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed text-white"
+                        title="Delete this item from library"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
