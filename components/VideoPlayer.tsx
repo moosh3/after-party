@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import MuxPlayer from '@mux/mux-player-react';
+import MuxPlayer, { MuxPlayerElement } from '@mux/mux-player-react';
 import { supabase } from '@/lib/supabase';
 
 interface VideoPlayerProps {
@@ -12,7 +12,7 @@ interface VideoPlayerProps {
 }
 
 export default function VideoPlayer({ playbackId, token, title, isAdmin = false }: VideoPlayerProps) {
-  const playerRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
