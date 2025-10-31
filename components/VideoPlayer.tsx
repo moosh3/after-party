@@ -279,7 +279,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         ref={playerRef}
         playbackId={playbackId}
         tokens={{ playback: token !== 'placeholder-token' ? token : undefined }}
-        streamType="on-demand"
+        streamType="live"
         metadata={{
           video_title: title,
         }}
