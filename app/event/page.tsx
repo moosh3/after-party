@@ -138,7 +138,7 @@ export default function EventPage() {
   if (showPoster && !isRegistered) {
     return (
       <div 
-        className="min-h-screen bg-twitch-darker flex flex-col items-center justify-center p-4 overflow-hidden"
+        className="min-h-screen bg-twitch-darker flex flex-col items-center justify-center p-4"
         style={{
           backgroundImage: 'url(/assets/backgrounds/background_.png)',
           backgroundRepeat: 'repeat',
@@ -146,21 +146,23 @@ export default function EventPage() {
         }}
       >
         <div className="absolute inset-0 bg-black/60"></div>
-        <div className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-center justify-center min-h-screen py-8">
+        <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
           {/* Event Poster */}
-          <div className="flex justify-center mb-6 animate-fade-in">
+          <div className="flex justify-center animate-fade-in flex-shrink-0">
             <img 
               src="/assets/images/event-poster.png" 
               alt="After Party Movie Marathon" 
-              className="w-full max-w-xl md:max-w-2xl h-auto rounded-lg shadow-2xl"
+              className="w-full max-w-xs md:max-w-md h-auto rounded-lg shadow-2xl"
               style={{
-                boxShadow: '0 0 50px rgba(220, 38, 38, 0.5), 0 0 100px rgba(8, 145, 178, 0.3)'
+                boxShadow: '0 0 50px rgba(220, 38, 38, 0.5), 0 0 100px rgba(8, 145, 178, 0.3)',
+                maxHeight: '80vh',
+                objectFit: 'contain'
               }}
             />
           </div>
           
           {/* Countdown Timer */}
-          <div className="w-full">
+          <div className="w-full md:flex-1">
             <EventCountdown />
           </div>
         </div>
