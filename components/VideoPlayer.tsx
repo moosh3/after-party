@@ -129,6 +129,17 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
         console.log('HLS manifest loaded');
+        
+        // Enable text tracks (subtitles/captions) if available
+        if (video.textTracks && video.textTracks.length > 0) {
+          for (let i = 0; i < video.textTracks.length; i++) {
+            const track = video.textTracks[i];
+            if (track.kind === 'subtitles' || track.kind === 'captions') {
+              track.mode = 'showing'; // Enable the track
+              console.log(`Enabled text track: ${track.label || track.language}`);
+            }
+          }
+        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -383,7 +394,10 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         playsInline
         onClick={togglePlay}
         onSeeked={handleSeek}
-      />
+        crossOrigin="anonymous"
+      >
+        <track kind="captions" />
+      </video>
 
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-twitch-darker">
@@ -458,6 +472,25 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
           <div className="text-xs text-white bg-twitch-hover px-2 py-1 rounded font-medium">
             {currentQuality}
           </div>
+
+          {/* Captions Toggle */}
+          <button
+            onClick={() => {
+              if (!videoRef.current) return;
+              const video = videoRef.current;
+              if (video.textTracks && video.textTracks.length > 0) {
+                const track = video.textTracks[0];
+                track.mode = track.mode === 'showing' ? 'hidden' : 'showing';
+              }
+            }}
+            className="text-white hover:text-twitch-purple transition-colors p-1"
+            title="Toggle Captions"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+              <text x="10" y="15" fontSize="8" textAnchor="middle" fill="white" fontWeight="bold">CC</text>
+            </svg>
+          </button>
 
           {/* Fullscreen */}
           <button
