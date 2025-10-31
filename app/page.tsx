@@ -29,14 +29,14 @@ export default function Home() {
   if (showPoster && !loading) {
     return (
       <main 
-        className="min-h-screen bg-twitch-darker flex flex-col items-center justify-center p-4"
+        className="min-h-screen bg-twitch-darker flex flex-col items-center justify-center p-4 relative"
         style={{
           backgroundImage: 'url(/assets/backgrounds/background_.png)',
           backgroundRepeat: 'repeat',
           backgroundSize: 'auto'
         }}
       >
-        <div className="absolute inset-0 bg-black/60"></div>
+        <div className="absolute inset-0 bg-black/60 w-full h-full"></div>
         <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
           {/* Event Poster */}
           <div className="flex justify-center animate-fade-in flex-shrink-0">
