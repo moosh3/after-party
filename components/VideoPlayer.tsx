@@ -102,7 +102,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
 
   // Synchronized playback effect - subscribe to admin's playback control
   useEffect(() => {
-    if (!videoRef.current || isAdmin) return; // Admins control manually
+    if (!videoRef.current) return;
 
     const video = videoRef.current;
 
@@ -127,19 +127,26 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
           targetPosition = position + elapsed;
         }
 
-        // Seek if we're more than 3 seconds off
-        const currentTime = video.currentTime;
-        const timeDiff = Math.abs(currentTime - targetPosition);
-        
-        if (timeDiff > 3) {
-          console.log(`Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
-          video.currentTime = targetPosition;
+        // For non-admin users, sync position to keep everyone in sync
+        // For admin users, skip position sync to allow manual control
+        if (!isAdmin) {
+          const currentTime = video.currentTime;
+          const timeDiff = Math.abs(currentTime - targetPosition);
+          
+          if (timeDiff > 3) {
+            console.log(`Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
+            video.currentTime = targetPosition;
+          }
         }
 
-        // Sync play/pause state
+        // Sync play/pause state for both admin and viewers
         if (state === 'playing' && video.paused) {
-          await video.play();
-          setIsPlaying(true);
+          try {
+            await video.play();
+            setIsPlaying(true);
+          } catch (err) {
+            console.error('Failed to play video:', err);
+          }
         } else if (state === 'paused' && !video.paused) {
           video.pause();
           setIsPlaying(false);

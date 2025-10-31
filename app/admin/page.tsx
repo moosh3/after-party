@@ -94,9 +94,10 @@ export default function AdminDashboard() {
 
       <main className="max-w-7xl mx-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Video Preview - Takes 2/3 width */}
-          <div className="lg:col-span-2">
-            <div className="twitch-card p-4 mb-4">
+          {/* Left Column - Video Preview and Library Controls */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Video Preview */}
+            <div className="twitch-card p-4">
               <h2 className="text-lg font-semibold mb-3 text-twitch-text">Video Preview</h2>
               <p className="text-xs text-twitch-text-alt mb-4">
                 Control playback directly here - changes sync to all viewers
@@ -115,11 +116,14 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Library Controls - Below Video Preview */}
+            <StreamControl showLibraryControls={true} showPlaybackControls={false} />
           </div>
 
-          {/* Controls - Takes 1/3 width */}
+          {/* Right Column - Playback Controls */}
           <div className="lg:col-span-1">
-            <StreamControl />
+            <StreamControl showLibraryControls={false} showPlaybackControls={true} />
           </div>
         </div>
       </main>

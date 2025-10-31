@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function PlaybackControls() {
   const [playbackState, setPlaybackState] = useState<'playing' | 'paused'>('paused');
@@ -21,6 +22,30 @@ export default function PlaybackControls() {
       }
     }
     loadState();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel('playback-control-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'current_stream',
+          filter: 'id=eq.1',
+        },
+        (payload) => {
+          const newState = payload.new as any;
+          if (newState.playback_state) {
+            setPlaybackState(newState.playback_state);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function handlePlaybackControl(action: 'play' | 'pause') {
@@ -37,7 +62,7 @@ export default function PlaybackControls() {
       const data = await response.json();
 
       if (response.ok) {
-        setPlaybackState(data.playbackState);
+        setPlaybackState(data.playback_state);
         setMessage({ 
           type: 'success', 
           text: `${action === 'play' ? 'Started' : 'Paused'} playback for all viewers` 

@@ -26,6 +26,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get current stream state to preserve position if not provided
+    const { data: currentData } = await supabaseAdmin
+      .from('current_stream')
+      .select('playback_position')
+      .eq('id', 1)
+      .single();
+
     // Prepare update data
     const updateData: any = {
       playback_updated_at: new Date().toISOString(),
@@ -33,8 +40,20 @@ export async function POST(request: NextRequest) {
 
     if (action === 'play') {
       updateData.playback_state = 'playing';
+      // Update position if provided, otherwise keep current position
+      if (position !== undefined) {
+        updateData.playback_position = position;
+      } else if (currentData?.playback_position !== undefined) {
+        updateData.playback_position = currentData.playback_position;
+      }
     } else if (action === 'pause') {
       updateData.playback_state = 'paused';
+      // Update position if provided, otherwise keep current position
+      if (position !== undefined) {
+        updateData.playback_position = position;
+      } else if (currentData?.playback_position !== undefined) {
+        updateData.playback_position = currentData.playback_position;
+      }
     } else if (action === 'seek') {
       updateData.playback_position = position;
       // When seeking, keep current play/pause state
@@ -58,8 +77,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      playbackState: data.playback_state,
-      playbackPosition: data.playback_position,
+      playback_state: data.playback_state,
+      playback_position: data.playback_position,
       message: `Playback ${action} command sent to all viewers`
     });
   } catch (error) {
