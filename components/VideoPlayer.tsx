@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Hls from 'hls.js';
+import MuxPlayer from '@mux/mux-player-react';
 import { supabase } from '@/lib/supabase';
 
 interface VideoPlayerProps {
@@ -12,14 +12,8 @@ interface VideoPlayerProps {
 }
 
 export default function VideoPlayer({ playbackId, token, title, isAdmin = false }: VideoPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const playerRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [currentQuality, setCurrentQuality] = useState<string>('auto');
   const [isSyncing, setIsSyncing] = useState(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
@@ -49,9 +43,9 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
 
   // Handle video ended - auto-advance to next in queue
   useEffect(() => {
-    if (!videoRef.current || !isAdmin) return;
+    if (!playerRef.current || !isAdmin) return;
 
-    const video = videoRef.current;
+    const player = playerRef.current;
 
     const handleVideoEnded = async () => {
       console.log('Video ended, auto-advance enabled:', autoAdvanceEnabled);
@@ -82,106 +76,26 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
       }
     };
 
-    video.addEventListener('ended', handleVideoEnded);
+    player.addEventListener('ended', handleVideoEnded);
 
     return () => {
-      video.removeEventListener('ended', handleVideoEnded);
+      player.removeEventListener('ended', handleVideoEnded);
     };
   }, [isAdmin, autoAdvanceEnabled]);
 
+  // Development mode check
   useEffect(() => {
-    if (!videoRef.current) return;
-
-    const video = videoRef.current;
-    
-    // Development mode: Skip video loading if using mock data
     if (playbackId === 'demo-playback-id') {
       console.log('⚠️  Development mode: Mock video player (configure Mux for real playback)');
-      setIsLoading(false);
       setError('Configure Mux credentials in .env.local to enable video playback');
-      return;
     }
-    
-    // Construct playback URL with subtitles parameter
-    const baseUrl = `https://stream.mux.com/${playbackId}.m3u8`;
-    const params = new URLSearchParams();
-    
-    if (token !== 'placeholder-token') {
-      params.append('token', token);
-    }
-    params.append('default_subtitles_lang', 'en');
-    
-    const playbackUrl = `${baseUrl}?${params.toString()}`;
-
-    // Initialize HLS.js
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false,
-        backBufferLength: 90,
-      });
-
-      hlsRef.current = hls;
-
-      hls.loadSource(playbackUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setIsLoading(false);
-        console.log('HLS manifest loaded');
-        
-        // Enable text tracks (subtitles/captions) if available
-        if (video.textTracks && video.textTracks.length > 0) {
-          for (let i = 0; i < video.textTracks.length; i++) {
-            const track = video.textTracks[i];
-            if (track.kind === 'subtitles' || track.kind === 'captions') {
-              track.mode = 'showing'; // Enable the track
-              console.log(`Enabled text track: ${track.label || track.language}`);
-            }
-          }
-        }
-      });
-
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        console.error('HLS error:', data);
-        
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              setError('Network error. Retrying...');
-              hls.startLoad();
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              setError('Media error. Attempting recovery...');
-              hls.recoverMediaError();
-              break;
-            default:
-              setError('Fatal error occurred. Please refresh the page.');
-              hls.destroy();
-              break;
-          }
-        }
-      });
-
-      return () => {
-        hls.destroy();
-      };
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS support (Safari)
-      video.src = playbackUrl;
-      video.addEventListener('loadedmetadata', () => {
-        setIsLoading(false);
-      });
-    } else {
-      setError('Your browser does not support HLS playback');
-    }
-  }, [playbackId, token]);
+  }, [playbackId]);
 
   // Synchronized playback effect - subscribe to admin's playback control
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!playerRef.current) return;
 
-    const video = videoRef.current;
+    const video = playerRef.current;
 
     // Function to sync video state
     const syncPlaybackState = async (
@@ -292,69 +206,9 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
     };
   }, [playbackId, isAdmin, isSyncing]);
 
-  const togglePlay = async () => {
-    if (!videoRef.current) return;
-    
-    const wasPaused = videoRef.current.paused;
-    
-    // Update local video state
-    if (wasPaused) {
-      videoRef.current.play();
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-
-    // If admin, sync the command to all viewers
-    if (isAdmin) {
-      try {
-        const action = wasPaused ? 'play' : 'pause';
-        await fetch('/api/admin/playback-control', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action,
-            position: videoRef.current.currentTime 
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to sync playback control:', err);
-      }
-    }
-  };
-
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !videoRef.current.muted;
-    setIsMuted(!isMuted);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!videoRef.current) return;
-    const newVolume = parseFloat(e.target.value);
-    videoRef.current.volume = newVolume;
-    setVolume(newVolume);
-    if (newVolume === 0) {
-      setIsMuted(true);
-    } else if (isMuted) {
-      setIsMuted(false);
-    }
-  };
-
-  const toggleFullscreen = () => {
-    if (!videoRef.current) return;
-    
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      videoRef.current.requestFullscreen();
-    }
-  };
-
   // Handle seeking - sync to all viewers if admin
   const handleSeek = async () => {
-    if (!videoRef.current || !isAdmin) return;
+    if (!playerRef.current || !isAdmin) return;
     
     try {
       await fetch('/api/admin/playback-control', {
@@ -362,11 +216,45 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'seek',
-          position: videoRef.current.currentTime 
+          position: playerRef.current.currentTime 
         }),
       });
     } catch (err) {
       console.error('Failed to sync seek:', err);
+    }
+  };
+
+  const handlePlay = async () => {
+    if (!isAdmin || !playerRef.current) return;
+    
+    try {
+      await fetch('/api/admin/playback-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'play',
+          position: playerRef.current.currentTime 
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to sync play:', err);
+    }
+  };
+
+  const handlePause = async () => {
+    if (!isAdmin || !playerRef.current) return;
+    
+    try {
+      await fetch('/api/admin/playback-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'pause',
+          position: playerRef.current.currentTime 
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to sync pause:', err);
     }
   };
 
@@ -387,127 +275,38 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
   }
 
   return (
-    <div className="relative group aspect-video bg-black overflow-hidden max-h-screen">
-      <video
-        ref={videoRef}
+    <div className="relative aspect-video bg-black overflow-hidden max-h-screen">
+      <MuxPlayer
+        ref={playerRef}
+        playbackId={playbackId}
+        tokens={{ playback: token !== 'placeholder-token' ? token : undefined }}
+        streamType="on-demand"
+        metadata={{
+          video_title: title,
+        }}
+        defaultShowRemainingTime
+        accentColor="#9147FF"
         className="w-full h-full"
-        playsInline
-        onClick={togglePlay}
+        onPlay={handlePlay}
+        onPause={handlePause}
         onSeeked={handleSeek}
-        crossOrigin="anonymous"
-      >
-        <track kind="captions" />
-      </video>
-
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-twitch-darker">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-twitch-purple mx-auto mb-4"></div>
-            <p className="text-twitch-text-alt">Loading video...</p>
-          </div>
+      />
+      
+      {/* Sync Mode Indicator for Viewers */}
+      {!isAdmin && (
+        <div className="absolute top-4 left-4 bg-twitch-purple/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+          <span>Watching Together - Synced</span>
         </div>
       )}
-
-      {/* Custom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Sync Mode Indicator for Viewers */}
-        {!isAdmin && (
-          <div className="absolute -top-8 left-4 bg-twitch-purple/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            <span>Watching Together - Synced</span>
-          </div>
-        )}
-        
-        <div className="flex items-center gap-3">
-          {/* Play/Pause - Disabled for viewers */}
-          <button
-            onClick={togglePlay}
-            disabled={!isAdmin}
-            className={`text-white transition-colors p-1 ${
-              isAdmin 
-                ? 'hover:text-twitch-purple cursor-pointer' 
-                : 'opacity-50 cursor-not-allowed'
-            }`}
-            title={isAdmin ? 'Play/Pause' : 'Playback controlled by host'}
-          >
-            {isPlaying ? (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-              </svg>
-            )}
-          </button>
-
-          {/* Volume */}
-          <div className="flex items-center gap-2">
-            <button onClick={toggleMute} className="text-white hover:text-twitch-purple transition-colors p-1">
-              {isMuted || volume === 0 ? (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
-                </svg>
-              )}
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={volume}
-              onChange={handleVolumeChange}
-              className="w-20"
-            />
-          </div>
-
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Quality Badge */}
-          <div className="text-xs text-white bg-twitch-hover px-2 py-1 rounded font-medium">
-            {currentQuality}
-          </div>
-
-          {/* Captions Toggle */}
-          <button
-            onClick={() => {
-              if (!videoRef.current) return;
-              const video = videoRef.current;
-              if (video.textTracks && video.textTracks.length > 0) {
-                const track = video.textTracks[0];
-                track.mode = track.mode === 'showing' ? 'hidden' : 'showing';
-              }
-            }}
-            className="text-white hover:text-twitch-purple transition-colors p-1"
-            title="Toggle Captions"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-              <text x="10" y="15" fontSize="8" textAnchor="middle" fill="white" fontWeight="bold">CC</text>
-            </svg>
-          </button>
-
-          {/* Fullscreen */}
-          <button
-            onClick={toggleFullscreen}
-            className="text-white hover:text-twitch-purple transition-colors p-1"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" />
-            </svg>
-          </button>
+      
+      {/* Admin Mode Indicator */}
+      {isAdmin && autoAdvanceEnabled && (
+        <div className="absolute top-4 left-4 bg-success/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
+          <span>▶</span>
+          <span>Auto-Advance Enabled</span>
         </div>
-      </div>
-
-      {/* Title Overlay - Hidden like Twitch, shown on hover */}
-      <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <h2 className="text-white font-semibold text-sm">{title}</h2>
-      </div>
+      )}
     </div>
   );
 }
