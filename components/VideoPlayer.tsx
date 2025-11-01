@@ -39,6 +39,17 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
   const syncErrorCountRef = useRef<number>(0);
   const lastSyncErrorRef = useRef<number>(0);
   
+  // SYNC FIX: Track last synced state to prevent redundant syncs
+  const lastSyncedStateRef = useRef<{
+    playbackId: string;
+    state: string;
+    position: number;
+    updatedAt: string;
+  } | null>(null);
+  
+  // SYNC FIX: Debounce realtime sync events to prevent rapid-fire updates
+  const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
   // ISSUE #2: Track if auto-advance is in progress to prevent race conditions
   const autoAdvanceInProgressRef = useRef<boolean>(false);
 
@@ -159,61 +170,105 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         return;
       }
       
-      setIsSyncing(true);
+      // SYNC FIX: Check if this is a duplicate sync event
+      const lastSynced = lastSyncedStateRef.current;
+      if (lastSynced && 
+          lastSynced.playbackId === playbackId &&
+          lastSynced.state === state && 
+          Math.abs(lastSynced.position - numericPosition) < 0.5 &&
+          lastSynced.updatedAt === updatedAt) {
+        console.log('📍 Skipping duplicate sync event');
+        return;
+      }
+      
+      // SYNC FIX: Debounce rapid sync events (except for state changes)
+      const stateChanged = lastSynced && lastSynced.state !== state;
+      const videoChanged = lastSynced && lastSynced.playbackId !== playbackId;
+      
+      if (!stateChanged && !videoChanged && syncDebounceRef.current) {
+        clearTimeout(syncDebounceRef.current);
+      }
+      
+      const performSync = async () => {
+        setIsSyncing(true);
 
-      try {
-        // CLOCK SKEW FIX: Use server-side elapsed time if available
-        let targetPosition = numericPosition;
-        if (state === 'playing') {
-          if (!Number.isNaN(numericElapsedMs) && numericElapsedMs > 0) {
-            // Use server-calculated elapsed time (no clock skew)
-            targetPosition = numericPosition + (numericElapsedMs / 1000) + 0.15; // Add latency estimate
-          } else {
-            // Fallback to client-side calculation
-            const now = Date.now();
-            const elapsed = (now - updateTimestamp) / 1000;
-            targetPosition = numericPosition + elapsed + 0.15;
+        try {
+          // CLOCK SKEW FIX: Use server-side elapsed time if available
+          let targetPosition = numericPosition;
+          if (state === 'playing') {
+            if (!Number.isNaN(numericElapsedMs) && numericElapsedMs > 0) {
+              // Use server-calculated elapsed time (no clock skew)
+              targetPosition = numericPosition + (numericElapsedMs / 1000) + 0.15; // Add latency estimate
+            } else {
+              // Fallback to client-side calculation
+              const now = Date.now();
+              const elapsed = (now - updateTimestamp) / 1000;
+              targetPosition = numericPosition + elapsed + 0.15;
+            }
           }
-        }
 
-        // Sync position to keep everyone in sync
-        const currentTime = video.currentTime;
-        const timeDiff = Math.abs(currentTime - targetPosition);
-        
-        // Use adaptive threshold based on whether video is playing
-        const syncThreshold = state === 'playing' ? 3 : 1;
-        
-        if (timeDiff > syncThreshold) {
-          console.log(`Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
-          video.currentTime = targetPosition;
-        }
-
-        // Sync play/pause state
-        if (state === 'playing' && video.paused) {
-          try {
-            await video.play();
-          } catch (err) {
-            console.error('Failed to play video:', err);
+          // Sync position to keep everyone in sync
+          const currentTime = video.currentTime;
+          const timeDiff = Math.abs(currentTime - targetPosition);
+          
+          // SYNC FIX: Use more lenient thresholds to prevent unnecessary seeks
+          // Only seek if significantly out of sync to avoid "restart" feeling
+          const syncThreshold = state === 'playing' ? 5 : 2; // Increased from 3 and 1
+          
+          if (timeDiff > syncThreshold) {
+            console.log(`🔄 Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
+            video.currentTime = targetPosition;
+          } else if (timeDiff > 1) {
+            console.log(`📍 Minor drift detected (${timeDiff.toFixed(1)}s) but within tolerance`);
           }
-        } else if (state === 'paused' && !video.paused) {
-          video.pause();
+
+          // Sync play/pause state
+          if (state === 'playing' && video.paused) {
+            try {
+              console.log('▶️ Playing video');
+              await video.play();
+            } catch (err) {
+              console.error('Failed to play video:', err);
+            }
+          } else if (state === 'paused' && !video.paused) {
+            console.log('⏸️ Pausing video');
+            video.pause();
+          }
+          
+          // Update last synced state to prevent duplicate syncs
+          lastSyncedStateRef.current = {
+            playbackId,
+            state,
+            position: numericPosition,
+            updatedAt,
+          };
+          
+          // CIRCUIT BREAKER: Reset error count on success
+          syncErrorCountRef.current = 0;
+        } catch (err) {
+          console.error('Error syncing playback:', err);
+          
+          // CIRCUIT BREAKER: Track sync failures
+          syncErrorCountRef.current++;
+          lastSyncErrorRef.current = Date.now();
+          
+          if (syncErrorCountRef.current >= 5) {
+            console.error('⚠️ Too many sync failures, entering degraded mode');
+            setError('Connection issues detected. Playback may be out of sync. Try refreshing.');
+          }
+        } finally {
+          setIsSyncing(false);
         }
-        
-        // CIRCUIT BREAKER: Reset error count on success
-        syncErrorCountRef.current = 0;
-      } catch (err) {
-        console.error('Error syncing playback:', err);
-        
-        // CIRCUIT BREAKER: Track sync failures
-        syncErrorCountRef.current++;
-        lastSyncErrorRef.current = Date.now();
-        
-        if (syncErrorCountRef.current >= 5) {
-          console.error('⚠️ Too many sync failures, entering degraded mode');
-          setError('Connection issues detected. Playback may be out of sync. Try refreshing.');
-        }
-      } finally {
-        setIsSyncing(false);
+      };
+      
+      // SYNC FIX: For state changes or video changes, sync immediately
+      // For position updates, debounce to prevent rapid-fire syncs
+      if (stateChanged || videoChanged) {
+        console.log(`🎬 Immediate sync: ${stateChanged ? 'state change' : 'video change'}`);
+        await performSync();
+      } else {
+        // Debounce position-only updates
+        syncDebounceRef.current = setTimeout(performSync, 200);
       }
     };
 
@@ -259,6 +314,26 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
           lastRealtimeUpdateRef.current = Date.now();
           
           const newState = payload.new as any;
+          const oldState = payload.old as any;
+          
+          // SYNC FIX: Enhanced logging to track what changed
+          const changes: string[] = [];
+          if (newState.playback_state !== oldState.playback_state) {
+            changes.push(`state: ${oldState.playback_state} → ${newState.playback_state}`);
+          }
+          if (Math.abs(newState.playback_position - oldState.playback_position) > 0.1) {
+            changes.push(`position: ${oldState.playback_position.toFixed(1)}s → ${newState.playback_position.toFixed(1)}s`);
+          }
+          if (newState.playback_id !== oldState.playback_id) {
+            changes.push(`video changed`);
+          }
+          
+          if (changes.length > 0) {
+            console.log(`📡 Realtime update (${newState.last_playback_command || 'unknown'}):`, changes.join(', '));
+          } else {
+            console.log('📡 Realtime update received but no playback changes detected');
+          }
+          
           if (newState.playback_state && newState.playback_position !== undefined) {
             syncPlaybackState(
               newState.playback_state,

@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ISSUE #4: Update current stream and reset playback state
+    // SYNC FIX: Let the trigger handle playback_updated_at and playback_elapsed_ms
     const { data, error } = await supabaseAdmin
       .from('current_stream')
       .update({
@@ -32,13 +33,16 @@ export async function POST(request: NextRequest) {
         // Reset playback state when changing videos manually
         playback_state: 'playing',
         playback_position: 0,
-        playback_updated_at: new Date().toISOString(),
-        playback_elapsed_ms: 0,
+        // Removed: playback_updated_at - let trigger handle it
+        // Removed: playback_elapsed_ms - let trigger handle it
         // Disable hold screen when manually setting a new video
         hold_screen_enabled: false,
         hold_screen_resume_playback_id: null,
         hold_screen_resume_position: null,
         hold_screen_resume_state: null,
+        // Add command tracking
+        last_playback_command: 'set_video',
+        last_command_id: `set-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       })
       .eq('id', 1)
       .select()
