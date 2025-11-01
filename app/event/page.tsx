@@ -10,6 +10,7 @@ import EventCountdown from '@/components/EventCountdown';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 import { useStreamUpdates } from '@/hooks/useStreamUpdates';
 import { getViewerData } from '@/lib/viewer';
+import { supabase } from '@/lib/supabase';
 
 interface StreamData {
   playbackId: string;
@@ -85,6 +86,36 @@ export default function EventPage() {
     
     checkPosterMode();
     setCheckingRegistration(false);
+  }, []);
+
+  // Subscribe to poster mode changes in realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel('poster-mode-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'current_stream',
+          filter: 'id=eq.1',
+        },
+        (payload: any) => {
+          console.log('Poster mode updated via Realtime:', payload);
+          const newData = payload.new;
+          if (newData.show_poster !== undefined) {
+            setShowPoster(newData.show_poster);
+            console.log('Show poster state changed to:', newData.show_poster);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Poster mode subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
