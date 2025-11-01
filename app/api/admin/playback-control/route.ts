@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
+import { moderateRateLimit } from '@/lib/rate-limit-enhanced';
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  
-  if (!session || session.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  // Apply rate limiting
+  return moderateRateLimit()(request, async (req: NextRequest) => {
+    const session = await getSession();
+    
+    if (!session || session.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
   try {
     const { action, position } = await request.json();
 
-    if (!action || !['play', 'pause', 'seek'].includes(action)) {
+    if (!action || !['play', 'pause', 'seek', 'restart'].includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be play, pause, or seek' },
+        { error: 'Invalid action. Must be play, pause, seek, or restart' },
         { status: 400 }
       );
     }
@@ -29,9 +32,47 @@ export async function POST(request: NextRequest) {
     // Get current stream state to preserve position if not provided
     const { data: currentData } = await supabaseAdmin
       .from('current_stream')
-      .select('playback_position')
+      .select(`
+        playback_position,
+        playback_id,
+        mux_items:playback_id (
+          duration_seconds
+        )
+      `)
       .eq('id', 1)
       .single();
+
+    // ISSUE #8: Validate seek position against video duration
+    if (action === 'seek' && position !== undefined) {
+      // Try to get duration from joined mux_items
+      let duration: number | null = null;
+      
+      if (currentData?.mux_items) {
+        const muxData = Array.isArray(currentData.mux_items) 
+          ? currentData.mux_items[0] 
+          : currentData.mux_items;
+        duration = muxData?.duration_seconds;
+      }
+      
+      // If we don't have duration from the join, try a direct query
+      if (!duration && currentData?.playback_id) {
+        const { data: muxItem } = await supabaseAdmin
+          .from('mux_items')
+          .select('duration_seconds')
+          .eq('playback_id', currentData.playback_id)
+          .single();
+        
+        duration = muxItem?.duration_seconds;
+      }
+      
+      // Validate position against duration if we have it
+      if (duration && position > duration) {
+        return NextResponse.json(
+          { error: `Position ${position}s exceeds video duration ${duration}s` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Prepare update data
     const updateData: any = {
@@ -57,6 +98,10 @@ export async function POST(request: NextRequest) {
     } else if (action === 'seek') {
       updateData.playback_position = position;
       // When seeking, keep current play/pause state
+    } else if (action === 'restart') {
+      // ISSUE #10: Atomic restart operation - seek to 0 and start playing
+      updateData.playback_state = 'playing';
+      updateData.playback_position = 0;
     }
 
     // Update current_stream with new playback state
@@ -79,6 +124,8 @@ export async function POST(request: NextRequest) {
       success: true, 
       playback_state: data.playback_state,
       playback_position: data.playback_position,
+      playback_elapsed_ms: data.playback_elapsed_ms || 0,
+      playback_updated_at: data.playback_updated_at,
       message: `Playback ${action} command sent to all viewers`
     });
   } catch (error) {
@@ -88,6 +135,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  });
 }
 
 // GET endpoint to retrieve current playback state
@@ -95,7 +143,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('current_stream')
-      .select('playback_state, playback_position, playback_updated_at')
+      .select('playback_state, playback_position, playback_updated_at, playback_elapsed_ms')
       .eq('id', 1)
       .single();
 

@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update current stream
+    // ISSUE #4: Update current stream and reset playback state
     const { data, error } = await supabaseAdmin
       .from('current_stream')
       .update({
@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
         kind: kind,
         updated_at: new Date().toISOString(),
         updated_by: session.userId,
+        // Reset playback state when changing videos manually
+        playback_state: 'paused',
+        playback_position: 0,
+        playback_updated_at: new Date().toISOString(),
       })
       .eq('id', 1)
       .select()

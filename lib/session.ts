@@ -2,9 +2,33 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'fallback-secret-change-in-production'
-);
+/**
+ * SECURITY: Session secret validation
+ * - In production: MUST have SESSION_SECRET configured (32+ characters)
+ * - In development: Allow fallback with warning
+ */
+const SESSION_SECRET = (() => {
+  const secret = process.env.SESSION_SECRET;
+  
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: SESSION_SECRET environment variable is required in production');
+    }
+    console.warn('⚠️ Using insecure fallback SESSION_SECRET in development mode');
+    console.warn('⚠️ Set SESSION_SECRET in .env.local for secure sessions');
+    return new TextEncoder().encode('dev-only-insecure-secret-do-not-use-in-production');
+  }
+  
+  // Validate secret length (minimum 32 characters for security)
+  if (secret.length < 32) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: SESSION_SECRET must be at least 32 characters long');
+    }
+    console.warn('⚠️ SESSION_SECRET should be at least 32 characters for security');
+  }
+  
+  return new TextEncoder().encode(secret);
+})();
 
 export interface AdminSessionData {
   userId: string;

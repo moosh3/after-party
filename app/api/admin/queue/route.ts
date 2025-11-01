@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PATCH - Reorder queue items
+// ISSUE #3: Now uses atomic database function for transaction safety
 export async function PATCH(request: NextRequest) {
   const session = await getSession();
   
@@ -166,22 +167,19 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Update positions in database
-    const updates = items.map(item =>
-      supabaseAdmin
-        .from('video_queue')
-        .update({ position: item.position })
-        .eq('id', item.id)
-    );
-
-    await Promise.all(updates);
-
-    // Log admin action
-    await supabaseAdmin.from('admin_actions').insert({
-      action_type: 'queue_reorder',
-      admin_user: session.userId,
-      details: { items },
+    // ISSUE #3: Use atomic database function for transaction safety
+    const { error } = await supabaseAdmin.rpc('reorder_queue', {
+      items: JSON.stringify(items),
+      admin_user_id: session.userId,
     });
+
+    if (error) {
+      console.error('Error reordering queue:', error);
+      return NextResponse.json(
+        { error: 'Failed to reorder queue' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

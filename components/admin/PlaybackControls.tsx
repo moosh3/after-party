@@ -52,6 +52,10 @@ export default function PlaybackControls() {
     setLoading(true);
     setMessage(null);
 
+    // ISSUE #11: Optimistic update - immediately update UI
+    const previousState = playbackState;
+    setPlaybackState(action === 'play' ? 'playing' : 'paused');
+
     try {
       const response = await fetch('/api/admin/playback-control', {
         method: 'POST',
@@ -71,9 +75,13 @@ export default function PlaybackControls() {
         // Clear message after 3 seconds
         setTimeout(() => setMessage(null), 3000);
       } else {
+        // Revert optimistic update on error
+        setPlaybackState(previousState);
         setMessage({ type: 'error', text: data.error || 'Failed to control playback' });
       }
     } catch (error) {
+      // Revert optimistic update on error
+      setPlaybackState(previousState);
       setMessage({ type: 'error', text: 'Network error occurred' });
     } finally {
       setLoading(false);
@@ -84,32 +92,50 @@ export default function PlaybackControls() {
     setLoading(true);
     setMessage(null);
 
+    // ISSUE #11: Add optimistic update
+    setPlaybackState('playing');
+
     try {
+      // ISSUE #10: Use atomic restart action instead of separate seek + play
       const response = await fetch('/api/admin/playback-control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'seek', position: 0 }),
+        body: JSON.stringify({ action: 'restart' }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        setPlaybackState(data.playback_state);
         setMessage({ 
           type: 'success', 
           text: 'Restarted video for all viewers' 
         });
         
-        // Auto-play after restart
-        setTimeout(() => {
-          handlePlaybackControl('play');
-        }, 500);
-        
         setTimeout(() => setMessage(null), 3000);
       } else {
+        // Revert optimistic update on error
         setMessage({ type: 'error', text: data.error || 'Failed to restart' });
+        // Reload actual state
+        const stateResponse = await fetch('/api/admin/playback-control');
+        if (stateResponse.ok) {
+          const stateData = await stateResponse.json();
+          setPlaybackState(stateData.playback_state);
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Network error occurred' });
+      // Revert optimistic update on error
+      try {
+        const stateResponse = await fetch('/api/admin/playback-control');
+        if (stateResponse.ok) {
+          const stateData = await stateResponse.json();
+          setPlaybackState(stateData.playback_state);
+        }
+      } catch (e) {
+        // Fallback
+        setPlaybackState('paused');
+      }
     } finally {
       setLoading(false);
     }

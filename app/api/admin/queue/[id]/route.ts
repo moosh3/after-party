@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
 
 // DELETE - Remove specific video from queue
+// ISSUE #3: Now uses atomic database function for transaction safety
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -23,65 +24,26 @@ export async function DELETE(
       );
     }
 
-    // Get the item's position before deleting
-    const { data: itemToDelete, error: fetchError } = await supabaseAdmin
-      .from('video_queue')
-      .select('position, mux_item_id')
-      .eq('id', id)
-      .single();
+    // ISSUE #3: Use atomic database function for transaction safety
+    const { error } = await supabaseAdmin.rpc('delete_from_queue', {
+      queue_item_id: id,
+      admin_user_id: session.userId,
+    });
 
-    if (fetchError || !itemToDelete) {
-      return NextResponse.json(
-        { error: 'Queue item not found' },
-        { status: 404 }
-      );
-    }
+    if (error) {
+      if (error.message.includes('not found')) {
+        return NextResponse.json(
+          { error: 'Queue item not found' },
+          { status: 404 }
+        );
+      }
 
-    // Delete the item
-    const { error: deleteError } = await supabaseAdmin
-      .from('video_queue')
-      .delete()
-      .eq('id', id);
-
-    if (deleteError) {
-      console.error('Error deleting queue item:', deleteError);
+      console.error('Error deleting queue item:', error);
       return NextResponse.json(
         { error: 'Failed to delete queue item' },
         { status: 500 }
       );
     }
-
-    // Reorder remaining items (shift positions down)
-    const { data: remainingItems, error: remainingError } = await supabaseAdmin
-      .from('video_queue')
-      .select('id, position')
-      .gt('position', itemToDelete.position)
-      .order('position', { ascending: true });
-
-    if (remainingError) {
-      console.error('Error fetching remaining items:', remainingError);
-    } else if (remainingItems && remainingItems.length > 0) {
-      // Update positions
-      const updates = remainingItems.map((item, index) =>
-        supabaseAdmin
-          .from('video_queue')
-          .update({ position: itemToDelete.position + index })
-          .eq('id', item.id)
-      );
-
-      await Promise.all(updates);
-    }
-
-    // Log admin action
-    await supabaseAdmin.from('admin_actions').insert({
-      action_type: 'queue_remove',
-      admin_user: session.userId,
-      details: {
-        queue_item_id: id,
-        mux_item_id: itemToDelete.mux_item_id,
-        old_position: itemToDelete.position,
-      },
-    });
 
     return NextResponse.json({ 
       success: true, 
