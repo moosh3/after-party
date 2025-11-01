@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export type RealtimeHealthStatus = 'healthy' | 'degraded' | 'offline';
 
@@ -8,7 +8,6 @@ export function useRealtimeHealth() {
   const [lastHeartbeat, setLastHeartbeat] = useState(Date.now());
   
   useEffect(() => {
-    const supabase = createClient();
     
     const channel = supabase.channel('health-check')
       .subscribe((status) => {
