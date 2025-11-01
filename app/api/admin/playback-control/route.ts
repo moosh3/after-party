@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
   try {
-    const { action, position } = await request.json();
+    const { action, position, commandId } = await request.json();
 
     if (!action || !['play', 'pause', 'seek', 'restart'].includes(action)) {
       return NextResponse.json(
@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    
+    // SYNC FIX: Generate command ID if not provided for deduplication
+    const finalCommandId = commandId || `${action}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Get current stream state to preserve position if not provided
     const { data: currentData } = await supabaseAdmin
@@ -76,7 +79,9 @@ export async function POST(request: NextRequest) {
 
     // Prepare update data
     const updateData: any = {
-      playback_updated_at: new Date().toISOString(),
+      // Don't manually set playback_updated_at - let the trigger handle it
+      last_playback_command: action,
+      last_command_id: finalCommandId,
     };
 
     if (action === 'play') {
@@ -126,6 +131,7 @@ export async function POST(request: NextRequest) {
       playback_position: data.playback_position,
       playback_elapsed_ms: data.playback_elapsed_ms || 0,
       playback_updated_at: data.playback_updated_at,
+      command_id: finalCommandId,
       message: `Playback ${action} command sent to all viewers`
     });
   } catch (error) {
@@ -143,7 +149,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('current_stream')
-      .select('playback_state, playback_position, playback_updated_at, playback_elapsed_ms')
+      .select('playback_state, playback_position, playback_updated_at, playback_elapsed_ms, last_playback_command, last_command_id')
       .eq('id', 1)
       .single();
 
