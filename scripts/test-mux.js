@@ -15,19 +15,26 @@ if (muxTokenId.includes('placeholder') || muxSigningKeyId.includes('placeholder'
   process.exit(0);
 }
 
-try {
-  const testPlaybackId = 'test-playback-id';
-  const token = generatePlaybackToken(testPlaybackId);
-  
-  if (token && token !== 'placeholder-token') {
-    console.log('✅ Mux token generation successful!');
-    console.log('🎥 Token generated for test playback ID');
-  } else {
-    console.log('⚠️  Token generation returned placeholder');
-    console.log('Update .env.local with real Mux credentials');
+async function test() {
+  try {
+    const testPlaybackId = 'test-playback-id';
+    const token = await generatePlaybackToken(testPlaybackId);
+    
+    if (token && token !== 'placeholder-token' && token !== 'unsigned') {
+      console.log('✅ Mux token generation successful!');
+      console.log('🎥 Token generated for test playback ID');
+    } else if (token === 'unsigned') {
+      console.log('⚠️  Token generation using unsigned mode');
+      console.log('This only works if your Mux playback policy is set to "public"');
+    } else {
+      console.log('⚠️  Token generation returned placeholder');
+      console.log('Update .env.local with real Mux credentials');
+    }
+  } catch (err) {
+    console.error('❌ Error:', err.message);
+    process.exit(1);
   }
-} catch (err) {
-  console.error('❌ Error:', err.message);
-  process.exit(1);
 }
+
+test();
 

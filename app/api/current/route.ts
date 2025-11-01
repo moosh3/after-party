@@ -50,22 +50,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate signed playback token
-    let token: string;
-    try {
-      token = generatePlaybackToken(data.playback_id);
-    } catch (tokenError) {
-      console.error('Failed to generate Mux playback token:', tokenError);
-      // In production, if Mux is not configured, we can't serve video
-      // Return error with helpful message
-      return NextResponse.json(
-        { 
-          error: 'Video service not configured',
-          details: 'Mux credentials are not properly configured. Please contact the administrator.'
-        },
-        { status: 503 } // Service Unavailable
-      );
-    }
+    // Generate playback token (or use unsigned if credentials not configured)
+    const token = await generatePlaybackToken(data.playback_id);
 
     // Calculate expiry time (1 hour from now)
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();

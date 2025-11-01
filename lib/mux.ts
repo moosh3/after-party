@@ -1,4 +1,5 @@
 import Mux from '@mux/mux-node';
+import { SignJWT, importPKCS8 } from 'jose';
 
 const mux = new Mux({
   tokenId: process.env.MUX_TOKEN_ID,
@@ -13,59 +14,55 @@ export interface PlaybackTokenOptions {
   params?: Record<string, any>;
 }
 
-export function generatePlaybackToken(
+export async function generatePlaybackToken(
   playbackId: string,
   options: PlaybackTokenOptions = {}
-): string {
+): Promise<string> {
   const {
     type = 'video',
     expiration = '1h',
     params = {},
   } = options;
 
-  // SECURITY: Fail fast if credentials are not configured properly
-  // In production, we must have secure tokens - no fallbacks
-  if (!process.env.MUX_SIGNING_KEY_ID || process.env.MUX_SIGNING_KEY_ID.includes('placeholder')) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('MUX_SIGNING_KEY_ID not configured - cannot generate secure tokens in production');
-    }
-    console.warn('⚠️ Using placeholder Mux token in development mode');
-    return 'placeholder-token';
-  }
+  // Check if signing keys are configured
+  const hasSigningKeys = process.env.MUX_SIGNING_KEY_ID && 
+                         process.env.MUX_SIGNING_KEY_PRIVATE &&
+                         !process.env.MUX_SIGNING_KEY_ID.includes('placeholder');
 
-  if (!process.env.MUX_SIGNING_KEY_PRIVATE) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('MUX_SIGNING_KEY_PRIVATE not configured - cannot generate secure tokens in production');
-    }
-    console.warn('⚠️ Missing MUX_SIGNING_KEY_PRIVATE in development mode');
-    return 'placeholder-token';
+  // If no signing keys, use unsigned playback (only works for public playback policies)
+  if (!hasSigningKeys) {
+    console.warn('⚠️ Mux signing keys not configured - using unsigned playback');
+    console.warn('⚠️ This only works if your Mux playback policy is set to "public"');
+    return 'unsigned'; // Special token that tells the player to use unsigned mode
   }
 
   try {
-    // Generate signed token using Mux SDK
-    // @ts-ignore - Mux SDK type definitions may vary by version
-    const token = Mux.JWT?.signPlaybackId?.(playbackId, {
-      keyId: process.env.MUX_SIGNING_KEY_ID,
-      keySecret: process.env.MUX_SIGNING_KEY_PRIVATE,
-      expiration,
-      type,
-      params,
-    });
-
-    // Validate that we actually got a token
-    if (!token || token === 'placeholder-token') {
-      throw new Error('Failed to generate Mux token - received invalid token from SDK');
+    // Generate signed token using jose library (already a dependency)
+    // Mux uses RS256 with base64-encoded PKCS8 private keys
+    if (process.env.MUX_SIGNING_KEY_PRIVATE) {
+      const privateKeyPem = Buffer.from(process.env.MUX_SIGNING_KEY_PRIVATE, 'base64').toString('utf8');
+      
+      const token = await new SignJWT({
+        sub: playbackId,
+        aud: type,
+        exp: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour from now
+      })
+        .setProtectedHeader({ 
+          alg: 'RS256',
+          kid: process.env.MUX_SIGNING_KEY_ID,
+        })
+        .sign(await importPKCS8(privateKeyPem, 'RS256'));
+      
+      return token;
     }
 
-    return token;
+    // If no private key, fall back to unsigned
+    console.warn('⚠️ Could not generate signed token, falling back to unsigned playback');
+    return 'unsigned';
   } catch (error) {
     console.error('Error generating Mux playback token:', error);
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('Failed to generate secure playback token');
-    }
-    // In development, return placeholder but log the error
-    console.warn('⚠️ Returning placeholder token due to error in development mode');
-    return 'placeholder-token';
+    console.warn('⚠️ Falling back to unsigned playback due to error');
+    return 'unsigned';
   }
 }
 

@@ -450,7 +450,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
       <MuxPlayer
         ref={playerRef}
         playbackId={playbackId}
-        tokens={{ playback: token !== 'placeholder-token' ? token : undefined }}
+        tokens={{ playback: (token !== 'placeholder-token' && token !== 'unsigned') ? token : undefined }}
         streamType="live"
         metadata={{
           video_title: title,
