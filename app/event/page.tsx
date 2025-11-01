@@ -291,128 +291,134 @@ export default function EventPage() {
 
       {/* Main content area */}
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Video Player - Takes most of the width */}
-        <div className="flex-1 bg-black flex flex-col overflow-y-auto min-h-0">
-          <VideoPlayer
-            key={streamData.playbackId}
-            playbackId={streamData.playbackId}
-            token={streamData.token}
-            title={streamData.title}
-          />
-          
-          {/* Welcome Message & Links */}
-          <div className="bg-gradient-to-b from-twitch-dark to-twitch-gray border-t border-twitch-border px-4 py-3">
-            {/* Styled Links */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <a 
-                href="https://alecandmk.wedding/online" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
-              >
-                <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                  <div 
-                    className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                    style={{ 
-                      fontFamily: 'Scary, serif',
-                      textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                      WebkitTextStroke: '1px #0891b2'
-                    }}
-                  >
-                    WATCH ONLINE
-                  </div>
-                </div>
-              </a>
-              
-              <a 
-                href="https://alecandmk.wedding/theweddingparty-photos/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
-              >
-                <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                  <div 
-                    className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                    style={{ 
-                      fontFamily: 'Scary, serif',
-                      textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                      WebkitTextStroke: '1px #0891b2'
-                    }}
-                  >
-                    PHOTOS
-                  </div>
-                </div>
-              </a>
-              
-              <a 
-                href="https://alecandmk.wedding/trip" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
-              >
-                <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                  <div 
-                    className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                    style={{ 
-                      fontFamily: 'Scary, serif',
-                      textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                      WebkitTextStroke: '1px #0891b2'
-                    }}
-                  >
-                    TRIP INFO
-                  </div>
-                </div>
-              </a>
-              
-              <a 
-                href="https://alecandmk.wedding/celebrate" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
-              >
-                <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                  <div 
-                    className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                    style={{ 
-                      fontFamily: 'Scary, serif',
-                      textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                      WebkitTextStroke: '1px #0891b2'
-                    }}
-                  >
-                    CELEBRATE
-                  </div>
-                </div>
-              </a>
-            </div>
+        {/* Video Player Section - Takes most of the width */}
+        <div className="flex-1 bg-black flex flex-col overflow-hidden min-h-0">
+          {/* Video Player - Fixed height to prevent resizing */}
+          <div className="flex-shrink-0 bg-black">
+            <VideoPlayer
+              key={streamData.playbackId}
+              playbackId={streamData.playbackId}
+              token={streamData.token}
+              title={streamData.title}
+            />
           </div>
-
-          {/* Polls Section */}
-          <div className="bg-gradient-to-b from-twitch-gray to-black border-t-4 border-red-600 px-4 py-4">
-            {/* Polls Header */}
-            <div className="text-center mb-4">
-              <h3 
-                className="text-3xl text-red-600 inline-block relative"
-                style={{ 
-                  fontFamily: 'Scary, serif',
-                  textShadow: '0 0 20px rgba(220, 38, 38, 0.8), 3px 3px 0 #0891b2, 6px 6px 10px rgba(0, 0, 0, 0.9)',
-                  WebkitTextStroke: '1.5px #0891b2',
-                  letterSpacing: '0.1em'
-                }}
-              >
-                🗳️ POLLS 🗳️
-              </h3>
-              <div className="mt-2 flex items-center justify-center gap-2">
-                <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
-                <span className="text-xs uppercase tracking-wider text-twitch-text-alt font-bold">
-                  Vote & See Results
-                </span>
-                <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
+          
+          {/* Scrollable content below video */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Welcome Message & Links */}
+            <div className="bg-gradient-to-b from-twitch-dark to-twitch-gray border-t border-twitch-border px-4 py-3">
+              {/* Styled Links */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <a 
+                  href="https://alecandmk.wedding/online" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                >
+                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
+                    <div 
+                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
+                      style={{ 
+                        fontFamily: 'Scary, serif',
+                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
+                        WebkitTextStroke: '1px #0891b2'
+                      }}
+                    >
+                      WATCH ONLINE
+                    </div>
+                  </div>
+                </a>
+                
+                <a 
+                  href="https://alecandmk.wedding/theweddingparty-photos/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                >
+                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
+                    <div 
+                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
+                      style={{ 
+                        fontFamily: 'Scary, serif',
+                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
+                        WebkitTextStroke: '1px #0891b2'
+                      }}
+                    >
+                      PHOTOS
+                    </div>
+                  </div>
+                </a>
+                
+                <a 
+                  href="https://alecandmk.wedding/trip" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                >
+                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
+                    <div 
+                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
+                      style={{ 
+                        fontFamily: 'Scary, serif',
+                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
+                        WebkitTextStroke: '1px #0891b2'
+                      }}
+                    >
+                      TRIP INFO
+                    </div>
+                  </div>
+                </a>
+                
+                <a 
+                  href="https://alecandmk.wedding/celebrate" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                >
+                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
+                    <div 
+                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
+                      style={{ 
+                        fontFamily: 'Scary, serif',
+                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
+                        WebkitTextStroke: '1px #0891b2'
+                      }}
+                    >
+                      CELEBRATE
+                    </div>
+                  </div>
+                </a>
               </div>
             </div>
 
-            {/* Polls Tab Component */}
-            <div className="max-h-96 overflow-y-auto pr-2">
-              <PollsTab userId={userId} room="event" />
+            {/* Polls Section */}
+            <div className="bg-gradient-to-b from-twitch-gray to-black border-t-4 border-red-600 px-4 py-4">
+              {/* Polls Header */}
+              <div className="text-center mb-4">
+                <h3 
+                  className="text-3xl text-red-600 inline-block relative"
+                  style={{ 
+                    fontFamily: 'Scary, serif',
+                    textShadow: '0 0 20px rgba(220, 38, 38, 0.8), 3px 3px 0 #0891b2, 6px 6px 10px rgba(0, 0, 0, 0.9)',
+                    WebkitTextStroke: '1.5px #0891b2',
+                    letterSpacing: '0.1em'
+                  }}
+                >
+                  🗳️ POLLS 🗳️
+                </h3>
+                <div className="mt-2 flex items-center justify-center gap-2">
+                  <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
+                  <span className="text-xs uppercase tracking-wider text-twitch-text-alt font-bold">
+                    Vote & See Results
+                  </span>
+                  <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
+                </div>
+              </div>
+
+              {/* Polls Tab Component */}
+              <div className="pb-4">
+                <PollsTab userId={userId} room="event" />
+              </div>
             </div>
           </div>
         </div>
