@@ -1,19 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export type RealtimeHealthStatus = 'healthy' | 'degraded' | 'offline';
 
 export function useRealtimeHealth() {
   const [status, setStatus] = useState<RealtimeHealthStatus>('healthy');
-  const [lastHeartbeat, setLastHeartbeat] = useState(Date.now());
+  const lastHeartbeatRef = useRef<number>(Date.now());
   
   useEffect(() => {
-    
     const channel = supabase.channel('health-check')
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setStatus('healthy');
-          setLastHeartbeat(Date.now());
+          lastHeartbeatRef.current = Date.now();
           console.log('✅ Realtime connection healthy');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setStatus('offline');
@@ -26,7 +25,7 @@ export function useRealtimeHealth() {
     
     // Heartbeat monitor - check connection health
     const interval = setInterval(() => {
-      const elapsed = Date.now() - lastHeartbeat;
+      const elapsed = Date.now() - lastHeartbeatRef.current;
       if (elapsed > 30000) {
         setStatus('offline');
         console.error('❌ Realtime connection lost (no heartbeat for 30s)');
@@ -40,7 +39,7 @@ export function useRealtimeHealth() {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [lastHeartbeat]);
+  }, []); // Empty dependency array - only run once on mount
   
   return status;
 }
