@@ -144,28 +144,35 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
     // Function to sync video state
     const syncPlaybackState = async (
       state: string,
-      position: number,
+      position: number | string,
       updatedAt: string,
-      elapsedMs: number = 0
+      elapsedMs: number | string = 0
     ) => {
       if (!video || isSyncing) return;
       
       const updateTimestamp = new Date(updatedAt).getTime();
+      const numericPosition = typeof position === 'string' ? parseFloat(position) : position;
+      const numericElapsedMs = typeof elapsedMs === 'string' ? parseFloat(elapsedMs) : elapsedMs;
+
+      if (Number.isNaN(numericPosition)) {
+        console.warn('Skipping sync due to invalid playback position:', position);
+        return;
+      }
       
       setIsSyncing(true);
 
       try {
         // CLOCK SKEW FIX: Use server-side elapsed time if available
-        let targetPosition = position;
+        let targetPosition = numericPosition;
         if (state === 'playing') {
-          if (elapsedMs > 0) {
+          if (!Number.isNaN(numericElapsedMs) && numericElapsedMs > 0) {
             // Use server-calculated elapsed time (no clock skew)
-            targetPosition = position + (elapsedMs / 1000) + 0.15; // Add latency estimate
+            targetPosition = numericPosition + (numericElapsedMs / 1000) + 0.15; // Add latency estimate
           } else {
             // Fallback to client-side calculation
             const now = Date.now();
             const elapsed = (now - updateTimestamp) / 1000;
-            targetPosition = position + elapsed + 0.15;
+            targetPosition = numericPosition + elapsed + 0.15;
           }
         }
 
