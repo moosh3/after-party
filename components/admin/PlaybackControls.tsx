@@ -3,10 +3,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+interface HoldScreenMuxItem {
+  id: string;
+  playback_id: string;
+  label: string;
+  kind: string;
+  duration_seconds?: number;
+}
+
 export default function PlaybackControls() {
   const [playbackState, setPlaybackState] = useState<'playing' | 'paused'>('paused');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  
+  // Hold screen state
+  const [holdScreenEnabled, setHoldScreenEnabled] = useState(false);
+  const [holdScreenMuxItem, setHoldScreenMuxItem] = useState<HoldScreenMuxItem | null>(null);
 
   useEffect(() => {
     // Load current playback state
@@ -21,7 +33,23 @@ export default function PlaybackControls() {
         console.error('Failed to load playback state:', err);
       }
     }
+    
+    // Load hold screen status
+    async function loadHoldScreenStatus() {
+      try {
+        const response = await fetch('/api/admin/hold-screen');
+        if (response.ok) {
+          const data = await response.json();
+          setHoldScreenEnabled(data.hold_screen_enabled);
+          setHoldScreenMuxItem(data.mux_item);
+        }
+      } catch (err) {
+        console.error('Failed to load hold screen status:', err);
+      }
+    }
+    
     loadState();
+    loadHoldScreenStatus();
 
     // Subscribe to realtime updates
     const channel = supabase
@@ -38,6 +66,9 @@ export default function PlaybackControls() {
           const newState = payload.new as any;
           if (newState.playback_state) {
             setPlaybackState(newState.playback_state);
+          }
+          if (newState.hold_screen_enabled !== undefined) {
+            setHoldScreenEnabled(newState.hold_screen_enabled);
           }
         }
       )
@@ -141,6 +172,54 @@ export default function PlaybackControls() {
     }
   }
 
+  async function handleToggleHoldScreen() {
+    if (!holdScreenMuxItem && !holdScreenEnabled) {
+      setMessage({ type: 'error', text: 'No hold screen configured. Set one in the library first.' });
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    const previousState = holdScreenEnabled;
+    const action = holdScreenEnabled ? 'disable' : 'enable';
+    
+    // Optimistic update
+    setHoldScreenEnabled(!holdScreenEnabled);
+
+    try {
+      const response = await fetch('/api/admin/hold-screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setHoldScreenEnabled(data.hold_screen_enabled);
+        setMessage({ 
+          type: 'success', 
+          text: data.hold_screen_enabled 
+            ? `Hold screen enabled${holdScreenMuxItem ? ` - "${holdScreenMuxItem.label}"` : ''}` 
+            : 'Hold screen disabled - resumed normal playback'
+        });
+        
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        // Revert optimistic update on error
+        setHoldScreenEnabled(previousState);
+        setMessage({ type: 'error', text: data.error || 'Failed to toggle hold screen' });
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      setHoldScreenEnabled(previousState);
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="twitch-card p-4 border-t-4 border-twitch-purple">
       <h3 className="text-lg font-semibold mb-3 text-twitch-text flex items-center gap-2">
@@ -182,8 +261,35 @@ export default function PlaybackControls() {
           </span>
         </div>
 
+        {/* Hold Screen Status */}
+        {holdScreenMuxItem && (
+          <div className={`flex items-center justify-between p-3 rounded border ${
+            holdScreenEnabled 
+              ? 'bg-yellow-500/10 border-yellow-500' 
+              : 'bg-twitch-hover border-twitch-border'
+          }`}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-twitch-text">Hold Screen:</span>
+                <span className={`font-semibold text-sm px-2 py-1 rounded ${
+                  holdScreenEnabled 
+                    ? 'bg-yellow-500/20 text-yellow-500' 
+                    : 'bg-twitch-gray text-twitch-text-alt'
+                }`}>
+                  {holdScreenEnabled ? '★ Active' : 'Ready'}
+                </span>
+              </div>
+              {holdScreenMuxItem && (
+                <p className="text-xs text-twitch-text-alt mt-1 truncate">
+                  {holdScreenMuxItem.label}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Control Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button
             onClick={() => handlePlaybackControl('play')}
             disabled={loading || playbackState === 'playing'}
@@ -230,11 +336,32 @@ export default function PlaybackControls() {
               <span>Restart</span>
             </div>
           </button>
+
+          <button
+            onClick={handleToggleHoldScreen}
+            disabled={loading || (!holdScreenMuxItem && !holdScreenEnabled)}
+            className={`py-3 px-4 rounded font-medium text-sm transition-all min-h-[44px] ${
+              !holdScreenMuxItem && !holdScreenEnabled
+                ? 'bg-twitch-gray text-twitch-text-alt cursor-not-allowed'
+                : holdScreenEnabled
+                ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                : 'bg-yellow-600 hover:bg-yellow-700 text-white border-2 border-yellow-500'
+            }`}
+            title={!holdScreenMuxItem && !holdScreenEnabled ? 'Set a hold screen in the library first' : holdScreenEnabled ? 'Disable hold screen' : 'Enable hold screen'}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              <span>{holdScreenEnabled ? 'Hold ON' : 'Hold Screen'}</span>
+            </div>
+          </button>
         </div>
 
         <div className="text-xs text-twitch-text-alt bg-twitch-darker p-3 rounded border border-twitch-border">
           <strong className="text-twitch-text">💡 Tip:</strong> Use Play/Pause to control all viewers at once. 
-          Hit Restart to begin the video from the start for everyone.
+          Hit Restart to begin the video from the start for everyone. Use Hold Screen to show a designated video 
+          (like intermission or technical difficulties) that loops continuously.
         </div>
       </div>
     </div>
