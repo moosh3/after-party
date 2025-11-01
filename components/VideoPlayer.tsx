@@ -22,6 +22,9 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
   // Realtime connection health monitoring
   const realtimeHealth = useRealtimeHealth();
   
+  // Track when we last received a realtime update
+  const lastRealtimeUpdateRef = useRef<number>(Date.now());
+  
   // Track last update timestamp to prevent echoing admin's own actions
   const lastLocalUpdateRef = useRef<number>(0);
   
@@ -269,6 +272,9 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
           filter: 'id=eq.1',
         },
         (payload) => {
+          // Track that we received a realtime update
+          lastRealtimeUpdateRef.current = Date.now();
+          
           const newState = payload.new as any;
           if (newState.playback_state && newState.playback_position !== undefined) {
             syncPlaybackState(
@@ -282,6 +288,9 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
       )
       .subscribe((status) => {
         console.log('Playback sync subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          lastRealtimeUpdateRef.current = Date.now();
+        }
       });
 
     // Dynamic polling based on realtime health
