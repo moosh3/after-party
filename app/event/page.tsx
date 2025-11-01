@@ -324,13 +324,13 @@ export default function EventPage() {
                         WebkitTextStroke: '1px #0891b2'
                       }}
                     >
-                      WATCH ONLINE
+                      SCHEDULE
                     </div>
                   </div>
                 </a>
                 
                 <a 
-                  href="https://alecandmk.wedding/theweddingparty-photos/" 
+                  href="https://ableensemble.com/support/donate/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
@@ -344,13 +344,13 @@ export default function EventPage() {
                         WebkitTextStroke: '1px #0891b2'
                       }}
                     >
-                      PHOTOS
+                      ABLE DONATE
                     </div>
                   </div>
                 </a>
                 
                 <a 
-                  href="https://alecandmk.wedding/trip" 
+                  href="https://alecandmk.wedding/registry" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
@@ -364,13 +364,13 @@ export default function EventPage() {
                         WebkitTextStroke: '1px #0891b2'
                       }}
                     >
-                      TRIP INFO
+                      REGISTRY & RAFFLE
                     </div>
                   </div>
                 </a>
                 
                 <a 
-                  href="https://alecandmk.wedding/celebrate" 
+                  href="https://photos.app.goo.gl/DfEdTvAxxvLwrXdF8" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
@@ -384,7 +384,7 @@ export default function EventPage() {
                         WebkitTextStroke: '1px #0891b2'
                       }}
                     >
-                      CELEBRATE
+                      ADD YOUR PHOTOS
                     </div>
                   </div>
                 </a>
