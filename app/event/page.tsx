@@ -33,7 +33,7 @@ export default function EventPage() {
   const [showPoster, setShowPoster] = useState(false);
 
   // Token refresh hook
-  useTokenRefresh(streamData, setStreamData);
+  const tokenRefreshError = useTokenRefresh(streamData, setStreamData);
 
   // Memoize stream updates input to prevent recreating object on every render
   const streamUpdateInput = useMemo(() => {
@@ -304,6 +304,11 @@ export default function EventPage() {
 
   return (
     <div className="h-screen bg-twitch-darker text-twitch-text flex flex-col overflow-hidden">
+      {tokenRefreshError && (
+        <div className="bg-yellow-500/10 border-b border-yellow-500 text-yellow-200 text-sm px-4 py-2 text-center">
+          {tokenRefreshError}
+        </div>
+      )}
       {/* Stream info bar */}
       <div className="flex-shrink-0 bg-twitch-dark border-b border-twitch-border px-4 py-3">
         <div className="flex items-center gap-3">

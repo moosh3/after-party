@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useRealtimeHealth } from '@/hooks/useRealtimeHealth';
 
 interface HoldScreenMuxItem {
   id: string;
@@ -19,6 +20,14 @@ export default function PlaybackControls() {
   // Hold screen state
   const [holdScreenEnabled, setHoldScreenEnabled] = useState(false);
   const [holdScreenMuxItem, setHoldScreenMuxItem] = useState<HoldScreenMuxItem | null>(null);
+  const realtimeHealth = useRealtimeHealth();
+  const [dismissedHealthAlert, setDismissedHealthAlert] = useState(false);
+
+  useEffect(() => {
+    if (realtimeHealth === 'healthy') {
+      setDismissedHealthAlert(false);
+    }
+  }, [realtimeHealth]);
 
   useEffect(() => {
     // Load current playback state
@@ -245,6 +254,32 @@ export default function PlaybackControls() {
             : 'bg-error/10 border border-error text-error'
         }`}>
           {message.text}
+        </div>
+      )}
+
+      {realtimeHealth !== 'healthy' && !dismissedHealthAlert && (
+        <div className={`rounded p-3 mb-3 text-sm flex items-start gap-3 ${
+          realtimeHealth === 'degraded'
+            ? 'bg-yellow-500/10 border border-yellow-500 text-yellow-300'
+            : 'bg-error/10 border border-error text-error'
+        }`}>
+          <span className="text-lg" aria-hidden="true">
+            {realtimeHealth === 'degraded' ? '⚠️' : '❌'}
+          </span>
+          <div className="flex-1">
+            <p className="font-semibold text-sm">
+              {realtimeHealth === 'degraded' ? 'Realtime connection is degraded.' : 'Realtime connection lost.'}
+            </p>
+            <p className="text-xs mt-1 opacity-80">
+              Viewers might experience stalls or resyncs. Refresh the dashboard or check your network to restore sync.
+            </p>
+          </div>
+          <button
+            onClick={() => setDismissedHealthAlert(true)}
+            className="text-xs font-semibold uppercase tracking-wide hover:underline"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

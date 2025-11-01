@@ -30,11 +30,15 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
         updated_by: session.userId,
         // Reset playback state when changing videos manually
-        playback_state: 'paused',
+        playback_state: 'playing',
         playback_position: 0,
         playback_updated_at: new Date().toISOString(),
+        playback_elapsed_ms: 0,
         // Disable hold screen when manually setting a new video
         hold_screen_enabled: false,
+        hold_screen_resume_playback_id: null,
+        hold_screen_resume_position: null,
+        hold_screen_resume_state: null,
       })
       .eq('id', 1)
       .select()

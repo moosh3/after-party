@@ -130,14 +130,22 @@ export async function POST(request: NextRequest) {
     if (action === 'enable' || action === 'disable') {
       const enabled = action === 'enable';
 
+      const { data: currentData, error: currentError } = await supabaseAdmin
+        .from('current_stream')
+        .select('playback_id, playback_position, playback_state, hold_screen_mux_item_id, hold_screen_resume_playback_id, hold_screen_resume_position, hold_screen_resume_state')
+        .eq('id', 1)
+        .single();
+
+      if (currentError) {
+        console.error('Failed to load current stream for hold screen toggle:', currentError);
+        return NextResponse.json(
+          { error: 'Failed to toggle hold screen' },
+          { status: 500 }
+        );
+      }
+
       // If enabling, make sure we have a hold screen item set
       if (enabled) {
-        const { data: currentData } = await supabaseAdmin
-          .from('current_stream')
-          .select('hold_screen_mux_item_id')
-          .eq('id', 1)
-          .single();
-
         if (!currentData?.hold_screen_mux_item_id) {
           return NextResponse.json(
             { error: 'No hold screen item configured. Set one first.' },
@@ -146,17 +154,36 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const updatePayload: any = {
+        hold_screen_enabled: enabled,
+      };
+
+      if (enabled) {
+        updatePayload.playback_state = 'paused';
+        updatePayload.playback_position = 0;
+        updatePayload.playback_updated_at = new Date().toISOString();
+        updatePayload.playback_elapsed_ms = 0;
+        updatePayload.hold_screen_resume_playback_id = currentData?.playback_id || null;
+        updatePayload.hold_screen_resume_position = currentData?.playback_position ?? 0;
+        updatePayload.hold_screen_resume_state = currentData?.playback_state || 'paused';
+      } else {
+        const resumePlaybackId = currentData?.hold_screen_resume_playback_id || currentData?.playback_id;
+        const resumePosition = currentData?.hold_screen_resume_position ?? 0;
+        const resumeState = currentData?.hold_screen_resume_state || 'playing';
+
+        updatePayload.playback_id = resumePlaybackId;
+        updatePayload.playback_position = resumePosition;
+        updatePayload.playback_state = resumeState;
+        updatePayload.playback_updated_at = new Date().toISOString();
+        updatePayload.playback_elapsed_ms = 0;
+        updatePayload.hold_screen_resume_playback_id = null;
+        updatePayload.hold_screen_resume_position = null;
+        updatePayload.hold_screen_resume_state = null;
+      }
+
       const { data, error } = await supabaseAdmin
         .from('current_stream')
-        .update({
-          hold_screen_enabled: enabled,
-          // When enabling hold screen, reset playback state
-          ...(enabled && {
-            playback_state: 'paused',
-            playback_position: 0,
-            playback_updated_at: new Date().toISOString(),
-          }),
-        })
+        .update(updatePayload)
         .eq('id', 1)
         .select()
         .single();
