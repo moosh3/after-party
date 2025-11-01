@@ -76,3 +76,88 @@ export async function listMuxAssets() {
   return assets;
 }
 
+export interface SubtitleTrackOptions {
+  url: string;              // Public URL to the .srt file
+  languageCode?: string;    // ISO 639-1 language code (e.g., 'en', 'es', 'fr')
+  name?: string;            // Display name (e.g., 'English', 'Spanish')
+  closedCaptions?: boolean; // Whether this is closed captions (default: false)
+}
+
+/**
+ * Add a subtitle/caption track to a Mux VOD asset
+ * 
+ * @param assetId - The Mux asset ID (e.g., 'xAuUQlV5XNVAA02eLuzqoeSBWtA026GWIqsjQGFKs7XDs')
+ * @param options - Subtitle track configuration
+ * @returns The created track object
+ * 
+ * @example
+ * ```typescript
+ * await addSubtitleTrack('asset-id', {
+ *   url: 'https://example.com/subtitles/english.srt',
+ *   languageCode: 'en',
+ *   name: 'English',
+ *   closedCaptions: true
+ * });
+ * ```
+ */
+export async function addSubtitleTrack(
+  assetId: string,
+  options: SubtitleTrackOptions
+) {
+  const {
+    url,
+    languageCode = 'en',
+    name = 'English',
+    closedCaptions = false,
+  } = options;
+
+  try {
+    const track = await mux.video.assets.createTrack(assetId, {
+      url,
+      type: 'text',
+      text_type: 'subtitles',
+      language_code: languageCode,
+      name,
+      closed_captions: closedCaptions,
+    });
+
+    console.log(`✅ Added subtitle track "${name}" to asset ${assetId}`);
+    return track;
+  } catch (error) {
+    console.error(`❌ Failed to add subtitle track to asset ${assetId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a subtitle track from a Mux VOD asset
+ * 
+ * @param assetId - The Mux asset ID
+ * @param trackId - The track ID to delete
+ */
+export async function deleteSubtitleTrack(assetId: string, trackId: string) {
+  try {
+    await mux.video.assets.deleteTrack(assetId, trackId);
+    console.log(`✅ Deleted subtitle track ${trackId} from asset ${assetId}`);
+  } catch (error) {
+    console.error(`❌ Failed to delete subtitle track ${trackId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * List all tracks (including subtitles) for a Mux VOD asset
+ * 
+ * @param assetId - The Mux asset ID
+ * @returns Array of tracks
+ */
+export async function listAssetTracks(assetId: string) {
+  try {
+    const asset = await mux.video.assets.retrieve(assetId);
+    return asset.tracks || [];
+  } catch (error) {
+    console.error(`❌ Failed to list tracks for asset ${assetId}:`, error);
+    throw error;
+  }
+}
+
