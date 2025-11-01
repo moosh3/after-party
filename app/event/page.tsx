@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import VideoPlayer from '@/components/VideoPlayer';
 import Chat from '@/components/Chat';
@@ -34,15 +34,19 @@ export default function EventPage() {
   // Token refresh hook
   useTokenRefresh(streamData, setStreamData);
 
-  // Stream updates hook
-  const updatedStream = useStreamUpdates(
-    streamData ? {
+  // Memoize stream updates input to prevent recreating object on every render
+  const streamUpdateInput = useMemo(() => {
+    if (!streamData) return null;
+    return {
       playbackId: streamData.playbackId,
       title: streamData.title,
       kind: streamData.kind,
-      updatedAt: new Date().toISOString(),
-    } : null
-  );
+      updatedAt: streamData.expiresAt || new Date().toISOString(),
+    };
+  }, [streamData?.playbackId, streamData?.title, streamData?.kind]);
+
+  // Stream updates hook
+  const updatedStream = useStreamUpdates(streamUpdateInput);
 
   // Handle stream updates
   useEffect(() => {

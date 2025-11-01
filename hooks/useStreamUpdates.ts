@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface StreamUpdate {
@@ -13,6 +13,7 @@ interface StreamUpdate {
 export function useStreamUpdates(initialData: StreamUpdate | null) {
   const [streamData, setStreamData] = useState(initialData);
   const [usePolling, setUsePolling] = useState(false);
+  const hasSubscribedRef = useRef(false);
 
   // Polling mechanism (fallback)
   const poll = useCallback(async () => {
@@ -32,8 +33,19 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
     }
   }, []);
 
+  // Update local state when initialData changes (only before subscription)
   useEffect(() => {
-    if (!initialData) return;
+    if (initialData) {
+      setStreamData(initialData);
+    }
+  }, [initialData?.playbackId]); // Only depend on playbackId, not the whole object
+
+  // Subscribe once when data is available
+  useEffect(() => {
+    // Don't subscribe if we already have, or if no data yet
+    if (hasSubscribedRef.current || !initialData) return;
+
+    hasSubscribedRef.current = true;
 
     // Try Supabase Realtime first
     const channel = supabase
@@ -69,8 +81,9 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
 
     return () => {
       supabase.removeChannel(channel);
+      hasSubscribedRef.current = false;
     };
-  }, [initialData]);
+  }, [initialData?.playbackId]); // Only re-subscribe if playbackId changes (actual stream change)
 
   // Polling interval
   useEffect(() => {
