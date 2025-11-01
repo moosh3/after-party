@@ -136,7 +136,8 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
 
   // Synchronized playback effect - subscribe to admin's playback control
   useEffect(() => {
-    if (!playerRef.current) return;
+    // Admins don't need to sync - they ARE the source of truth
+    if (isAdmin || !playerRef.current) return;
 
     const video = playerRef.current;
 
@@ -150,35 +151,6 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
       if (!video || isSyncing) return;
       
       const updateTimestamp = new Date(updatedAt).getTime();
-      
-      // ISSUE #5: Protect against stale updates
-      // If this update is older than our last local update (for admins), ignore it
-      if (isAdmin && updateTimestamp <= lastLocalUpdateRef.current) {
-        console.log('Ignoring stale update (older than last local action)');
-        return;
-      }
-      
-      // IMPROVED: Check if this is an echo of our own action
-      if (isAdmin) {
-        const matchingAction = Array.from(pendingActionsRef.current.entries())
-          .find(([id, ts]) => {
-            const [actionType] = id.split('-');
-            return actionType === state && Math.abs(updateTimestamp - ts) < 2000;
-          });
-        
-        if (matchingAction) {
-          console.log('Ignoring echo of local admin action:', matchingAction[0]);
-          pendingActionsRef.current.delete(matchingAction[0]);
-          return;
-        }
-      }
-      
-      // Cleanup old pending actions (older than 5 seconds)
-      for (const [id, ts] of pendingActionsRef.current.entries()) {
-        if (Date.now() - ts > 5000) {
-          pendingActionsRef.current.delete(id);
-        }
-      }
       
       setIsSyncing(true);
 
@@ -197,22 +169,19 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
           }
         }
 
-        // For non-admin users, sync position to keep everyone in sync
-        // For admin users, skip position sync to allow manual control
-        if (!isAdmin) {
-          const currentTime = video.currentTime;
-          const timeDiff = Math.abs(currentTime - targetPosition);
-          
-          // Use adaptive threshold based on whether video is playing
-          const syncThreshold = state === 'playing' ? 3 : 1;
-          
-          if (timeDiff > syncThreshold) {
-            console.log(`Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
-            video.currentTime = targetPosition;
-          }
+        // Sync position to keep everyone in sync
+        const currentTime = video.currentTime;
+        const timeDiff = Math.abs(currentTime - targetPosition);
+        
+        // Use adaptive threshold based on whether video is playing
+        const syncThreshold = state === 'playing' ? 3 : 1;
+        
+        if (timeDiff > syncThreshold) {
+          console.log(`Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
+          video.currentTime = targetPosition;
         }
 
-        // Sync play/pause state for both admin and viewers
+        // Sync play/pause state
         if (state === 'playing' && video.paused) {
           try {
             await video.play();
@@ -310,11 +279,8 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
     return () => {
       supabase.removeChannel(channel);
       clearInterval(syncInterval);
-      if (adminUpdateDebounceRef.current) {
-        clearTimeout(adminUpdateDebounceRef.current);
-      }
     };
-  }, [playbackId, isAdmin, isSyncing, realtimeHealth]);
+  }, [playbackId, isSyncing, realtimeHealth, isAdmin]);
 
   // ISSUE #6: Handle page visibility to prevent drift when tab is backgrounded
   useEffect(() => {
