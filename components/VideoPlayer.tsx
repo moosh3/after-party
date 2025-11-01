@@ -494,14 +494,6 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         </div>
       )}
       
-      {/* Sync Mode Indicator for Viewers */}
-      {!isAdmin && realtimeHealth === 'healthy' && (
-        <div className="absolute top-4 left-4 bg-green-600/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
-          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-          <span>Synced</span>
-        </div>
-      )}
-      
       {/* Admin Mode Indicator */}
       {isAdmin && autoAdvanceEnabled && !isHoldScreen && (
         <div className="absolute top-4 left-4 bg-success/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
