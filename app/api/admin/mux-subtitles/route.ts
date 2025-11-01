@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addSubtitleTrack, deleteSubtitleTrack, listAssetTracks } from '@/lib/mux';
-import { verifyAdminAuth } from '@/lib/middleware';
+import { getSession } from '@/lib/session';
 
 /**
  * GET /api/admin/mux-subtitles?assetId=<asset-id>
  * List all subtitle tracks for a Mux asset
  */
 export async function GET(request: NextRequest) {
+  const session = await getSession();
+  
+  if (!session || session.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    // Verify admin authentication
-    const authResult = await verifyAdminAuth(request);
-    if (!authResult.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const assetId = searchParams.get('assetId');
@@ -55,12 +56,13 @@ export async function GET(request: NextRequest) {
  * }
  */
 export async function POST(request: NextRequest) {
+  const session = await getSession();
+  
+  if (!session || session.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    // Verify admin authentication
-    const authResult = await verifyAdminAuth(request);
-    if (!authResult.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const body = await request.json();
     const { assetId, url, languageCode = 'en', name = 'English', closedCaptions = true } = body;
@@ -114,12 +116,13 @@ export async function POST(request: NextRequest) {
  * Delete a subtitle track from a Mux asset
  */
 export async function DELETE(request: NextRequest) {
+  const session = await getSession();
+  
+  if (!session || session.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    // Verify admin authentication
-    const authResult = await verifyAdminAuth(request);
-    if (!authResult.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const assetId = searchParams.get('assetId');
