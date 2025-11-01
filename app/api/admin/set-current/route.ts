@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
         playback_state: 'paused',
         playback_position: 0,
         playback_updated_at: new Date().toISOString(),
+        // Disable hold screen when manually setting a new video
+        hold_screen_enabled: false,
       })
       .eq('id', 1)
       .select()

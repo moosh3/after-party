@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import StreamControl from '@/components/admin/StreamControl';
 import VideoPlayer from '@/components/VideoPlayer';
 import QueueManager from '@/components/admin/QueueManager';
+import { supabase } from '@/lib/supabase';
 
 interface StreamData {
   playbackId: string;
   token: string;
   title: string;
   kind: string;
+  isHoldScreen?: boolean;
 }
 
 export default function AdminDashboard() {
@@ -59,6 +61,43 @@ export default function AdminDashboard() {
 
     return () => clearInterval(interval);
   }, [router]);
+
+  // Subscribe to hold screen changes to reload immediately
+  useEffect(() => {
+    const channel = supabase.channel('admin-hold-screen-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'current_stream',
+          filter: 'id=eq.1',
+        },
+        (payload: any) => {
+          const newData = payload.new;
+          const oldData = payload.old;
+          
+          // Reload stream data when hold screen changes
+          if (newData.hold_screen_enabled !== oldData.hold_screen_enabled ||
+              newData.playback_id !== oldData.playback_id) {
+            console.log('Stream changed, reloading...');
+            fetch('/api/current')
+              .then(res => res.json())
+              .then(data => {
+                setStreamData(data);
+              })
+              .catch(err => {
+                console.error('Failed to reload stream:', err);
+              });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   async function handleTogglePoster() {
     setPosterLoading(true);
@@ -175,6 +214,7 @@ export default function AdminDashboard() {
                   token={streamData.token}
                   title={streamData.title}
                   isAdmin={true}
+                  isHoldScreen={streamData.isHoldScreen}
                 />
               ) : (
                 <div className="aspect-video bg-twitch-darker flex items-center justify-center rounded">

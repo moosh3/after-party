@@ -61,6 +61,9 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
         (payload) => {
           console.log('Stream updated via Realtime:', payload);
           const newData = payload.new as any;
+          
+          // Always update the stream data - parent component will handle reloading
+          // by using playbackId as the key prop on VideoPlayer
           setStreamData({
             playbackId: newData.playback_id,
             title: newData.title,

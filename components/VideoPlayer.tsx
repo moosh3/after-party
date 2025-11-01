@@ -11,9 +11,10 @@ interface VideoPlayerProps {
   token: string;
   title: string;
   isAdmin?: boolean; // Allow admin to control playback manually
+  isHoldScreen?: boolean; // Loop playback for hold screens
 }
 
-export default function VideoPlayer({ playbackId, token, title, isAdmin = false }: VideoPlayerProps) {
+export default function VideoPlayer({ playbackId, token, title, isAdmin = false, isHoldScreen = false }: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -78,6 +79,12 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         return;
       }
 
+      // Don't auto-advance when hold screen is active (it should loop indefinitely)
+      if (isHoldScreen) {
+        console.log('Hold screen is active, skipping auto-advance');
+        return;
+      }
+
       // ISSUE #2: Prevent concurrent auto-advance operations
       if (autoAdvanceInProgressRef.current) {
         console.log('Auto-advance already in progress, skipping...');
@@ -117,7 +124,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
     return () => {
       player.removeEventListener('ended', handleVideoEnded);
     };
-  }, [isAdmin, autoAdvanceEnabled]);
+  }, [isAdmin, autoAdvanceEnabled, isHoldScreen]);
 
   // Development mode check
   useEffect(() => {
@@ -471,6 +478,8 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
         onPlay={isAdmin ? handlePlay : undefined}
         onPause={isAdmin ? handlePause : undefined}
         onSeeked={isAdmin ? handleSeek : undefined}
+        loop={isHoldScreen}
+        autoPlay={isHoldScreen}
         // Only disable controls for viewers if you want admin-only control
         // Leave commented to allow viewers to control their own playback
         // disabled={!isAdmin}
@@ -494,10 +503,18 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false 
       )}
       
       {/* Admin Mode Indicator */}
-      {isAdmin && autoAdvanceEnabled && (
+      {isAdmin && autoAdvanceEnabled && !isHoldScreen && (
         <div className="absolute top-4 left-4 bg-success/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
           <span>▶</span>
           <span>Auto-Advance Enabled</span>
+        </div>
+      )}
+      
+      {/* Hold Screen Indicator */}
+      {isHoldScreen && (
+        <div className="absolute top-4 left-4 bg-yellow-600/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
+          <span>🔁</span>
+          <span>Hold Screen (Looping)</span>
         </div>
       )}
     </div>

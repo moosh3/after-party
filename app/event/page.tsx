@@ -19,6 +19,7 @@ interface StreamData {
   title: string;
   kind: string;
   showPoster?: boolean;
+  isHoldScreen?: boolean;
 }
 
 export default function EventPage() {
@@ -67,6 +68,45 @@ export default function EventPage() {
         });
     }
   }, [updatedStream, streamData]);
+
+  // Subscribe to hold screen changes specifically
+  useEffect(() => {
+    const channel = supabase
+      .channel('hold-screen-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'current_stream',
+          filter: 'id=eq.1',
+        },
+        (payload: any) => {
+          const newData = payload.new;
+          const oldData = payload.old;
+          
+          // Check if hold_screen_enabled changed
+          if (newData.hold_screen_enabled !== oldData.hold_screen_enabled) {
+            console.log('Hold screen toggled, refetching stream data...');
+            fetch('/api/current')
+              .then(res => res.json())
+              .then(data => {
+                setStreamData(data);
+              })
+              .catch(err => {
+                console.error('Failed to fetch updated stream:', err);
+              });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Hold screen subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Check poster mode and viewer registration
   useEffect(() => {
@@ -300,6 +340,7 @@ export default function EventPage() {
               playbackId={streamData.playbackId}
               token={streamData.token}
               title={streamData.title}
+              isHoldScreen={streamData.isHoldScreen}
             />
           </div>
           
@@ -364,7 +405,7 @@ export default function EventPage() {
                         WebkitTextStroke: '1px #0891b2'
                       }}
                     >
-                      REGISTRY & RAFFLE
+                      REGISTRY + RAFFLE
                     </div>
                   </div>
                 </a>

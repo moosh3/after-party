@@ -30,15 +30,19 @@ export default function QueueManager() {
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [holdScreenEnabled, setHoldScreenEnabled] = useState(false);
+  const [holdScreenMuxItemId, setHoldScreenMuxItemId] = useState<string | null>(null);
 
   useEffect(() => {
     loadQueue();
     loadMuxItems();
     loadAutoAdvanceStatus();
+    loadHoldScreenStatus();
 
     // Refresh periodically
     const interval = setInterval(() => {
       loadQueue();
+      loadHoldScreenStatus();
     }, 5000);
 
     return () => clearInterval(interval);
@@ -77,6 +81,19 @@ export default function QueueManager() {
       }
     } catch (error) {
       console.error('Failed to load auto-advance status:', error);
+    }
+  }
+
+  async function loadHoldScreenStatus() {
+    try {
+      const response = await fetch('/api/admin/hold-screen');
+      if (response.ok) {
+        const data = await response.json();
+        setHoldScreenEnabled(data.hold_screen_enabled || false);
+        setHoldScreenMuxItemId(data.hold_screen_mux_item_id || null);
+      }
+    } catch (error) {
+      console.error('Failed to load hold screen status:', error);
     }
   }
 
@@ -261,6 +278,74 @@ export default function QueueManager() {
     return queue.some(item => item.mux_item_id === muxItemId);
   };
 
+  async function handleSetHoldScreen(muxItemId: string, label: string) {
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/admin/hold-screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'set_item',
+          muxItemId 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: `Hold screen set to "${label}"` });
+        setHoldScreenMuxItemId(muxItemId);
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to set hold screen' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  }
+
+  async function handleToggleHoldScreen() {
+    if (!holdScreenMuxItemId && !holdScreenEnabled) {
+      setMessage({ type: 'error', text: 'Please select a hold screen video first' });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/admin/hold-screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: holdScreenEnabled ? 'disable' : 'enable'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setHoldScreenEnabled(data.hold_screen_enabled);
+        setMessage({ 
+          type: 'success', 
+          text: `Hold screen ${data.hold_screen_enabled ? 'enabled' : 'disabled'}` 
+        });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to toggle hold screen' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="twitch-card p-4 border-t-4 border-twitch-purple">
@@ -309,6 +394,42 @@ export default function QueueManager() {
               />
             </button>
           </div>
+        </div>
+
+        {/* Hold Screen Toggle */}
+        <div className="bg-twitch-darker border border-twitch-border rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-medium text-twitch-text">Hold Screen</p>
+              <p className="text-xs text-twitch-text-alt">
+                Display a looping video when queue is idle
+              </p>
+            </div>
+            <button
+              onClick={handleToggleHoldScreen}
+              disabled={loading || !holdScreenMuxItemId}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                holdScreenEnabled ? 'bg-success' : 'bg-twitch-gray'
+              } ${!holdScreenMuxItemId ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  holdScreenEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          {holdScreenMuxItemId && (
+            <div className="text-xs text-twitch-text-alt bg-twitch-dark px-2 py-1 rounded">
+              <span className="font-medium text-twitch-text">Selected: </span>
+              {muxItems.find(item => item.id === holdScreenMuxItemId)?.label || 'Unknown'}
+            </div>
+          )}
+          {!holdScreenMuxItemId && (
+            <div className="text-xs text-yellow-500">
+              ⚠️ Select a video from the library below
+            </div>
+          )}
         </div>
 
         {/* Manual Next Button */}
@@ -416,30 +537,43 @@ export default function QueueManager() {
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {muxItems.map((item) => (
                 <div key={item.id} className="bg-twitch-darker border border-twitch-border rounded p-3">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-twitch-text truncate">
-                        {item.label}
-                      </p>
-                      <p className="text-xs text-twitch-text-alt font-mono truncate">
-                        {item.playback_id}
-                      </p>
-                      {item.duration_seconds && (
-                        <p className="text-xs text-twitch-text-alt mt-1">
-                          {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-twitch-text truncate">
+                          {item.label}
                         </p>
-                      )}
+                        <p className="text-xs text-twitch-text-alt font-mono truncate">
+                          {item.playback_id}
+                        </p>
+                        {item.duration_seconds && (
+                          <p className="text-xs text-twitch-text-alt mt-1">
+                            {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleAddToQueue(item.id, item.label)}
+                        disabled={loading || isInQueue(item.id)}
+                        className={`w-full sm:w-auto px-4 py-2 rounded text-sm font-medium transition-colors min-h-[44px] ${
+                          isInQueue(item.id)
+                            ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
+                            : 'bg-twitch-purple hover:bg-purple-600 text-white'
+                        }`}
+                      >
+                        {isInQueue(item.id) ? 'In Queue' : 'Add to Queue'}
+                      </button>
                     </div>
                     <button
-                      onClick={() => handleAddToQueue(item.id, item.label)}
-                      disabled={loading || isInQueue(item.id)}
-                      className={`w-full sm:w-auto px-4 py-2 rounded text-sm font-medium transition-colors min-h-[44px] ${
-                        isInQueue(item.id)
-                          ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
-                          : 'bg-twitch-purple hover:bg-purple-600 text-white'
+                      onClick={() => handleSetHoldScreen(item.id, item.label)}
+                      disabled={loading}
+                      className={`w-full px-3 py-2 rounded text-xs font-medium transition-colors min-h-[44px] ${
+                        holdScreenMuxItemId === item.id
+                          ? 'bg-success/20 text-success border border-success'
+                          : 'bg-twitch-gray hover:bg-twitch-hover text-twitch-text'
                       }`}
                     >
-                      {isInQueue(item.id) ? 'In Queue' : 'Add to Queue'}
+                      {holdScreenMuxItemId === item.id ? '✓ Set as Hold Screen' : 'Set as Hold Screen'}
                     </button>
                   </div>
                 </div>

@@ -12,10 +12,18 @@ export async function GET(request: NextRequest) {
   // For now, we'll allow access if the request comes from a browser context
   
   try {
-    // Get current stream from database (including poster mode flag)
+    // Get current stream from database (including poster mode and hold screen flags)
     const { data, error } = await supabaseAdmin
       .from('current_stream')
-      .select('*')
+      .select(`
+        *,
+        hold_screen_mux_item:hold_screen_mux_item_id (
+          id,
+          playback_id,
+          label,
+          kind
+        )
+      `)
       .eq('id', 1)
       .single();
 
@@ -37,6 +45,7 @@ export async function GET(request: NextRequest) {
           token: mockToken,
           expiresAt,
           showPoster: false,
+          isHoldScreen: false,
         }, {
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -50,19 +59,46 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if hold screen is enabled
+    let isHoldScreen = data.hold_screen_enabled && data.hold_screen_mux_item_id;
+    
+    // If hold screen is enabled, use hold screen data instead
+    let playbackId = data.playback_id;
+    let title = data.title;
+    let kind = data.kind;
+    
+    if (isHoldScreen && data.hold_screen_mux_item) {
+      const holdScreenItem = Array.isArray(data.hold_screen_mux_item) 
+        ? data.hold_screen_mux_item[0] 
+        : data.hold_screen_mux_item;
+      
+      if (holdScreenItem) {
+        playbackId = holdScreenItem.playback_id;
+        title = holdScreenItem.label;
+        kind = holdScreenItem.kind || 'vod';
+      } else {
+        // Hold screen was enabled but mux_item data is missing - fall back to regular stream
+        isHoldScreen = false;
+      }
+    } else if (isHoldScreen) {
+      // Hold screen was enabled but mux_item relation is null - fall back to regular stream
+      isHoldScreen = false;
+    }
+
     // Generate playback token (or use unsigned if credentials not configured)
-    const token = await generatePlaybackToken(data.playback_id);
+    const token = await generatePlaybackToken(playbackId);
 
     // Calculate expiry time (1 hour from now)
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     return NextResponse.json({
-      playbackId: data.playback_id,
-      title: data.title,
-      kind: data.kind,
+      playbackId,
+      title,
+      kind,
       token,
       expiresAt,
       showPoster: data.show_poster || false,
+      isHoldScreen: isHoldScreen || false,
     }, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
