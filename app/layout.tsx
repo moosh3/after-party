@@ -12,14 +12,14 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Da Movies',
     description: "Alec and Mary Kate's Movie Marathon",
-    images: ['/assets/images/banner.jpeg'],
+    images: ['/assets/images/title-card.jpeg'],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Da Movies',
     description: "Alec and Mary Kate's Movie Marathon",
-    images: ['/assets/images/banner.jpeg'],
+    images: ['/assets/images/title-card.jpeg'],
   },
 }
 
