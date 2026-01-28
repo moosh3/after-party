@@ -387,6 +387,18 @@ export default function EventPage() {
                     </div>
                   </div>
                 </a>
+                <a 
+                  href="https://www.youtube.com/playlist?list=PL4BrNFx1j7E5qDxSPIkeXgBqX0J7WaB2a" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
+                >
+                  <div className="bg-casual-violet hover:bg-violet-400 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-purple border border-white/20">
+                    <div className="text-base md:text-lg font-bold text-white uppercase tracking-wide">
+                      Listen to Movies
+                    </div>
+                  </div>
+                </a>
               </div>
             </div>
 
