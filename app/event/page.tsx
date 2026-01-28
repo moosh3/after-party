@@ -360,9 +360,9 @@ export default function EventPage() {
           
           {/* Scrollable content below video */}
           <div className="flex-1 overflow-y-auto">
-            {/* Watch TV Link */}
+            {/* Watch Links */}
             <div className="bg-white/10 backdrop-blur-sm border-t border-white/20 px-4 py-3">
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-4">
                 <a 
                   href="https://www.youtube.com/watch?v=afEFyCvqoOo" 
                   target="_blank" 
@@ -372,6 +372,18 @@ export default function EventPage() {
                   <div className="bg-casual-yellow hover:bg-yellow-300 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-yellow border border-white/20">
                     <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
                       Watch TV
+                    </div>
+                  </div>
+                </a>
+                <a 
+                  href="https://www.youtube.com/playlist?list=PLCTN7_fUxVIFGeRviaXYP6TG1KzT-z8W4" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
+                >
+                  <div className="bg-casual-pink hover:bg-pink-400 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-purple border border-white/20">
+                    <div className="text-base md:text-lg font-bold text-white uppercase tracking-wide">
+                      Watch Music
                     </div>
                   </div>
                 </a>
