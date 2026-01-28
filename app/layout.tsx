@@ -2,24 +2,24 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'After Party',
-  description: "Alec and Mary Kate's After Party",
+  title: 'Da Movies',
+  description: "Alec and Mary Kate's Movie Marathon",
   icons: {
     icon: '/assets/logos/alecmklogo.png',
     shortcut: '/assets/logos/alecmklogo.png',
     apple: '/assets/logos/alecmklogo.png',
   },
   openGraph: {
-    title: 'After Party',
-    description: "Alec and Mary Kate's After Party",
-    images: ['/assets/images/event-poster.png'],
+    title: 'Da Movies',
+    description: "Alec and Mary Kate's Movie Marathon",
+    images: ['/assets/images/banner.jpeg'],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'After Party',
-    description: "Alec and Mary Kate's After Party",
-    images: ['/assets/images/event-poster.png'],
+    title: 'Da Movies',
+    description: "Alec and Mary Kate's Movie Marathon",
+    images: ['/assets/images/banner.jpeg'],
   },
 }
 

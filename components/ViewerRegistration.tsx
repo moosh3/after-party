@@ -58,7 +58,7 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
       <div className="text-center mb-6">
         <img 
           src="/assets/logos/alecmklogo.png" 
-          alt="After Party Logo" 
+          alt="Da Movies Logo" 
           className="h-16 w-16 rounded-full object-cover mx-auto mb-4 ring-4 ring-casual-yellow"
         />
         <h2 className="text-3xl font-bold text-white mb-2">Join the Movie Marathon!</h2>

@@ -203,7 +203,7 @@ export default function EventPage() {
         <div className="text-center">
           <img 
             src="/assets/logos/alecmklogo.png" 
-            alt="After Party Logo" 
+            alt="Da Movies Logo" 
             className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
           />
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-yellow mx-auto mb-4"></div>
@@ -284,7 +284,7 @@ export default function EventPage() {
         <div className="text-center">
           <img 
             src="/assets/logos/alecmklogo.png" 
-            alt="After Party Logo" 
+            alt="Da Movies Logo" 
             className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
           />
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-yellow mx-auto mb-4"></div>
@@ -335,7 +335,7 @@ export default function EventPage() {
           />
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-white">{streamData.title}</h2>
-            <p className="text-sm text-white/70">After Party Movie Marathon</p>
+            <p className="text-sm text-white/70">Da Movies - Movie Marathon</p>
           </div>
           <h2 className="text-lg md:text-xl text-casual-yellow font-bold hidden md:block">
             Welcome to the Movie Marathon!
