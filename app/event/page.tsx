@@ -360,58 +360,18 @@ export default function EventPage() {
           
           {/* Scrollable content below video */}
           <div className="flex-1 overflow-y-auto">
-            {/* Welcome Message & Links */}
+            {/* Watch TV Link */}
             <div className="bg-white/10 backdrop-blur-sm border-t border-white/20 px-4 py-3">
-              {/* Styled Links */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="flex justify-center">
                 <a 
-                  href="https://alecandmk.wedding/online" 
+                  href="https://www.youtube.com/watch?v=afEFyCvqoOo" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-casual-blue/80 hover:bg-casual-blue rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-casual-lg border border-white/20">
-                    <div className="text-sm md:text-base font-bold text-white uppercase tracking-wide">
-                      Schedule
-                    </div>
-                  </div>
-                </a>
-                
-                <a 
-                  href="https://ableensemble.com/support/donate/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
-                >
-                  <div className="bg-casual-pink/80 hover:bg-casual-pink rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-casual-lg border border-white/20">
-                    <div className="text-sm md:text-base font-bold text-white uppercase tracking-wide">
-                      Donate
-                    </div>
-                  </div>
-                </a>
-                
-                <a 
-                  href="https://alecandmk.wedding/registry" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
-                >
-                  <div className="bg-casual-violet/80 hover:bg-casual-violet rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-casual-lg border border-white/20">
-                    <div className="text-sm md:text-base font-bold text-white uppercase tracking-wide">
-                      Registry
-                    </div>
-                  </div>
-                </a>
-                
-                <a 
-                  href="https://photos.app.goo.gl/DfEdTvAxxvLwrXdF8" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
-                >
-                  <div className="bg-casual-yellow/80 hover:bg-casual-yellow rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-yellow border border-white/20">
-                    <div className="text-sm md:text-base font-bold text-casual-dark uppercase tracking-wide">
-                      Photos
+                  <div className="bg-casual-yellow hover:bg-yellow-300 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-yellow border border-white/20">
+                    <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
+                      Watch TV
                     </div>
                   </div>
                 </a>
