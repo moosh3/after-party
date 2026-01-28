@@ -5,9 +5,9 @@ export const metadata: Metadata = {
   title: 'Da Movies',
   description: "Alec and Mary Kate's Movie Marathon",
   icons: {
-    icon: '/assets/logos/alecmklogo.png',
-    shortcut: '/assets/logos/alecmklogo.png',
-    apple: '/assets/logos/alecmklogo.png',
+    icon: '/assets/logos/icon.jpg',
+    shortcut: '/assets/logos/icon.jpg',
+    apple: '/assets/logos/icon.jpg',
   },
   openGraph: {
     title: 'Da Movies',

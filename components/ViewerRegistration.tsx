@@ -57,7 +57,7 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
     <div className="twitch-card p-8 w-full max-w-md">
       <div className="text-center mb-6">
         <img 
-          src="/assets/logos/alecmklogo.png" 
+          src="/assets/logos/icon.jpg" 
           alt="Da Movies Logo" 
           className="h-16 w-16 rounded-full object-cover mx-auto mb-4 ring-4 ring-casual-yellow"
         />

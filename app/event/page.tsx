@@ -202,7 +202,7 @@ export default function EventPage() {
       >
         <div className="text-center">
           <img 
-            src="/assets/logos/alecmklogo.png" 
+            src="/assets/logos/icon.jpg" 
             alt="Da Movies Logo" 
             className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
           />
@@ -283,7 +283,7 @@ export default function EventPage() {
       >
         <div className="text-center">
           <img 
-            src="/assets/logos/alecmklogo.png" 
+            src="/assets/logos/icon.jpg" 
             alt="Da Movies Logo" 
             className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
           />
@@ -329,7 +329,7 @@ export default function EventPage() {
       <div className="flex-shrink-0 bg-white/10 backdrop-blur-md border-b border-white/20 px-4 py-3">
         <div className="flex items-center gap-3">
           <img 
-            src="/assets/logos/alecmklogo.png" 
+            src="/assets/logos/icon.jpg" 
             alt="Channel Avatar" 
             className="h-12 w-12 rounded-full object-cover ring-2 ring-casual-yellow"
           />
