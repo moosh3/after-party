@@ -84,7 +84,7 @@ export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-twitch-purple"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-casual-yellow"></div>
       </div>
     );
   }
@@ -92,7 +92,7 @@ export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
   if (polls.length === 0) {
     return (
       <div className="text-center p-8">
-        <p className="text-twitch-text-alt text-sm">No polls yet. Check back later!</p>
+        <p className="text-white/70 text-sm">No polls yet. Check back later!</p>
       </div>
     );
   }
@@ -100,41 +100,41 @@ export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
   return (
     <div className="space-y-4">
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-twitch-border">
+      <div className="flex gap-2 border-b border-white/20">
         <button
           onClick={() => setActiveTab('active')}
           className={`px-4 py-2 font-semibold text-sm transition-colors relative ${
             activeTab === 'active'
-              ? 'text-twitch-purple'
-              : 'text-twitch-text-alt hover:text-twitch-text'
+              ? 'text-casual-yellow'
+              : 'text-white/60 hover:text-white'
           }`}
         >
           Active Polls
           {activePolls.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-twitch-purple text-white">
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-casual-yellow text-casual-dark font-bold">
               {activePolls.length}
             </span>
           )}
           {activeTab === 'active' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-twitch-purple"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-casual-yellow"></div>
           )}
         </button>
         <button
           onClick={() => setActiveTab('closed')}
           className={`px-4 py-2 font-semibold text-sm transition-colors relative ${
             activeTab === 'closed'
-              ? 'text-twitch-purple'
-              : 'text-twitch-text-alt hover:text-twitch-text'
+              ? 'text-casual-yellow'
+              : 'text-white/60 hover:text-white'
           }`}
         >
           Past Results
           {closedPolls.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-twitch-gray text-twitch-text-alt">
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-white/20 text-white/80">
               {closedPolls.length}
             </span>
           )}
           {activeTab === 'closed' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-twitch-purple"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-casual-yellow"></div>
           )}
         </button>
       </div>
@@ -145,7 +145,7 @@ export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
           <>
             {activePolls.length === 0 ? (
               <div className="text-center p-8 twitch-card">
-                <p className="text-twitch-text-alt text-sm">No active polls right now.</p>
+                <p className="text-white/70 text-sm">No active polls right now.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
@@ -161,7 +161,7 @@ export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
           <>
             {closedPolls.length === 0 ? (
               <div className="text-center p-8 twitch-card">
-                <p className="text-twitch-text-alt text-sm">No past polls to show.</p>
+                <p className="text-white/70 text-sm">No past polls to show.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">

@@ -142,10 +142,10 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
     return (
       <div className="twitch-card p-4">
         <div className="animate-pulse">
-          <div className="h-4 bg-twitch-hover rounded w-3/4 mb-3"></div>
+          <div className="h-4 bg-white/20 rounded w-3/4 mb-3"></div>
           <div className="space-y-2">
-            <div className="h-10 bg-twitch-hover rounded"></div>
-            <div className="h-10 bg-twitch-hover rounded"></div>
+            <div className="h-10 bg-white/20 rounded-xl"></div>
+            <div className="h-10 bg-white/20 rounded-xl"></div>
           </div>
         </div>
       </div>
@@ -155,7 +155,7 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
   if (error || !poll) {
     return (
       <div className="twitch-card p-4">
-        <p className="text-error text-sm">{error || 'Poll not available'}</p>
+        <p className="text-red-400 text-sm">{error || 'Poll not available'}</p>
       </div>
     );
   }
@@ -166,18 +166,18 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
     poll.total_votes > 0 && winners.some((w) => w.id === option.id);
 
   return (
-    <div className={`twitch-card p-4 space-y-3 ${poll.is_open ? 'border border-twitch-purple' : 'border-2 border-success/50 bg-gradient-to-br from-twitch-dark to-twitch-darker'}`}>
+    <div className={`twitch-card p-4 space-y-3 ${poll.is_open ? 'border-2 border-casual-yellow/50' : 'border-2 border-emerald-400/50'}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`twitch-badge ${!poll.is_open && 'bg-success/20 text-success'}`}>
-              {poll.is_open ? 'Poll' : '🏆 Poll Closed'}
+            <span className={`twitch-badge ${!poll.is_open && 'bg-emerald-400/20 text-emerald-400'}`}>
+              {poll.is_open ? 'Vote Now' : 'Closed'}
             </span>
           </div>
-          <h3 className="text-sm font-semibold text-twitch-text">{poll.question}</h3>
+          <h3 className="text-sm font-semibold text-white">{poll.question}</h3>
           {!poll.is_open && poll.total_votes > 0 && (
-            <p className="text-xs text-success font-semibold mt-2">
+            <p className="text-xs text-emerald-400 font-semibold mt-2">
               Winner{winners.length > 1 ? 's' : ''}: {winners.map(w => w.label).join(', ')}
             </p>
           )}
@@ -195,52 +195,52 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
               key={option.id}
               onClick={() => handleVote(option.id)}
               disabled={!canVote}
-              className={`w-full text-left rounded p-3 transition-all ${
+              className={`w-full text-left rounded-xl p-3 transition-all ${
                 canVote
-                  ? 'hover:bg-twitch-hover cursor-pointer'
+                  ? 'hover:bg-white/20 cursor-pointer'
                   : 'cursor-default'
               } ${
                 isVoted
-                  ? 'ring-2 ring-twitch-purple bg-twitch-hover'
-                  : 'bg-twitch-darker'
+                  ? 'ring-2 ring-casual-yellow bg-casual-yellow/20'
+                  : 'bg-white/10'
               } ${
-                !poll.is_open && 'opacity-75'
+                !poll.is_open && 'opacity-80'
               }`}
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className={`text-sm font-medium truncate ${isWinner(option) && !poll.is_open ? 'text-success font-bold' : 'text-twitch-text'}`}>
+                  <span className={`text-sm font-medium truncate ${isWinner(option) && !poll.is_open ? 'text-emerald-400 font-bold' : 'text-white'}`}>
                     {option.label}
                   </span>
                   {isVoted && poll.is_open && (
-                    <span className="text-xs text-twitch-purple">✓</span>
+                    <span className="text-xs text-casual-yellow">Your vote</span>
                   )}
                   {isWinner(option) && poll.is_open && (
-                    <span className="text-xs font-semibold text-success flex-shrink-0">
-                      🏆 Leading
+                    <span className="text-xs font-semibold text-emerald-400 flex-shrink-0">
+                      Leading
                     </span>
                   )}
                   {isWinner(option) && !poll.is_open && (
-                    <span className="text-xs font-bold text-success flex-shrink-0 animate-pulse">
-                      🏆 WINNER
+                    <span className="text-xs font-bold text-emerald-400 flex-shrink-0 animate-pulse">
+                      WINNER
                     </span>
                   )}
                 </div>
-                <span className={`text-sm font-semibold flex-shrink-0 ${isWinner(option) && !poll.is_open ? 'text-success font-bold text-base' : 'text-twitch-text'}`}>
+                <span className={`text-sm font-semibold flex-shrink-0 ${isWinner(option) && !poll.is_open ? 'text-emerald-400 font-bold text-base' : 'text-white'}`}>
                   {option.percentage}%
                 </span>
               </div>
 
               {/* Vote bar */}
               {poll.total_votes > 0 && (
-                <div className="w-full bg-twitch-dark rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
                       isWinner(option) && !poll.is_open
-                        ? 'bg-gradient-to-r from-yellow-500 to-success'
+                        ? 'bg-gradient-to-r from-casual-yellow to-emerald-400'
                         : isWinner(option)
-                        ? 'bg-success'
-                        : 'bg-twitch-purple'
+                        ? 'bg-emerald-400'
+                        : 'bg-casual-blue'
                     }`}
                     style={{ width: `${option.percentage}%` }}
                   ></div>
@@ -248,7 +248,7 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
               )}
 
               {/* Vote count */}
-              <div className="mt-1 text-xs text-twitch-text-alt">
+              <div className="mt-1 text-xs text-white/60">
                 {option.vote_count || 0} {option.vote_count === 1 ? 'vote' : 'votes'}
               </div>
             </button>
@@ -257,24 +257,24 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-twitch-text-alt pt-2 border-t border-twitch-border">
+      <div className="flex items-center justify-between text-xs text-white/60 pt-2 border-t border-white/20">
         <span>
           {poll.total_votes} total {poll.total_votes === 1 ? 'vote' : 'votes'}
         </span>
         {poll.user_vote && poll.is_open && (
-          <span className="text-twitch-purple">
-            You voted • Click to change
+          <span className="text-casual-yellow">
+            You voted - Click to change
           </span>
         )}
         {!poll.is_open && (
-          <span className="text-twitch-text-alt">
+          <span className="text-white/50">
             Poll closed
           </span>
         )}
       </div>
 
       {error && (
-        <div className="text-xs text-error pt-2">
+        <div className="text-xs text-red-400 pt-2">
           {error}
         </div>
       )}

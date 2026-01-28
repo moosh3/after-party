@@ -7,56 +7,48 @@
   font-display: swap;
 }
 
-/* Scary Font */
-@font-face {
-  font-family: 'Scary';
-  src: url('/assets/fonts/scary.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-twitch-darker text-twitch-text antialiased;
-    background-color: #0e0e10;
+    @apply bg-casual-dark text-casual-light antialiased;
+    background: linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%);
+    min-height: 100vh;
   }
   
-  /* Twitch-style streaming theme */
+  /* Casual streaming theme */
   h1, h2, h3 {
     @apply font-semibold;
   }
 }
 
 @layer components {
-  /* Twitch-themed components */
+  /* Casual-themed components */
   .twitch-card {
-    @apply bg-twitch-gray rounded-md shadow-twitch;
+    @apply bg-white/10 backdrop-blur-md rounded-2xl shadow-casual border border-white/20;
   }
   
   .twitch-button {
-    @apply bg-twitch-purple text-white font-semibold px-4 py-2 rounded hover:bg-purple-600 transition-colors duration-200;
+    @apply bg-casual-yellow text-casual-dark font-bold px-6 py-3 rounded-xl hover:bg-yellow-300 transition-all duration-200 shadow-glow-yellow hover:shadow-lg hover:scale-105;
   }
   
   .twitch-button-secondary {
-    @apply bg-twitch-hover text-twitch-text font-semibold px-4 py-2 rounded hover:bg-twitch-border transition-colors duration-200;
+    @apply bg-white/20 text-white font-semibold px-4 py-2 rounded-xl hover:bg-white/30 transition-all duration-200 backdrop-blur-sm;
   }
   
   .twitch-badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-twitch-purple text-white;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-casual-yellow text-casual-dark;
   }
   
   .twitch-input {
-    @apply bg-twitch-hover border border-twitch-border rounded px-3 py-2 text-twitch-text placeholder-twitch-text-alt focus:border-twitch-purple focus:outline-none transition-colors min-h-[44px];
+    @apply bg-white/20 border-2 border-white/30 rounded-xl px-4 py-3 text-white placeholder-white/60 focus:border-casual-yellow focus:outline-none focus:ring-2 focus:ring-casual-yellow/30 transition-all min-h-[48px] backdrop-blur-sm;
   }
   
   /* Chat message styles */
   .chat-message {
-    @apply py-1 px-2 hover:bg-twitch-hover transition-colors duration-100;
+    @apply py-2 px-3 hover:bg-white/10 transition-colors duration-100 rounded-lg;
   }
   
   .chat-username {
@@ -64,7 +56,43 @@
   }
   
   .live-indicator {
-    @apply inline-flex items-center gap-1 px-2 py-1 bg-twitch-red text-white text-xs font-bold uppercase rounded;
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-red-500 text-white text-xs font-bold uppercase rounded-full animate-pulse;
+  }
+
+  /* Retro TV frame */
+  .tv-frame {
+    @apply relative rounded-3xl overflow-hidden;
+    background: linear-gradient(180deg, #9ca3af 0%, #d1d5db 10%, #9ca3af 20%, #6b7280 100%);
+    padding: 20px;
+    box-shadow: 
+      inset 0 2px 10px rgba(255,255,255,0.3),
+      inset 0 -2px 10px rgba(0,0,0,0.3),
+      0 10px 40px rgba(0,0,0,0.4);
+  }
+
+  .tv-screen {
+    @apply rounded-2xl overflow-hidden;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+  }
+
+  .tv-controls {
+    @apply flex items-center justify-center gap-4 mt-4;
+  }
+
+  .tv-button {
+    @apply w-4 h-4 rounded-full bg-gray-600 border-2 border-gray-500;
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  }
+
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-300 hover:scale-105 hover:shadow-casual-lg;
   }
 }
 

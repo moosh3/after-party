@@ -55,14 +55,21 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
 
   return (
     <div className="twitch-card p-8 w-full max-w-md">
-      <h2 className="text-3xl font-bold text-twitch-text mb-2">Join the Event</h2>
-      <p className="text-twitch-text-alt mb-6">
-        Enter your details to access the livestream and chat
-      </p>
+      <div className="text-center mb-6">
+        <img 
+          src="/assets/logos/alecmklogo.png" 
+          alt="After Party Logo" 
+          className="h-16 w-16 rounded-full object-cover mx-auto mb-4 ring-4 ring-casual-yellow"
+        />
+        <h2 className="text-3xl font-bold text-white mb-2">Join the Movie Marathon!</h2>
+        <p className="text-white/70">
+          Enter your details to access the stream and chat
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-twitch-text mb-2">
+          <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
             Email Address
           </label>
           <input
@@ -78,7 +85,7 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
         </div>
 
         <div>
-          <label htmlFor="displayName" className="block text-sm font-medium text-twitch-text mb-2">
+          <label htmlFor="displayName" className="block text-sm font-medium text-white mb-2">
             Display Name
           </label>
           <input
@@ -96,7 +103,7 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
         </div>
 
         {error && (
-          <div className="bg-error/10 border border-error text-error px-4 py-3 rounded text-sm">
+          <div className="bg-red-500/20 border border-red-400 text-red-300 px-4 py-3 rounded-xl text-sm">
             {error}
           </div>
         )}
@@ -104,13 +111,13 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
         <button
           type="submit"
           disabled={loading}
-          className="w-full twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed"
+          className="w-full twitch-button disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Validating...' : 'Continue to Event'}
+          {loading ? 'Validating...' : 'Join the Stream'}
         </button>
       </form>
 
-      <p className="text-xs text-twitch-text-alt mt-4 text-center">
+      <p className="text-xs text-white/50 mt-4 text-center">
         Your information is stored locally in your browser
       </p>
     </div>

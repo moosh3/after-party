@@ -195,15 +195,19 @@ export default function EventPage() {
   // Show registration form if not registered
   if (checkingRegistration) {
     return (
-      <div className="min-h-screen bg-twitch-darker flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center"
+        style={{
+          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+        }}
+      >
         <div className="text-center">
           <img 
             src="/assets/logos/alecmklogo.png" 
             alt="After Party Logo" 
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg"
+            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
           />
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-twitch-purple mx-auto mb-4"></div>
-          <p className="text-twitch-text-alt">Loading...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-yellow mx-auto mb-4"></div>
+          <p className="text-white/80">Loading...</p>
         </div>
       </div>
     );
@@ -212,32 +216,38 @@ export default function EventPage() {
   // Show poster mode if enabled
   if (showPoster && !isRegistered) {
     return (
-      <div 
-        className="min-h-screen bg-twitch-darker flex flex-col items-center justify-center p-4 relative"
+      <div className="min-h-screen flex flex-col items-center justify-center p-4"
         style={{
-          backgroundImage: 'url(/assets/backgrounds/background_.png)',
-          backgroundRepeat: 'repeat',
-          backgroundSize: 'auto'
+          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
         }}
       >
-        <div className="absolute inset-0 bg-black/60 w-full h-full"></div>
-        <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
-          {/* Event Poster */}
-          <div className="flex justify-center animate-fade-in flex-shrink-0">
-            <img 
-              src="/assets/images/event-poster.png" 
-              alt="After Party Movie Marathon" 
-              className="w-full max-w-xs md:max-w-md h-auto rounded-lg shadow-2xl"
-              style={{
-                boxShadow: '0 0 50px rgba(220, 38, 38, 0.5), 0 0 100px rgba(8, 145, 178, 0.3)',
-                maxHeight: '80vh',
-                objectFit: 'contain'
-              }}
-            />
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-8">
+          {/* Retro TV Frame with Banner */}
+          <div className="tv-frame w-full">
+            <div className="tv-screen">
+              <img 
+                src="/assets/images/banner.jpeg" 
+                alt="Movie Marathon Schedule" 
+                className="w-full h-auto"
+              />
+            </div>
+            {/* TV Controls */}
+            <div className="tv-controls">
+              <div className="tv-button"></div>
+              <div className="flex gap-1">
+                <div className="tv-button"></div>
+                <div className="tv-button"></div>
+              </div>
+              <div className="flex gap-0.5">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="w-1 h-3 bg-gray-600 rounded-sm"></div>
+                ))}
+              </div>
+            </div>
           </div>
           
           {/* Countdown Timer */}
-          <div className="w-full md:flex-1">
+          <div className="w-full max-w-2xl">
             <EventCountdown />
           </div>
         </div>
@@ -248,39 +258,37 @@ export default function EventPage() {
   // Show registration form if poster is disabled
   if (!isRegistered) {
     return (
-      <div 
-        className="min-h-screen bg-twitch-darker flex items-center justify-center p-4"
+      <div className="min-h-screen flex items-center justify-center p-4"
         style={{
-          backgroundImage: 'url(/assets/backgrounds/background_.png)',
-          backgroundRepeat: 'repeat',
-          backgroundSize: 'auto'
+          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
         }}
       >
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-        <div className="relative z-10">
-          <ViewerRegistration onComplete={() => {
-            const viewerData = getViewerData();
-            if (viewerData) {
-              setUserId(viewerData.id);
-              setIsRegistered(true);
-            }
-          }} />
-        </div>
+        <ViewerRegistration onComplete={() => {
+          const viewerData = getViewerData();
+          if (viewerData) {
+            setUserId(viewerData.id);
+            setIsRegistered(true);
+          }
+        }} />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-twitch-darker flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center"
+        style={{
+          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+        }}
+      >
         <div className="text-center">
           <img 
             src="/assets/logos/alecmklogo.png" 
             alt="After Party Logo" 
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg"
+            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
           />
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-twitch-purple mx-auto mb-4"></div>
-          <p className="text-twitch-text-alt">Loading stream...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-yellow mx-auto mb-4"></div>
+          <p className="text-white/80">Loading stream...</p>
         </div>
       </div>
     );
@@ -288,9 +296,13 @@ export default function EventPage() {
 
   if (error || !streamData) {
     return (
-      <div className="min-h-screen bg-twitch-darker flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-error mb-4">{error || 'No stream available'}</p>
+      <div className="min-h-screen flex items-center justify-center"
+        style={{
+          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+        }}
+      >
+        <div className="text-center twitch-card p-8">
+          <p className="text-red-400 mb-4">{error || 'No stream available'}</p>
           <button
             onClick={() => window.location.reload()}
             className="twitch-button"
@@ -303,33 +315,30 @@ export default function EventPage() {
   }
 
   return (
-    <div className="h-screen bg-twitch-darker text-twitch-text flex flex-col overflow-hidden">
+    <div className="h-screen text-white flex flex-col overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+      }}
+    >
       {tokenRefreshError && (
-        <div className="bg-yellow-500/10 border-b border-yellow-500 text-yellow-200 text-sm px-4 py-2 text-center">
+        <div className="bg-casual-yellow/20 border-b border-casual-yellow text-casual-yellow text-sm px-4 py-2 text-center">
           {tokenRefreshError}
         </div>
       )}
       {/* Stream info bar */}
-      <div className="flex-shrink-0 bg-twitch-dark border-b border-twitch-border px-4 py-3">
+      <div className="flex-shrink-0 bg-white/10 backdrop-blur-md border-b border-white/20 px-4 py-3">
         <div className="flex items-center gap-3">
           <img 
             src="/assets/logos/alecmklogo.png" 
             alt="Channel Avatar" 
-            className="h-12 w-12 rounded-full object-cover"
+            className="h-12 w-12 rounded-full object-cover ring-2 ring-casual-yellow"
           />
           <div className="flex-1">
-            <h2 className="text-lg font-semibold">{streamData.title}</h2>
-            <p className="text-sm text-twitch-text-alt">After Party Movie Marathon</p>
+            <h2 className="text-lg font-semibold text-white">{streamData.title}</h2>
+            <p className="text-sm text-white/70">After Party Movie Marathon</p>
           </div>
-          <h2 
-            className="text-xl md:text-2xl text-red-600 hidden md:block"
-            style={{ 
-              fontFamily: 'Scary, serif',
-              textShadow: '0 0 20px rgba(220, 38, 38, 0.6), 0 0 40px rgba(220, 38, 38, 0.4)',
-              letterSpacing: '0.05em'
-            }}
-          >
-            WELCOME TO THE AFTER PARTY MOVIE MARATHON
+          <h2 className="text-lg md:text-xl text-casual-yellow font-bold hidden md:block">
+            Welcome to the Movie Marathon!
           </h2>
         </div>
       </div>
@@ -337,7 +346,7 @@ export default function EventPage() {
       {/* Main content area */}
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Video Player Section - Takes most of the width */}
-        <div className="flex-1 bg-black flex flex-col overflow-hidden min-h-0">
+        <div className="flex-1 bg-black/30 flex flex-col overflow-hidden min-h-0">
           {/* Video Player - Fixed height to prevent resizing */}
           <div className="flex-shrink-0 bg-black">
             <VideoPlayer
@@ -352,25 +361,18 @@ export default function EventPage() {
           {/* Scrollable content below video */}
           <div className="flex-1 overflow-y-auto">
             {/* Welcome Message & Links */}
-            <div className="bg-gradient-to-b from-twitch-dark to-twitch-gray border-t border-twitch-border px-4 py-3">
+            <div className="bg-white/10 backdrop-blur-sm border-t border-white/20 px-4 py-3">
               {/* Styled Links */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <a 
                   href="https://alecandmk.wedding/online" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                    <div 
-                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                      style={{ 
-                        fontFamily: 'Scary, serif',
-                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                        WebkitTextStroke: '1px #0891b2'
-                      }}
-                    >
-                      SCHEDULE
+                  <div className="bg-casual-blue/80 hover:bg-casual-blue rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-casual-lg border border-white/20">
+                    <div className="text-sm md:text-base font-bold text-white uppercase tracking-wide">
+                      Schedule
                     </div>
                   </div>
                 </a>
@@ -379,18 +381,11 @@ export default function EventPage() {
                   href="https://ableensemble.com/support/donate/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                    <div 
-                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                      style={{ 
-                        fontFamily: 'Scary, serif',
-                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                        WebkitTextStroke: '1px #0891b2'
-                      }}
-                    >
-                      ABLE DONATE
+                  <div className="bg-casual-pink/80 hover:bg-casual-pink rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-casual-lg border border-white/20">
+                    <div className="text-sm md:text-base font-bold text-white uppercase tracking-wide">
+                      Donate
                     </div>
                   </div>
                 </a>
@@ -399,18 +394,11 @@ export default function EventPage() {
                   href="https://alecandmk.wedding/registry" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                    <div 
-                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                      style={{ 
-                        fontFamily: 'Scary, serif',
-                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                        WebkitTextStroke: '1px #0891b2'
-                      }}
-                    >
-                      REGISTRY + RAFFLE
+                  <div className="bg-casual-violet/80 hover:bg-casual-violet rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-casual-lg border border-white/20">
+                    <div className="text-sm md:text-base font-bold text-white uppercase tracking-wide">
+                      Registry
                     </div>
                   </div>
                 </a>
@@ -419,18 +407,11 @@ export default function EventPage() {
                   href="https://photos.app.goo.gl/DfEdTvAxxvLwrXdF8" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-lg transition-all duration-300 hover:scale-105"
+                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-gradient-to-br from-gray-900 to-black border-2 border-cyan-500 hover:border-cyan-300 rounded-lg px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-cyan-500/50">
-                    <div 
-                      className="text-lg md:text-xl font-black text-black uppercase tracking-wide relative whitespace-nowrap"
-                      style={{ 
-                        fontFamily: 'Scary, serif',
-                        textShadow: '2px 2px 0 #0891b2, 3px 3px 6px rgba(0, 0, 0, 0.8)',
-                        WebkitTextStroke: '1px #0891b2'
-                      }}
-                    >
-                      ADD YOUR PHOTOS
+                  <div className="bg-casual-yellow/80 hover:bg-casual-yellow rounded-xl px-3 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-yellow border border-white/20">
+                    <div className="text-sm md:text-base font-bold text-casual-dark uppercase tracking-wide">
+                      Photos
                     </div>
                   </div>
                 </a>
@@ -438,26 +419,18 @@ export default function EventPage() {
             </div>
 
             {/* Polls Section */}
-            <div className="bg-gradient-to-b from-twitch-gray to-black border-t-4 border-red-600 px-4 py-4">
+            <div className="bg-white/5 backdrop-blur-sm border-t-2 border-casual-yellow/50 px-4 py-4">
               {/* Polls Header */}
               <div className="text-center mb-4">
-                <h3 
-                  className="text-3xl text-red-600 inline-block relative"
-                  style={{ 
-                    fontFamily: 'Scary, serif',
-                    textShadow: '0 0 20px rgba(220, 38, 38, 0.8), 3px 3px 0 #0891b2, 6px 6px 10px rgba(0, 0, 0, 0.9)',
-                    WebkitTextStroke: '1.5px #0891b2',
-                    letterSpacing: '0.1em'
-                  }}
-                >
-                  🗳️ POLLS 🗳️
+                <h3 className="text-2xl font-bold text-casual-yellow inline-block">
+                  Polls
                 </h3>
                 <div className="mt-2 flex items-center justify-center gap-2">
-                  <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
-                  <span className="text-xs uppercase tracking-wider text-twitch-text-alt font-bold">
+                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-yellow to-transparent"></div>
+                  <span className="text-xs uppercase tracking-wider text-white/70 font-semibold">
                     Vote & See Results
                   </span>
-                  <div className="h-1 w-16 bg-gradient-to-r from-transparent via-red-600 to-transparent animate-pulse"></div>
+                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-yellow to-transparent"></div>
                 </div>
               </div>
 

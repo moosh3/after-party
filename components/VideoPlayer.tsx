@@ -495,9 +495,9 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
 
   if (error) {
     return (
-      <div className="aspect-video bg-twitch-darker flex items-center justify-center">
-        <div className="text-center p-6">
-          <p className="text-error mb-4">{error}</p>
+      <div className="aspect-video bg-casual-dark/50 flex items-center justify-center rounded-xl">
+        <div className="text-center p-6 twitch-card">
+          <p className="text-red-400 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="twitch-button"
@@ -510,7 +510,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
   }
 
   return (
-    <div className="relative aspect-video bg-black overflow-hidden max-h-screen">
+    <div className="relative aspect-video bg-black overflow-hidden max-h-screen rounded-lg">
       <MuxPlayer
         ref={playerRef}
         playbackId={playbackId}
@@ -521,7 +521,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         }}
         defaultShowRemainingTime
         defaultHiddenCaptions={false}
-        accentColor="#9147FF"
+        accentColor="#fbbf24"
         className="w-full h-full"
         onPlay={isAdmin ? handlePlay : undefined}
         onPause={isAdmin ? handlePause : undefined}
@@ -535,26 +535,24 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
       
       {/* Realtime Health Indicator */}
       {realtimeHealth !== 'healthy' && (
-        <div className={`absolute top-4 right-4 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10 ${
-          realtimeHealth === 'degraded' ? 'bg-yellow-600/90' : 'bg-red-600/90'
+        <div className={`absolute top-4 right-4 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10 backdrop-blur-sm ${
+          realtimeHealth === 'degraded' ? 'bg-yellow-500/80' : 'bg-red-500/80'
         }`}>
-          {realtimeHealth === 'degraded' ? '⚠️ Connection Degraded' : '❌ Connection Lost'}
+          {realtimeHealth === 'degraded' ? 'Connection Degraded' : 'Connection Lost'}
         </div>
       )}
       
       {/* Admin Mode Indicator */}
       {isAdmin && autoAdvanceEnabled && !isHoldScreen && (
-        <div className="absolute top-4 left-4 bg-success/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
-          <span>▶</span>
-          <span>Auto-Advance Enabled</span>
+        <div className="absolute top-4 left-4 bg-emerald-500/80 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
+          <span>Auto-Advance On</span>
         </div>
       )}
       
       {/* Hold Screen Indicator */}
       {isHoldScreen && (
-        <div className="absolute top-4 left-4 bg-yellow-600/90 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
-          <span>🔁</span>
-          <span>Hold Screen (Looping)</span>
+        <div className="absolute top-4 left-4 bg-casual-yellow/80 backdrop-blur-sm text-casual-dark text-xs px-3 py-1 rounded-full font-bold flex items-center gap-2 z-10">
+          <span>Hold Screen</span>
         </div>
       )}
     </div>

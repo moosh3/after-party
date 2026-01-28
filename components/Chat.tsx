@@ -194,11 +194,11 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
   }
 
   function getUsernameColor(name: string): string {
-    // Twitch-style username colors
+    // Casual warm username colors
     const colors = [
-      '#FF0000', '#0000FF', '#00FF00', '#B22222', '#FF7F50',
-      '#9ACD32', '#FF4500', '#2E8B57', '#DAA520', '#D2691E',
-      '#5F9EA0', '#1E90FF', '#FF69B4', '#8A2BE2', '#00FF7F',
+      '#fbbf24', '#f472b6', '#a78bfa', '#60a5fa', '#34d399',
+      '#f97316', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981',
+      '#f59e0b', '#d946ef', '#7c3aed', '#0ea5e9', '#14b8a6',
     ];
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -210,20 +210,20 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center h-full bg-white/10 backdrop-blur-md">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-casual-yellow"></div>
       </div>
     );
   }
 
   return (
     <div 
-      className="flex flex-col h-full bg-black border-t lg:border-t-0 lg:border-l border-twitch-border"
+      className="flex flex-col h-full bg-white/10 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/20"
       style={{ fontFamily: 'Inter, Helvetica, Arial, sans-serif' }}
     >
       {/* Header */}
-      <div className="flex-shrink-0 p-3 border-b border-twitch-border bg-black">
-        <h2 className="text-sm font-semibold uppercase text-twitch-text">Stream Chat</h2>
+      <div className="flex-shrink-0 p-3 border-b border-white/20 bg-white/5">
+        <h2 className="text-sm font-bold uppercase text-casual-yellow">Chat</h2>
       </div>
 
       {/* Messages */}
@@ -233,7 +233,7 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
       >
         {messages.length === 0 ? (
           <div className="p-4 text-center">
-            <p className="text-sm text-twitch-text-alt">
+            <p className="text-sm text-white/70">
               Welcome to the chat!
             </p>
           </div>
@@ -256,14 +256,14 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
             if (message.kind === 'system') {
               return (
                 <div key={message.id} className="chat-message">
-                  <div className="text-xs text-twitch-text-alt italic">
+                  <div className="text-xs text-white/60 italic">
                     {message.body}
                   </div>
                 </div>
               );
             }
 
-            // Render regular user messages (Twitch-style: compact, inline)
+            // Render regular user messages (compact, inline)
             const userColor = getUsernameColor(message.user_name);
             return (
               <div key={message.id} className="chat-message">
@@ -274,8 +274,8 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
                   >
                     {message.user_name}
                   </span>
-                  <span className="text-twitch-text-alt">:</span>
-                  <span className="text-twitch-text break-words">{message.body}</span>
+                  <span className="text-white/50">:</span>
+                  <span className="text-white break-words">{message.body}</span>
                 </div>
               </div>
             );
@@ -286,34 +286,34 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
       {/* Scroll to bottom indicator */}
       {!autoScroll && (
-        <div className="flex-shrink-0 px-2 py-1 border-t border-twitch-border">
+        <div className="flex-shrink-0 px-2 py-1 border-t border-white/20">
           <button
             onClick={() => {
               messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
               setAutoScroll(true);
             }}
-            className="w-full text-xs text-twitch-purple hover:text-purple-400 py-1"
+            className="w-full text-xs text-casual-yellow hover:text-yellow-300 py-1"
           >
-            ↓ More messages below
+            More messages below
           </button>
         </div>
       )}
 
       {/* Input */}
-      <div className="flex-shrink-0 p-2 border-t border-twitch-border bg-black">
+      <div className="flex-shrink-0 p-2 border-t border-white/20 bg-white/5">
         {error && (
-          <div className="text-xs text-error mb-1 px-2">{error}</div>
+          <div className="text-xs text-red-400 mb-1 px-2">{error}</div>
         )}
         
         {rateLimitSeconds > 0 && (
-          <div className="text-xs text-twitch-text-alt mb-1 px-2">
+          <div className="text-xs text-white/60 mb-1 px-2">
             Slow mode: {rateLimitSeconds}s
           </div>
         )}
         
         <form onSubmit={handleSend} className="flex flex-col gap-2">
-          <div className="text-xs text-twitch-text-alt mb-1 px-2">
-            Chatting as: <span className="text-twitch-text font-medium">{userName}</span>
+          <div className="text-xs text-white/60 mb-1 px-2">
+            Chatting as: <span className="text-casual-yellow font-medium">{userName}</span>
           </div>
           <input
             type="text"
