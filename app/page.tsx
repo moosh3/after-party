@@ -38,7 +38,7 @@ export default function Home() {
           <div className="tv-frame max-w-4xl w-full">
             <div className="tv-screen">
               <img 
-                src="/assets/images/banner.jpeg" 
+                src="/assets/images/jesus sings.jpeg" 
                 alt="Movie Marathon Schedule" 
                 className="w-full h-auto"
               />
@@ -84,7 +84,7 @@ export default function Home() {
         <div className="tv-frame">
           <div className="tv-screen">
             <img 
-              src="/assets/images/banner.jpeg" 
+              src="/assets/images/jesus sings.jpeg" 
               alt="Movie Marathon Schedule" 
               className="w-full h-auto"
             />

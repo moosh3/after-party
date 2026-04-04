@@ -226,7 +226,7 @@ export default function EventPage() {
           <div className="tv-frame w-full">
             <div className="tv-screen">
               <img 
-                src="/assets/images/banner.jpeg" 
+                src="/assets/images/jesus sings.jpeg" 
                 alt="Movie Marathon Schedule" 
                 className="w-full h-auto"
               />
