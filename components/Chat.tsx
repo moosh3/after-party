@@ -210,20 +210,20 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-white/10 backdrop-blur-md">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-casual-yellow"></div>
+      <div className="flex items-center justify-center h-full bg-white/50 backdrop-blur-md">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-casual-pink"></div>
       </div>
     );
   }
 
   return (
     <div 
-      className="flex flex-col h-full bg-white/10 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-white/20"
+      className="flex flex-col h-full bg-white/50 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-casual-violet/30"
       style={{ fontFamily: 'Inter, Helvetica, Arial, sans-serif' }}
     >
       {/* Header */}
-      <div className="flex-shrink-0 p-3 border-b border-white/20 bg-white/5">
-        <h2 className="text-sm font-bold uppercase text-casual-yellow">Chat</h2>
+      <div className="flex-shrink-0 p-3 border-b border-casual-violet/30 bg-white/30">
+        <h2 className="text-sm font-bold uppercase text-casual-dark">Chat</h2>
       </div>
 
       {/* Messages */}
@@ -233,7 +233,7 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
       >
         {messages.length === 0 ? (
           <div className="p-4 text-center">
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-casual-dark/70">
               Welcome to the chat!
             </p>
           </div>
@@ -256,7 +256,7 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
             if (message.kind === 'system') {
               return (
                 <div key={message.id} className="chat-message">
-                  <div className="text-xs text-white/60 italic">
+                  <div className="text-xs text-casual-dark/60 italic">
                     {message.body}
                   </div>
                 </div>
@@ -274,8 +274,8 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
                   >
                     {message.user_name}
                   </span>
-                  <span className="text-white/50">:</span>
-                  <span className="text-white break-words">{message.body}</span>
+                  <span className="text-casual-dark/50">:</span>
+                  <span className="text-casual-dark break-words">{message.body}</span>
                 </div>
               </div>
             );
@@ -286,13 +286,13 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
 
       {/* Scroll to bottom indicator */}
       {!autoScroll && (
-        <div className="flex-shrink-0 px-2 py-1 border-t border-white/20">
+        <div className="flex-shrink-0 px-2 py-1 border-t border-casual-violet/30">
           <button
             onClick={() => {
               messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
               setAutoScroll(true);
             }}
-            className="w-full text-xs text-casual-yellow hover:text-yellow-300 py-1"
+            className="w-full text-xs text-casual-dark hover:text-casual-dark/80 py-1"
           >
             More messages below
           </button>
@@ -300,20 +300,20 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
       )}
 
       {/* Input */}
-      <div className="flex-shrink-0 p-2 border-t border-white/20 bg-white/5">
+      <div className="flex-shrink-0 p-2 border-t border-casual-violet/30 bg-white/30">
         {error && (
-          <div className="text-xs text-red-400 mb-1 px-2">{error}</div>
+          <div className="text-xs text-red-500 mb-1 px-2">{error}</div>
         )}
         
         {rateLimitSeconds > 0 && (
-          <div className="text-xs text-white/60 mb-1 px-2">
+          <div className="text-xs text-casual-dark/60 mb-1 px-2">
             Slow mode: {rateLimitSeconds}s
           </div>
         )}
         
         <form onSubmit={handleSend} className="flex flex-col gap-2">
-          <div className="text-xs text-white/60 mb-1 px-2">
-            Chatting as: <span className="text-casual-yellow font-medium">{userName}</span>
+          <div className="text-xs text-casual-dark/60 mb-1 px-2">
+            Chatting as: <span className="text-casual-dark font-medium">{userName}</span>
           </div>
           <input
             type="text"

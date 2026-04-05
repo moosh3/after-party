@@ -41,11 +41,11 @@ await deleteSubtitleTrack('asset-id', 'track-id');
 ### Add Subtitle Track
 
 ```bash
-curl -X POST "https://api.mux.com/video/v1/assets/xaL02xydZHBOev02pk02Ssy1003Q5vAJ02kuXeT99b4Cy019U/tracks" \
+curl -X POST "https://api.mux.com/video/v1/assets/XSgSEEMsWsRPEfl325o01TfODhPJFGFrggU027ijZjuMo/tracks" \
   -u "$MUX_TOKEN_ID:$MUX_TOKEN_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://alecandmk.stream/assets/captions/scream.srt",
+    "url": "https://damovies.watch/assets/captions/wicker1973.srt",
     "type": "text",
     "text_type": "subtitles",
     "language_code": "en",

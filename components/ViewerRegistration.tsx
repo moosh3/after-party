@@ -59,17 +59,17 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
         <img 
           src="/assets/logos/icon.jpg" 
           alt="Da Movies Logo" 
-          className="h-16 w-16 rounded-full object-cover mx-auto mb-4 ring-4 ring-casual-yellow"
+          className="h-16 w-16 rounded-full object-cover mx-auto mb-4 ring-4 ring-casual-pink"
         />
-        <h2 className="text-3xl font-bold text-white mb-2">Join the Movie Marathon!</h2>
-        <p className="text-white/70">
+        <h2 className="text-3xl font-bold text-casual-dark mb-2">Join the Movie Marathon!</h2>
+        <p className="text-casual-dark/70">
           Enter your details to access the stream and chat
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
+          <label htmlFor="email" className="block text-sm font-medium text-casual-dark mb-2">
             Email Address
           </label>
           <input
@@ -85,7 +85,7 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
         </div>
 
         <div>
-          <label htmlFor="displayName" className="block text-sm font-medium text-white mb-2">
+          <label htmlFor="displayName" className="block text-sm font-medium text-casual-dark mb-2">
             Display Name
           </label>
           <input
@@ -103,7 +103,7 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
         </div>
 
         {error && (
-          <div className="bg-red-500/20 border border-red-400 text-red-300 px-4 py-3 rounded-xl text-sm">
+          <div className="bg-red-100 border border-red-300 text-red-600 px-4 py-3 rounded-xl text-sm">
             {error}
           </div>
         )}
@@ -117,7 +117,7 @@ export default function ViewerRegistration({ onComplete }: ViewerRegistrationPro
         </button>
       </form>
 
-      <p className="text-xs text-white/50 mt-4 text-center">
+      <p className="text-xs text-casual-dark/50 mt-4 text-center">
         Your information is stored locally in your browser
       </p>
     </div>

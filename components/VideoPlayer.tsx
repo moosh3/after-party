@@ -495,9 +495,9 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
 
   if (error) {
     return (
-      <div className="aspect-video bg-casual-dark/50 flex items-center justify-center rounded-xl">
+      <div className="aspect-video bg-white/30 flex items-center justify-center rounded-xl">
         <div className="text-center p-6 twitch-card">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-red-500 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="twitch-button"
@@ -521,7 +521,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         }}
         defaultShowRemainingTime
         defaultHiddenCaptions={false}
-        accentColor="#fbbf24"
+        accentColor="#fbcfe8"
         className="w-full h-full"
         onPlay={isAdmin ? handlePlay : undefined}
         onPause={isAdmin ? handlePause : undefined}
@@ -535,8 +535,8 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
       
       {/* Realtime Health Indicator */}
       {realtimeHealth !== 'healthy' && (
-        <div className={`absolute top-4 right-4 text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10 backdrop-blur-sm ${
-          realtimeHealth === 'degraded' ? 'bg-yellow-500/80' : 'bg-red-500/80'
+        <div className={`absolute top-4 right-4 text-casual-dark text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10 backdrop-blur-sm ${
+          realtimeHealth === 'degraded' ? 'bg-casual-yellow/90' : 'bg-casual-pink/90'
         }`}>
           {realtimeHealth === 'degraded' ? 'Connection Degraded' : 'Connection Lost'}
         </div>
@@ -544,14 +544,14 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
       
       {/* Admin Mode Indicator */}
       {isAdmin && autoAdvanceEnabled && !isHoldScreen && (
-        <div className="absolute top-4 left-4 bg-emerald-500/80 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
+        <div className="absolute top-4 left-4 bg-casual-mint/90 backdrop-blur-sm text-casual-dark text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
           <span>Auto-Advance On</span>
         </div>
       )}
       
       {/* Hold Screen Indicator */}
       {isHoldScreen && (
-        <div className="absolute top-4 left-4 bg-casual-yellow/80 backdrop-blur-sm text-casual-dark text-xs px-3 py-1 rounded-full font-bold flex items-center gap-2 z-10">
+        <div className="absolute top-4 left-4 bg-casual-violet/90 backdrop-blur-sm text-casual-dark text-xs px-3 py-1 rounded-full font-bold flex items-center gap-2 z-10">
           <span>Hold Screen</span>
         </div>
       )}

@@ -76,7 +76,7 @@ export default function Home() {
   return (
     <main className="min-h-screen text-white flex items-center justify-center p-4 relative"
       style={{
-        background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+        background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
       }}
     >
       <div className="text-center max-w-4xl relative z-10">

@@ -197,17 +197,17 @@ export default function EventPage() {
     return (
       <div className="min-h-screen flex items-center justify-center"
         style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
         }}
       >
         <div className="text-center">
           <img 
             src="/assets/logos/icon.jpg" 
             alt="Da Movies Logo" 
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
+            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-pink"
           />
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-yellow mx-auto mb-4"></div>
-          <p className="text-white/80">Loading...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-pink mx-auto mb-4"></div>
+          <p className="text-casual-dark/80">Loading...</p>
         </div>
       </div>
     );
@@ -218,7 +218,7 @@ export default function EventPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4"
         style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
         }}
       >
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-8">
@@ -226,7 +226,7 @@ export default function EventPage() {
           <div className="tv-frame w-full">
             <div className="tv-screen">
               <img 
-                src="/assets/images/jesus sings.jpeg" 
+                src="/assets/images/banner.jpeg" 
                 alt="Movie Marathon Schedule" 
                 className="w-full h-auto"
               />
@@ -240,7 +240,7 @@ export default function EventPage() {
               </div>
               <div className="flex gap-0.5">
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className="w-1 h-3 bg-gray-600 rounded-sm"></div>
+                  <div key={i} className="w-1 h-3 bg-casual-violet rounded-sm"></div>
                 ))}
               </div>
             </div>
@@ -260,7 +260,7 @@ export default function EventPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
         style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
         }}
       >
         <ViewerRegistration onComplete={() => {
@@ -278,17 +278,17 @@ export default function EventPage() {
     return (
       <div className="min-h-screen flex items-center justify-center"
         style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
         }}
       >
         <div className="text-center">
           <img 
             src="/assets/logos/icon.jpg" 
             alt="Da Movies Logo" 
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-yellow"
+            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-pink"
           />
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-yellow mx-auto mb-4"></div>
-          <p className="text-white/80">Loading stream...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-pink mx-auto mb-4"></div>
+          <p className="text-casual-dark/80">Loading stream...</p>
         </div>
       </div>
     );
@@ -298,11 +298,11 @@ export default function EventPage() {
     return (
       <div className="min-h-screen flex items-center justify-center"
         style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
         }}
       >
         <div className="text-center twitch-card p-8">
-          <p className="text-red-400 mb-4">{error || 'No stream available'}</p>
+          <p className="text-red-500 mb-4">{error || 'No stream available'}</p>
           <button
             onClick={() => window.location.reload()}
             className="twitch-button"
@@ -317,7 +317,7 @@ export default function EventPage() {
   return (
     <div className="h-screen text-white flex flex-col overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+        background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
       }}
     >
       {tokenRefreshError && (
@@ -326,18 +326,18 @@ export default function EventPage() {
         </div>
       )}
       {/* Stream info bar */}
-      <div className="flex-shrink-0 bg-white/10 backdrop-blur-md border-b border-white/20 px-4 py-3">
+      <div className="flex-shrink-0 bg-white/60 backdrop-blur-md border-b border-casual-pink/30 px-4 py-3">
         <div className="flex items-center gap-3">
           <img 
             src="/assets/logos/icon.jpg" 
             alt="Channel Avatar" 
-            className="h-12 w-12 rounded-full object-cover ring-2 ring-casual-yellow"
+            className="h-12 w-12 rounded-full object-cover ring-2 ring-casual-pink"
           />
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-white">{streamData.title}</h2>
-            <p className="text-sm text-white/70">Da Movies - Movie Marathon</p>
+            <h2 className="text-lg font-semibold text-casual-dark">{streamData.title}</h2>
+            <p className="text-sm text-casual-dark/70">Da Movies - Movie Marathon</p>
           </div>
-          <h2 className="text-lg md:text-xl text-casual-yellow font-bold hidden md:block">
+          <h2 className="text-lg md:text-xl text-casual-dark font-bold hidden md:block">
             Welcome to the Movie Marathon!
           </h2>
         </div>
@@ -361,7 +361,7 @@ export default function EventPage() {
           {/* Scrollable content below video */}
           <div className="flex-1 overflow-y-auto">
             {/* Watch Links */}
-            <div className="bg-white/10 backdrop-blur-sm border-t border-white/20 px-4 py-3">
+            <div className="bg-white/40 backdrop-blur-sm border-t border-casual-violet/30 px-4 py-3">
               <div className="flex justify-center gap-4">
                 <a 
                   href="https://www.youtube.com/watch?v=afEFyCvqoOo" 
@@ -369,7 +369,7 @@ export default function EventPage() {
                   rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-casual-yellow hover:bg-yellow-300 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-yellow border border-white/20">
+                  <div className="bg-casual-yellow hover:bg-yellow-200 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-yellow border border-casual-yellow/50">
                     <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
                       Watch TV
                     </div>
@@ -381,8 +381,8 @@ export default function EventPage() {
                   rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-casual-pink hover:bg-pink-400 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-purple border border-white/20">
-                    <div className="text-base md:text-lg font-bold text-white uppercase tracking-wide">
+                  <div className="bg-casual-pink hover:bg-pink-200 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-pink border border-casual-pink/50">
+                    <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
                       Watch Music
                     </div>
                   </div>
@@ -393,8 +393,8 @@ export default function EventPage() {
                   rel="noopener noreferrer"
                   className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
                 >
-                  <div className="bg-casual-violet hover:bg-violet-400 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-purple border border-white/20">
-                    <div className="text-base md:text-lg font-bold text-white uppercase tracking-wide">
+                  <div className="bg-casual-mint hover:bg-green-200 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-mint border border-casual-mint/50">
+                    <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
                       Listen to Movies
                     </div>
                   </div>
@@ -403,18 +403,18 @@ export default function EventPage() {
             </div>
 
             {/* Polls Section */}
-            <div className="bg-white/5 backdrop-blur-sm border-t-2 border-casual-yellow/50 px-4 py-4">
+            <div className="bg-white/30 backdrop-blur-sm border-t-2 border-casual-violet/30 px-4 py-4">
               {/* Polls Header */}
               <div className="text-center mb-4">
-                <h3 className="text-2xl font-bold text-casual-yellow inline-block">
+                <h3 className="text-2xl font-bold text-casual-dark inline-block">
                   Polls
                 </h3>
                 <div className="mt-2 flex items-center justify-center gap-2">
-                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-yellow to-transparent"></div>
-                  <span className="text-xs uppercase tracking-wider text-white/70 font-semibold">
+                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-pink to-transparent"></div>
+                  <span className="text-xs uppercase tracking-wider text-casual-dark/70 font-semibold">
                     Vote & See Results
                   </span>
-                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-yellow to-transparent"></div>
+                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-pink to-transparent"></div>
                 </div>
               </div>
 
