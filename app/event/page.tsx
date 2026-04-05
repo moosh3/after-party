@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import VideoPlayer from '@/components/VideoPlayer';
 import Chat from '@/components/Chat';
@@ -192,6 +192,46 @@ export default function EventPage() {
     loadStream();
   }, [router, isRegistered]);
 
+  const spawnEasterEmojis = useCallback(() => {
+    const emojis = ['🐰', '🥚', '🐣', '🌷', '🐇', '🪺', '🐥', '🌸'];
+    const count = 1000;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('span');
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      el.style.cssText = `
+        position:fixed;
+        left:${Math.random() * 100}vw;
+        top:-40px;
+        font-size:${20 + Math.random() * 24}px;
+        pointer-events:none;
+        z-index:9999;
+      `;
+      document.body.appendChild(el);
+      const duration = 2000 + Math.random() * 2000;
+      const drift = (Math.random() - 0.5) * 200;
+      const spin = (Math.random() - 0.5) * 720;
+      const delay = Math.random() * 600;
+      el.animate([
+        { transform: 'translateY(0) translateX(0) rotate(0deg)', opacity: 1 },
+        { transform: `translateY(${window.innerHeight + 80}px) translateX(${drift}px) rotate(${spin}deg)`, opacity: 0.6 },
+      ], { duration, delay, easing: 'ease-in', fill: 'forwards' });
+      setTimeout(() => el.remove(), duration + delay + 100);
+    }
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('easter-eggs')
+      .on('broadcast', { event: 'trigger' }, () => {
+        spawnEasterEmojis();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [spawnEasterEmojis]);
+
   // Show registration form if not registered
   if (checkingRegistration) {
     return (
@@ -331,7 +371,8 @@ export default function EventPage() {
           <img 
             src="/assets/logos/icon.jpg" 
             alt="Channel Avatar" 
-            className="h-12 w-12 rounded-full object-cover ring-2 ring-casual-pink"
+            className="h-12 w-12 rounded-full object-cover ring-2 ring-casual-pink cursor-pointer hover:ring-casual-violet transition-all"
+            onClick={spawnEasterEmojis}
           />
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-casual-dark">{streamData.title}</h2>
@@ -360,45 +401,39 @@ export default function EventPage() {
           
           {/* Scrollable content below video */}
           <div className="flex-1 overflow-y-auto">
-            {/* Watch Links */}
-            <div className="bg-white/40 backdrop-blur-sm border-t border-casual-violet/30 px-4 py-3">
-              <div className="flex justify-center gap-4">
-                <a 
-                  href="https://www.youtube.com/watch?v=afEFyCvqoOo" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
+            {/* Clip show link */}
+            <div className="bg-white/40 backdrop-blur-sm border-t border-casual-violet/30 px-4 py-5 sm:py-6">
+              <div className="flex items-center justify-center gap-2 sm:gap-4 md:gap-6 max-w-3xl mx-auto">
+                <svg
+                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0 text-casual-pink drop-shadow-md"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
                 >
-                  <div className="bg-casual-yellow hover:bg-yellow-200 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-yellow border border-casual-yellow/50">
-                    <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
-                      Watch TV
+                  <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+
+                <a
+                  href="https://www.youtube.com/playlist?list=PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative flex-1 min-w-0 rounded-2xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+                >
+                  <div className="bg-gradient-to-r from-casual-yellow via-casual-pink to-casual-violet rounded-2xl px-6 sm:px-10 py-4 sm:py-5 text-center shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-white/60">
+                    <div className="text-lg sm:text-xl md:text-2xl font-extrabold text-casual-dark tracking-tight">
+                      Click here for the clip show
                     </div>
                   </div>
                 </a>
-                <a 
-                  href="https://www.youtube.com/playlist?list=PLCTN7_fUxVIFGeRviaXYP6TG1KzT-z8W4" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
+
+                <svg
+                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0 text-casual-pink drop-shadow-md"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
                 >
-                  <div className="bg-casual-pink hover:bg-pink-200 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-pink border border-casual-pink/50">
-                    <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
-                      Watch Music
-                    </div>
-                  </div>
-                </a>
-                <a 
-                  href="https://www.youtube.com/playlist?list=PL4BrNFx1j7E5qDxSPIkeXgBqX0J7WaB2a" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105"
-                >
-                  <div className="bg-casual-mint hover:bg-green-200 rounded-xl px-8 py-3 text-center transition-all duration-300 shadow-lg hover:shadow-glow-mint border border-casual-mint/50">
-                    <div className="text-base md:text-lg font-bold text-casual-dark uppercase tracking-wide">
-                      Listen to Movies
-                    </div>
-                  </div>
-                </a>
+                  <path d="M19 12H5M11 19l-7-7 7-7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
             </div>
 

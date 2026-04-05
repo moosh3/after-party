@@ -168,8 +168,15 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
       } else if (!response.ok) {
         setError(data.error || 'Failed to send message');
       } else {
+        if (/easter/i.test(messageBody)) {
+          supabase.channel('easter-eggs').send({
+            type: 'broadcast',
+            event: 'trigger',
+            payload: {},
+          });
+        }
         setMessageBody('');
-        setRateLimitSeconds(2); // Reset rate limit timer
+        setRateLimitSeconds(2);
       }
     } catch (err) {
       setError('Network error. Please try again.');
