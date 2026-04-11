@@ -6,6 +6,10 @@ import StreamControl from '@/components/admin/StreamControl';
 import VideoPlayer from '@/components/VideoPlayer';
 import QueueManager from '@/components/admin/QueueManager';
 import { supabase } from '@/lib/supabase';
+import {
+  CHANNEL_NAMES,
+  DATABASE_TABLES,
+} from '@/lib/constants';
 
 interface StreamData {
   playbackId: string;
@@ -64,13 +68,13 @@ export default function AdminDashboard() {
 
   // Subscribe to hold screen changes to reload immediately
   useEffect(() => {
-    const channel = supabase.channel('admin-hold-screen-updates')
+    const channel = supabase.channel(CHANNEL_NAMES.ADMIN_HOLD_SCREEN_UPDATES)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'current_stream',
+          table: DATABASE_TABLES.CURRENT_STREAM,
           filter: 'id=eq.1',
         },
         (payload: any) => {

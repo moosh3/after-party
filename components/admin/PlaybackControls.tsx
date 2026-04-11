@@ -3,6 +3,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeHealth } from '@/hooks/useRealtimeHealth';
+import {
+  CHANNEL_NAMES,
+  DATABASE_TABLES,
+  PLAYBACK_ACTIONS,
+} from '@/lib/constants';
 
 interface HoldScreenMuxItem {
   id: string;
@@ -62,13 +67,13 @@ export default function PlaybackControls() {
 
     // Subscribe to realtime updates
     const channel = supabase
-      .channel('playback-control-updates')
+      .channel(CHANNEL_NAMES.PLAYBACK_CONTROL_UPDATES)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'current_stream',
+          table: DATABASE_TABLES.CURRENT_STREAM,
           filter: 'id=eq.1',
         },
         (payload) => {
@@ -140,7 +145,7 @@ export default function PlaybackControls() {
       const response = await fetch('/api/admin/playback-control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'restart' }),
+        body: JSON.stringify({ action: PLAYBACK_ACTIONS.RESTART }),
       });
 
       const data = await response.json();

@@ -4,6 +4,13 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getViewerData } from '@/lib/viewer';
 import PollCard from './PollCard';
+import {
+  ROOM_NAMES,
+  CHANNEL_NAMES,
+  DATABASE_TABLES,
+  CHAT_SLOWMODE_SECONDS,
+  MAX_MESSAGE_LENGTH,
+} from '@/lib/constants';
 
 interface Message {
   id: number;
@@ -19,7 +26,7 @@ interface ChatProps {
   userId: string;
 }
 
-export default function Chat({ room = 'event', userId }: ChatProps) {
+export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageBody, setMessageBody] = useState('');
   const [userName, setUserName] = useState('');
@@ -84,13 +91,13 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
   // Subscribe to new messages
   useEffect(() => {
     const channel = supabase
-      .channel(`chat:${room}`)
+      .channel(CHANNEL_NAMES.CHAT_ROOM(room))
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
+          table: DATABASE_TABLES.MESSAGES,
           filter: `room=eq.${room}`,
         },
         (payload) => {
@@ -169,14 +176,14 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
         setError(data.error || 'Failed to send message');
       } else {
         if (/easter/i.test(messageBody)) {
-          supabase.channel('easter-eggs').send({
+          supabase.channel(CHANNEL_NAMES.EASTER_EGGS).send({
             type: 'broadcast',
             event: 'trigger',
             payload: {},
           });
         }
         setMessageBody('');
-        setRateLimitSeconds(2);
+        setRateLimitSeconds(CHAT_SLOWMODE_SECONDS);
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -329,7 +336,7 @@ export default function Chat({ room = 'event', userId }: ChatProps) {
             placeholder="Send a message"
             className="twitch-input w-full text-sm"
             disabled={sending || rateLimitSeconds > 0}
-            maxLength={600}
+            maxLength={MAX_MESSAGE_LENGTH}
           />
         </form>
       </div>

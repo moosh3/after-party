@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generatePlaybackToken } from '@/lib/mux';
 import { getViewerData } from '@/lib/viewer';
+import { isDevelopment } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,10 +31,7 @@ export async function GET(request: NextRequest) {
     if (error || !data) {
       // DEVELOPMENT MODE: Return mock data if database is not configured
       // This allows the UI to be tested without full Supabase setup
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-      const isDevelopment = supabaseUrl.includes('placeholder') || supabaseUrl === '';
-      
-      if (isDevelopment || error?.message?.includes('connect')) {
+      if (isDevelopment() || error?.message?.includes('connect')) {
         console.log('⚠️  Development mode: Returning mock stream data');
         const mockToken = 'mock-token-for-development';
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase-admin';
+import { ROOM_NAMES, DATABASE_TABLES } from './constants';
 
 export interface PollOption {
   id: string;
@@ -159,7 +160,7 @@ export async function announcePollResults(
 }
 
 export async function getAllPolls(
-  room: string = 'event',
+  room: string = ROOM_NAMES.DEFAULT,
   userId?: string
 ): Promise<PollData[]> {
   try {

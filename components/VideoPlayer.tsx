@@ -5,6 +5,12 @@ import MuxPlayer from '@mux/mux-player-react';
 import type MuxPlayerElement from '@mux/mux-player';
 import { supabase } from '@/lib/supabase';
 import { useRealtimeHealth, type RealtimeHealthStatus } from '@/hooks/useRealtimeHealth';
+import {
+  CHANNEL_NAMES,
+  PLAYBACK_ACTIONS,
+  DATABASE_TABLES,
+  SYNC_THRESHOLDS,
+} from '@/lib/constants';
 
 interface VideoPlayerProps {
   playbackId: string;
@@ -96,7 +102,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         return;
       }
 
-      // ISSUE #2: Prevent concurrent auto-advance operations
+      // Prevent concurrent auto-advance operations
       if (autoAdvanceInProgressRef.current) {
         console.log('Auto-advance already in progress, skipping...');
         return;
@@ -122,11 +128,6 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         }
       } catch (err) {
         console.error('Error advancing to next video:', err);
-      } finally {
-        // Reset lock after a delay to prevent rapid re-triggers
-        setTimeout(() => {
-          autoAdvanceInProgressRef.current = false;
-        }, 2000);
       }
     };
 
@@ -136,6 +137,11 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
       player.removeEventListener('ended', handleVideoEnded);
     };
   }, [isAdmin, autoAdvanceEnabled, isHoldScreen]);
+
+  // Reset auto-advance lock when playbackId changes (new video started)
+  useEffect(() => {
+    autoAdvanceInProgressRef.current = false;
+  }, [playbackId]);
 
   // Development mode check
   useEffect(() => {
@@ -194,16 +200,17 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
 
         try {
           // CLOCK SKEW FIX: Use server-side elapsed time if available
+          const latencySeconds = SYNC_THRESHOLDS.LATENCY_ESTIMATE_MS / 1000;
           let targetPosition = numericPosition;
           if (state === 'playing') {
             if (!Number.isNaN(numericElapsedMs) && numericElapsedMs > 0) {
               // Use server-calculated elapsed time (no clock skew)
-              targetPosition = numericPosition + (numericElapsedMs / 1000) + 0.15; // Add latency estimate
+              targetPosition = numericPosition + (numericElapsedMs / 1000) + latencySeconds;
             } else {
               // Fallback to client-side calculation
               const now = Date.now();
               const elapsed = (now - updateTimestamp) / 1000;
-              targetPosition = numericPosition + elapsed + 0.15;
+              targetPosition = numericPosition + elapsed + latencySeconds;
             }
           }
 
@@ -213,12 +220,12 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
           
           // SYNC FIX: Use more lenient thresholds to prevent unnecessary seeks
           // Only seek if significantly out of sync to avoid "restart" feeling
-          const syncThreshold = state === 'playing' ? 5 : 2; // Increased from 3 and 1
+          const syncThreshold = state === 'playing' ? SYNC_THRESHOLDS.SYNC_THRESHOLD_PLAYING : SYNC_THRESHOLDS.SYNC_THRESHOLD_PAUSED;
           
           if (timeDiff > syncThreshold) {
             console.log(`🔄 Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
             video.currentTime = targetPosition;
-          } else if (timeDiff > 1) {
+          } else if (timeDiff > SYNC_THRESHOLDS.MINOR_DRIFT_THRESHOLD) {
             console.log(`📍 Minor drift detected (${timeDiff.toFixed(1)}s) but within tolerance`);
           }
 
@@ -300,13 +307,13 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
 
     // Subscribe to playback state changes via Supabase realtime
     const channel = supabase
-      .channel('playback-sync')
+      .channel(CHANNEL_NAMES.PLAYBACK_SYNC)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'current_stream',
+          table: DATABASE_TABLES.CURRENT_STREAM,
           filter: 'id=eq.1',
         },
         (payload) => {
@@ -381,14 +388,15 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
               const updateTimestamp = new Date(data.playback_updated_at).getTime();
               const now = Date.now();
               const elapsed = (now - updateTimestamp) / 1000;
+              const latencySeconds = SYNC_THRESHOLDS.LATENCY_ESTIMATE_MS / 1000;
               
               let targetPosition = data.playback_position;
               if (data.playback_state === 'playing') {
-                targetPosition = data.playback_position + elapsed + 0.15;
+                targetPosition = data.playback_position + elapsed + latencySeconds;
               }
               
               const timeDiff = Math.abs(video.currentTime - targetPosition);
-              if (timeDiff > 1) {
+              if (timeDiff > SYNC_THRESHOLDS.MINOR_DRIFT_THRESHOLD) {
                 console.log(`Correcting drift after tab visibility: ${timeDiff.toFixed(1)}s`);
                 video.currentTime = targetPosition;
               }
@@ -434,7 +442,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            action: 'seek',
+            action: PLAYBACK_ACTIONS.SEEK,
             position: playerRef.current?.currentTime || 0
           }),
         });
@@ -459,7 +467,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: 'play',
+          action: PLAYBACK_ACTIONS.PLAY,
           position: playerRef.current.currentTime 
         }),
       });
@@ -483,7 +491,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: 'pause',
+          action: PLAYBACK_ACTIONS.PAUSE,
           position: playerRef.current.currentTime 
         }),
       });

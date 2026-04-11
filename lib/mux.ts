@@ -1,5 +1,6 @@
 import Mux from '@mux/mux-node';
 import { SignJWT, importPKCS8 } from 'jose';
+import { isDevelopment } from './config';
 
 const mux = new Mux({
   tokenId: process.env.MUX_TOKEN_ID,
@@ -27,7 +28,7 @@ export async function generatePlaybackToken(
   // Check if signing keys are configured
   const hasSigningKeys = process.env.MUX_SIGNING_KEY_ID && 
                          process.env.MUX_SIGNING_KEY_PRIVATE &&
-                         !process.env.MUX_SIGNING_KEY_ID.includes('placeholder');
+                         !isDevelopment();
 
   // If no signing keys, use unsigned playback (only works for public playback policies)
   if (!hasSigningKeys) {

@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import PollCard from './PollCard';
+import {
+  ROOM_NAMES,
+  CHANNEL_NAMES,
+  DATABASE_TABLES,
+} from '@/lib/constants';
 
 interface PollData {
   id: string;
@@ -24,7 +29,7 @@ interface PollsTabProps {
   room?: string;
 }
 
-export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
+export default function PollsTab({ userId, room = ROOM_NAMES.DEFAULT }: PollsTabProps) {
   const [polls, setPolls] = useState<PollData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'closed'>('active');
@@ -34,13 +39,13 @@ export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
 
     // Subscribe to poll changes
     const channel = supabase
-      .channel('polls-tab')
+      .channel(CHANNEL_NAMES.POLLS_TAB)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'polls',
+          table: DATABASE_TABLES.POLLS,
         },
         () => {
           loadPolls();
@@ -51,7 +56,7 @@ export default function PollsTab({ userId, room = 'event' }: PollsTabProps) {
         {
           event: '*',
           schema: 'public',
-          table: 'poll_votes',
+          table: DATABASE_TABLES.POLL_VOTES,
         },
         () => {
           loadPolls();

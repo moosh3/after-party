@@ -7,10 +7,16 @@ import Chat from '@/components/Chat';
 import PollsTab from '@/components/PollsTab';
 import ViewerRegistration from '@/components/ViewerRegistration';
 import EventCountdown from '@/components/EventCountdown';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 import { useStreamUpdates } from '@/hooks/useStreamUpdates';
 import { getViewerData } from '@/lib/viewer';
 import { supabase } from '@/lib/supabase';
+import {
+  ROOM_NAMES,
+  CHANNEL_NAMES,
+  DATABASE_TABLES,
+} from '@/lib/constants';
 
 interface StreamData {
   playbackId: string;
@@ -72,13 +78,13 @@ export default function EventPage() {
   // Subscribe to hold screen changes specifically
   useEffect(() => {
     const channel = supabase
-      .channel('hold-screen-updates')
+      .channel(CHANNEL_NAMES.HOLD_SCREEN_UPDATES)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'current_stream',
+          table: DATABASE_TABLES.CURRENT_STREAM,
           filter: 'id=eq.1',
         },
         (payload: any) => {
@@ -135,13 +141,13 @@ export default function EventPage() {
   // Subscribe to poster mode changes in realtime
   useEffect(() => {
     const channel = supabase
-      .channel('poster-mode-updates')
+      .channel(CHANNEL_NAMES.POSTER_MODE_UPDATES)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'current_stream',
+          table: DATABASE_TABLES.CURRENT_STREAM,
           filter: 'id=eq.1',
         },
         (payload: any) => {
@@ -221,7 +227,7 @@ export default function EventPage() {
 
   useEffect(() => {
     const channel = supabase
-      .channel('easter-eggs')
+      .channel(CHANNEL_NAMES.EASTER_EGGS)
       .on('broadcast', { event: 'trigger' }, () => {
         spawnEasterEmojis();
       })
@@ -390,13 +396,29 @@ export default function EventPage() {
         <div className="flex-1 bg-black/30 flex flex-col overflow-hidden min-h-0">
           {/* Video Player - Fixed height to prevent resizing */}
           <div className="flex-shrink-0 bg-black">
-            <VideoPlayer
-              key={streamData.playbackId}
-              playbackId={streamData.playbackId}
-              token={streamData.token}
-              title={streamData.title}
-              isHoldScreen={streamData.isHoldScreen}
-            />
+            <ErrorBoundary
+              fallback={
+                <div className="aspect-video bg-black flex items-center justify-center">
+                  <div className="text-center p-6">
+                    <p className="text-red-500 mb-4">Video player encountered an error</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="twitch-button"
+                    >
+                      Refresh Page
+                    </button>
+                  </div>
+                </div>
+              }
+            >
+              <VideoPlayer
+                key={streamData.playbackId}
+                playbackId={streamData.playbackId}
+                token={streamData.token}
+                title={streamData.title}
+                isHoldScreen={streamData.isHoldScreen}
+              />
+            </ErrorBoundary>
           </div>
           
           {/* Scrollable content below video */}
@@ -455,7 +477,15 @@ export default function EventPage() {
 
               {/* Polls Tab Component */}
               <div className="pb-4">
-                <PollsTab userId={userId} room="event" />
+                <ErrorBoundary
+                  fallback={
+                    <div className="text-center p-4">
+                      <p className="text-casual-dark/70 text-sm">Polls unavailable</p>
+                    </div>
+                  }
+                >
+                  <PollsTab userId={userId} room={ROOM_NAMES.DEFAULT} />
+                </ErrorBoundary>
               </div>
             </div>
           </div>
@@ -463,7 +493,23 @@ export default function EventPage() {
 
         {/* Chat Sidebar - Full width on mobile, fixed width on desktop */}
         <div className="w-full h-96 lg:h-auto lg:w-80 xl:w-96 flex-shrink-0">
-          <Chat room="event" userId={userId} />
+          <ErrorBoundary
+            fallback={
+              <div className="h-full bg-white/50 backdrop-blur-md flex items-center justify-center">
+                <div className="text-center p-4">
+                  <p className="text-casual-dark/70 text-sm mb-2">Chat unavailable</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="text-xs text-casual-pink hover:underline"
+                  >
+                    Reload to fix
+                  </button>
+                </div>
+              </div>
+            }
+          >
+            <Chat room={ROOM_NAMES.DEFAULT} userId={userId} />
+          </ErrorBoundary>
         </div>
       </main>
     </div>

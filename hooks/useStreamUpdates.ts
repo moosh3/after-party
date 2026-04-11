@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import {
+  CHANNEL_NAMES,
+  DATABASE_TABLES,
+} from '@/lib/constants';
 
 interface StreamUpdate {
   playbackId: string;
@@ -49,13 +53,13 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
 
     // Try Supabase Realtime first
     const channel = supabase
-      .channel('stream-updates')
+      .channel(CHANNEL_NAMES.STREAM_UPDATES)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'current_stream',
+          table: DATABASE_TABLES.CURRENT_STREAM,
           filter: 'id=eq.1',
         },
         (payload) => {
