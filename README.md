@@ -2,6 +2,8 @@
 
 A private event streaming platform built with Next.js 14, Supabase, and Mux for live and VOD content delivery.
 
+Also made by MK.
+
 ## 📚 Quick Links
 
 - **[Quick Mux Setup](QUICK_MUX_SETUP.md)** - Get a video playing in 10 minutes
