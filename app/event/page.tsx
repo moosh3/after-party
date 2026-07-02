@@ -22,6 +22,8 @@ import LLHeader from '@/components/lobby-lounge/LLHeader';
 import { LLPill } from '@/components/lobby-lounge/buttons';
 import DoorsCountdown from '@/components/lobby-lounge/DoorsCountdown';
 import Reel from '@/components/lobby-lounge/Reel';
+import MiniAvatar from '@/components/lobby-lounge/MiniAvatar';
+import { useLobbyPresence } from '@/components/lobby-lounge/useLobbyPresence';
 import '@/components/lobby-lounge/lobby-lounge.css';
 
 interface StreamData {
@@ -63,6 +65,8 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('');
+  const [viewerName, setViewerName] = useState<string>('');
+  const [viewerAvatar, setViewerAvatar] = useState<string>('');
   const [isRegistered, setIsRegistered] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
   const [showPoster, setShowPoster] = useState(false);
@@ -161,6 +165,8 @@ export default function EventPage() {
     if (viewerData) {
       setIsRegistered(true);
       setUserId(viewerData.id);
+      setViewerName(viewerData.displayName);
+      setViewerAvatar(viewerData.avatar);
     }
 
     checkPosterMode();
@@ -279,6 +285,9 @@ export default function EventPage() {
     }
   }, [checkingRegistration, isRegistered, showPoster, router]);
 
+  const presenceSelf = isRegistered && userId ? { userId, displayName: viewerName, avatar: viewerAvatar } : null;
+  const viewersHere = useLobbyPresence(presenceSelf);
+
   if (checkingRegistration) {
     return <LoadingScreen message="loading…" />;
   }
@@ -387,6 +396,22 @@ export default function EventPage() {
         >
           {streamData.title}
         </strong>
+        {viewersHere.length > 0 && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="now-pill">
+              <span className="dot" />
+              LIVE
+            </span>
+            <div style={{ display: 'flex' }}>
+              {viewersHere.slice(0, 8).map((v, i) => (
+                <div key={v.userId} style={{ marginLeft: i === 0 ? 0 : -8 }}>
+                  <MiniAvatar avatarId={v.avatar} size={26} ring={LL.mint} />
+                </div>
+              ))}
+            </div>
+            <span style={{ color: LL.frost2 }}>{viewersHere.length} in the room</span>
+          </div>
+        )}
       </div>
 
       <main id="ll-watch-main" className="ll-watch-grid" style={{ overflow: 'hidden' }}>

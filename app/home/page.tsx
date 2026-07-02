@@ -10,7 +10,8 @@ import FrostCard from '@/components/lobby-lounge/FrostCard';
 import { LLCta } from '@/components/lobby-lounge/buttons';
 import Marquee from '@/components/lobby-lounge/Marquee';
 import DailyPoll from '@/components/lobby-lounge/DailyPoll';
-import FriendBubble, { FRIENDS } from '@/components/lobby-lounge/FriendBubble';
+import MiniAvatar from '@/components/lobby-lounge/MiniAvatar';
+import { useLobbyPresence } from '@/components/lobby-lounge/useLobbyPresence';
 import { getViewerData, ViewerData } from '@/lib/viewer';
 import '@/components/lobby-lounge/lobby-lounge.css';
 
@@ -85,6 +86,11 @@ export default function HomePage() {
     };
   }, []);
 
+  const presenceSelf = viewer
+    ? { userId: viewer.id, displayName: viewer.displayName, avatar: viewer.avatar }
+    : null;
+  const viewersHere = useLobbyPresence(presenceSelf);
+
   if (!viewer) return null;
 
   return (
@@ -118,7 +124,7 @@ export default function HomePage() {
           color: LL.frost2,
         }}
       >
-        👋 logged in as <strong style={{ color: LL.frost1 }}>{viewer.displayName}</strong>
+        👋 logged in as <MiniAvatar avatarId={viewer.avatar} size={26} /> <strong style={{ color: LL.frost1 }}>{viewer.displayName}</strong>
       </div>
 
       <main id="ll-home-main" className="ll-home-main">
@@ -149,12 +155,23 @@ export default function HomePage() {
 
         <DailyPoll question={HOME_POLL.question} options={HOME_POLL.options} />
 
-        <FrostCard title="★ FRIENDS CURRENTLY ENJOYING CINEMA" meta={`${FRIENDS.length} here`} headBg={LL.ink} headText={LL.mint}>
-          <div style={{ padding: 16, display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {FRIENDS.map((f) => (
-              <FriendBubble key={f.n} f={f} ring={LL.ink} size={46} />
-            ))}
-          </div>
+        <FrostCard title="★ FRIENDS CURRENTLY ENJOYING CINEMA" meta={`${viewersHere.length} here`} headBg={LL.ink} headText={LL.mint}>
+          {viewersHere.length === 0 ? (
+            <p className="f-comic" style={{ padding: 16, textAlign: 'center', color: LL.ink, margin: 0 }}>
+              just you so far — invite the crew
+            </p>
+          ) : (
+            <div style={{ padding: 16, display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {viewersHere.map((v) => (
+                <div key={v.userId} style={{ display: 'grid', justifyItems: 'center', gap: 4, width: 56 }}>
+                  <MiniAvatar avatarId={v.avatar} size={46} ring={LL.ink} />
+                  <span className="f-mono" style={{ fontSize: 12, color: LL.ink, maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {v.displayName}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </FrostCard>
 
         <div style={{ display: 'flex', justifyContent: 'center' }}>

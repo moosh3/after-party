@@ -6,6 +6,7 @@ import { LL_FONT_VARS } from '@/components/lobby-lounge/fonts';
 import { LL } from '@/components/lobby-lounge/tokens';
 import LLHeader from '@/components/lobby-lounge/LLHeader';
 import FrostCard from '@/components/lobby-lounge/FrostCard';
+import AvatarPicker from '@/components/lobby-lounge/AvatarPicker';
 import { saveViewerData, getViewerData } from '@/lib/viewer';
 import '@/components/lobby-lounge/lobby-lounge.css';
 
@@ -24,6 +25,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [tried, setTried] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -36,7 +39,11 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setTried(true);
     setError('');
+
+    if (!avatar) return;
+
     setLoading(true);
 
     try {
@@ -53,7 +60,7 @@ export default function LoginPage() {
         return;
       }
 
-      saveViewerData(email, name);
+      saveViewerData(email, name, avatar);
       router.push('/home');
     } catch {
       setError('An error occurred. Please try again.');
@@ -110,6 +117,18 @@ export default function LoginPage() {
                   style={inputStyle}
                 />
               </label>
+
+              <div style={{ display: 'grid', gap: 9 }}>
+                <span className="f-comic" style={{ fontSize: 14 }}>
+                  pick ur avatar
+                </span>
+                <AvatarPicker picked={avatar} onPick={setAvatar} />
+                {tried && !avatar && (
+                  <span className="f-mono" role="alert" style={{ fontSize: 15, color: '#a31616' }}>
+                    pick one, they don&apos;t bite
+                  </span>
+                )}
+              </div>
 
               {error && (
                 <span className="f-mono" role="alert" style={{ fontSize: 15, color: '#a31616' }}>

@@ -3,6 +3,7 @@ export interface ViewerData {
   id: string;
   email: string;
   displayName: string;
+  avatar: string;
   registeredAt: number;
 }
 
@@ -12,18 +13,19 @@ export function generateViewerId(): string {
   return `viewer_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
-export function saveViewerData(email: string, displayName: string): ViewerData {
+export function saveViewerData(email: string, displayName: string, avatar: string): ViewerData {
   const viewerData: ViewerData = {
     id: generateViewerId(),
     email,
     displayName,
+    avatar,
     registeredAt: Date.now(),
   };
-  
+
   if (typeof window !== 'undefined') {
     localStorage.setItem(VIEWER_STORAGE_KEY, JSON.stringify(viewerData));
   }
-  
+
   return viewerData;
 }
 
