@@ -1,13 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import EventCountdown from '@/components/EventCountdown';
+import { useRouter } from 'next/navigation';
+import { LL_FONT_VARS } from '@/components/lobby-lounge/fonts';
+import { LL } from '@/components/lobby-lounge/tokens';
+import DoorsCountdown from '@/components/lobby-lounge/DoorsCountdown';
+import '@/components/lobby-lounge/lobby-lounge.css';
 
-export default function Home() {
+const POSTER = '/assets/images/cage-a-thon.png';
+
+export default function LandingPage() {
+  const router = useRouter();
   const [showPoster, setShowPoster] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.title = 'Da Movies';
     async function checkPosterMode() {
       try {
         const response = await fetch('/api/current');
@@ -21,105 +29,53 @@ export default function Home() {
         setLoading(false);
       }
     }
-
     checkPosterMode();
   }, []);
 
-  // Show poster mode if enabled
-  if (showPoster && !loading) {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 relative"
+  const doorsClosed = showPoster && !loading;
+
+  return (
+    <div
+      className={`dm-lobby-lounge ${LL_FONT_VARS}`}
+      style={{ background: LL.ink, color: LL.frost1, minHeight: '100vh' }}
+    >
+      <a className="skip-link" href="#ll-landing-main">
+        Skip to content
+      </a>
+      <main
+        id="ll-landing-main"
         style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #3b82f6 100%)',
+          position: 'relative',
+          minHeight: '100vh',
+          width: '100%',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          backgroundImage: `linear-gradient(180deg, rgba(26,18,48,.05) 0%, rgba(26,18,48,.35) 55%, ${LL.ink} 96%), url("${POSTER}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 28%',
+          padding: 'min(8vh, 56px) 20px',
         }}
       >
-        <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col items-center justify-center gap-8">
-          {/* Retro TV Frame with Banner */}
-          <div className="tv-frame max-w-4xl w-full">
-            <div className="tv-screen">
-              <img 
-                src="/assets/images/jesus sings.jpeg" 
-                alt="Movie Marathon Schedule" 
-                className="w-full h-auto"
-              />
-            </div>
-            {/* TV Controls */}
-            <div className="tv-controls">
-              <div className="tv-button"></div>
-              <div className="flex gap-1">
-                <div className="tv-button"></div>
-                <div className="tv-button"></div>
-              </div>
-              <div className="flex gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="w-1 h-3 bg-gray-600 rounded-sm"></div>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                <div className="w-3 h-3 rounded-full bg-gray-600 border border-gray-500"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-600 border border-gray-500"></div>
-                <div className="w-2 h-2 rounded-full bg-gray-700"></div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Countdown Timer */}
-          <div className="w-full max-w-2xl">
-            <EventCountdown />
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // Show normal landing page when poster mode is off
-  return (
-    <main className="min-h-screen text-white flex items-center justify-center p-4 relative"
-      style={{
-        background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
-      }}
-    >
-      <div className="text-center max-w-4xl relative z-10">
-        {/* Retro TV Frame with Banner */}
-        <div className="tv-frame">
-          <div className="tv-screen">
-            <img 
-              src="/assets/images/jesus sings.jpeg" 
-              alt="Movie Marathon Schedule" 
-              className="w-full h-auto"
-            />
-          </div>
-          {/* TV Controls */}
-          <div className="tv-controls">
-            <div className="tv-button"></div>
-            <div className="flex gap-1">
-              <div className="tv-button"></div>
-              <div className="tv-button"></div>
-            </div>
-            <div className="flex gap-0.5">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="w-1 h-3 bg-gray-600 rounded-sm"></div>
-              ))}
-            </div>
-            <div className="flex gap-1">
-              <div className="w-3 h-3 rounded-full bg-gray-600 border border-gray-500"></div>
-              <div className="w-3 h-3 rounded-full bg-gray-600 border border-gray-500"></div>
-              <div className="w-2 h-2 rounded-full bg-gray-700"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Join Button */}
-        <div className="mt-8">
-          <a 
-            href="/event" 
-            className="twitch-button text-center inline-block text-lg px-12"
+        {doorsClosed ? (
+          <DoorsCountdown />
+        ) : (
+          <button
+            type="button"
+            onClick={() => router.push('/login')}
+            className="bevel-btn f-display"
+            style={{
+              fontSize: 'clamp(16px, 3vw, 22px)',
+              padding: '16px 34px',
+              borderRadius: 10,
+              background: `linear-gradient(180deg, ${LL.frost1} 0%, ${LL.lime} 55%, #95cc1f 100%)`,
+              color: LL.ink,
+            }}
           >
-            Join
-          </a>
-        </div>
-      </div>
-    </main>
+            I LIKE MOVIES ▶
+          </button>
+        )}
+      </main>
+    </div>
   );
 }
-

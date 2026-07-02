@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import VideoPlayer from '@/components/VideoPlayer';
 import Chat from '@/components/Chat';
 import PollsTab from '@/components/PollsTab';
-import ViewerRegistration from '@/components/ViewerRegistration';
-import EventCountdown from '@/components/EventCountdown';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 import { useStreamUpdates } from '@/hooks/useStreamUpdates';
@@ -17,6 +16,13 @@ import {
   CHANNEL_NAMES,
   DATABASE_TABLES,
 } from '@/lib/constants';
+import { LL_FONT_VARS } from '@/components/lobby-lounge/fonts';
+import { LL } from '@/components/lobby-lounge/tokens';
+import LLHeader from '@/components/lobby-lounge/LLHeader';
+import { LLPill } from '@/components/lobby-lounge/buttons';
+import DoorsCountdown from '@/components/lobby-lounge/DoorsCountdown';
+import Reel from '@/components/lobby-lounge/Reel';
+import '@/components/lobby-lounge/lobby-lounge.css';
 
 interface StreamData {
   playbackId: string;
@@ -26,6 +32,29 @@ interface StreamData {
   kind: string;
   showPoster?: boolean;
   isHoldScreen?: boolean;
+}
+
+function ScreenChrome({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`dm-lobby-lounge ${LL_FONT_VARS}`} style={{ minHeight: '100vh', background: LL.ink, color: LL.frost1 }}>
+      {children}
+    </div>
+  );
+}
+
+function LoadingScreen({ message }: { message: string }) {
+  return (
+    <ScreenChrome>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', display: 'grid', gap: 12, justifyItems: 'center' }}>
+          <Reel size={72} mood="sleepy" />
+          <p className="f-comic" style={{ color: LL.frost2 }}>
+            {message}
+          </p>
+        </div>
+      </div>
+    </ScreenChrome>
+  );
 }
 
 export default function EventPage() {
@@ -62,7 +91,7 @@ export default function EventPage() {
     // Check if stream changed
     if (updatedStream.playbackId !== streamData.playbackId) {
       console.log('Stream changed, fetching new token...');
-      
+
       // Fetch new stream data with token
       fetch('/api/current')
         .then(res => res.json())
@@ -90,7 +119,7 @@ export default function EventPage() {
         (payload: any) => {
           const newData = payload.new;
           const oldData = payload.old;
-          
+
           // Check if hold_screen_enabled changed
           if (newData.hold_screen_enabled !== oldData.hold_screen_enabled) {
             console.log('Hold screen toggled, refetching stream data...');
@@ -133,7 +162,7 @@ export default function EventPage() {
       setIsRegistered(true);
       setUserId(viewerData.id);
     }
-    
+
     checkPosterMode();
     setCheckingRegistration(false);
   }, []);
@@ -199,7 +228,7 @@ export default function EventPage() {
   }, [router, isRegistered]);
 
   const spawnEasterEmojis = useCallback(() => {
-    const emojis = ['🐰', '🥚', '🐣', '🌷', '🐇', '🪺', '🐥', '🌸'];
+    const emojis = ['🎬', '🍿', '🎥', '⭐', '🕹️', '📼'];
     const count = 1000;
     for (let i = 0; i < count; i++) {
       const el = document.createElement('span');
@@ -238,174 +267,150 @@ export default function EventPage() {
     };
   }, [spawnEasterEmojis]);
 
-  // Show registration form if not registered
+  useEffect(() => {
+    document.title = 'Watch · Da Movies';
+  }, []);
+
+  // Redirect to login if not registered (once poster/registration check has run)
+  useEffect(() => {
+    if (checkingRegistration) return;
+    if (!isRegistered && !showPoster) {
+      router.replace('/login');
+    }
+  }, [checkingRegistration, isRegistered, showPoster, router]);
+
   if (checkingRegistration) {
-    return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{
-          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
-        }}
-      >
-        <div className="text-center">
-          <img 
-            src="/assets/logos/icon.jpg" 
-            alt="Da Movies Logo" 
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-pink"
-          />
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-pink mx-auto mb-4"></div>
-          <p className="text-casual-dark/80">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="loading…" />;
   }
 
-  // Show poster mode if enabled
+  // Doors aren't open yet
   if (showPoster && !isRegistered) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4"
-        style={{
-          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
-        }}
-      >
-        <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-8">
-          {/* Retro TV Frame with Banner */}
-          <div className="tv-frame w-full">
-            <div className="tv-screen">
-              <img 
-                src="/assets/images/banner.jpeg" 
-                alt="Movie Marathon Schedule" 
-                className="w-full h-auto"
-              />
-            </div>
-            {/* TV Controls */}
-            <div className="tv-controls">
-              <div className="tv-button"></div>
-              <div className="flex gap-1">
-                <div className="tv-button"></div>
-                <div className="tv-button"></div>
-              </div>
-              <div className="flex gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="w-1 h-3 bg-casual-violet rounded-sm"></div>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          {/* Countdown Timer */}
-          <div className="w-full max-w-2xl">
-            <EventCountdown />
-          </div>
-        </div>
-      </div>
+      <ScreenChrome>
+        <main
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 24,
+            padding: 24,
+          }}
+        >
+          <Reel size={90} mood="cheer" />
+          <DoorsCountdown />
+        </main>
+      </ScreenChrome>
     );
   }
 
-  // Show registration form if poster is disabled
+  // Not registered and doors are open — redirecting to /login
   if (!isRegistered) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4"
-        style={{
-          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
-        }}
-      >
-        <ViewerRegistration onComplete={() => {
-          const viewerData = getViewerData();
-          if (viewerData) {
-            setUserId(viewerData.id);
-            setIsRegistered(true);
-          }
-        }} />
-      </div>
-    );
+    return <LoadingScreen message="heading to the door…" />;
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{
-          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
-        }}
-      >
-        <div className="text-center">
-          <img 
-            src="/assets/logos/icon.jpg" 
-            alt="Da Movies Logo" 
-            className="h-20 w-20 rounded-full object-cover mx-auto mb-4 shadow-lg ring-4 ring-casual-pink"
-          />
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-casual-pink mx-auto mb-4"></div>
-          <p className="text-casual-dark/80">Loading stream...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="loading stream…" />;
   }
 
   if (error || !streamData) {
     return (
-      <div className="min-h-screen flex items-center justify-center"
-        style={{
-          background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
-        }}
-      >
-        <div className="text-center twitch-card p-8">
-          <p className="text-red-500 mb-4">{error || 'No stream available'}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="twitch-button"
-          >
-            Retry
-          </button>
+      <ScreenChrome>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', display: 'grid', gap: 14, justifyItems: 'center' }}>
+            <p className="f-comic" style={{ color: LL.frost2 }}>
+              {error || 'No stream available'}
+            </p>
+            <button type="button" onClick={() => window.location.reload()} className="bevel-btn f-display" style={{
+              padding: '10px 20px', borderRadius: 8, color: LL.ink,
+              background: `linear-gradient(180deg, ${LL.frost1} 0%, ${LL.lime} 55%, #95cc1f 100%)`,
+            }}>
+              RETRY
+            </button>
+          </div>
         </div>
-      </div>
+      </ScreenChrome>
     );
   }
 
   return (
-    <div className="h-screen text-white flex flex-col overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, #fef08a 0%, #fbcfe8 25%, #c4b5fd 50%, #a5f3fc 75%, #a7f3d0 100%)',
-      }}
-    >
+    <div className={`dm-lobby-lounge ${LL_FONT_VARS}`} style={{ height: '100vh', background: LL.ink, color: LL.frost1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <style>{`
+        .ll-watch-grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; padding: 14px; flex: 1; min-height: 0; }
+        @media (max-width: 900px) {
+          .ll-watch-grid { grid-template-columns: 1fr; overflow-y: auto; }
+          .ll-watch-grid > aside { height: 60vh; }
+        }
+      `}</style>
+      <a className="skip-link" href="#ll-watch-main">
+        Skip to content
+      </a>
+      <LLHeader
+        tagline="where we like to watch movies"
+        lockText="MEMBERS ONLY · QUIET PLEASE"
+        timestamp="CAGE-A-THON"
+        actions={
+          <>
+            <LLPill as={Link} href="/home">🏠 HOME</LLPill>
+            <LLPill as={Link} href="/schedule">🗓 SCHEDULE</LLPill>
+          </>
+        }
+      />
+
       {tokenRefreshError && (
-        <div className="bg-casual-yellow/20 border-b border-casual-yellow text-casual-yellow text-sm px-4 py-2 text-center">
+        <div style={{ background: 'rgba(255,230,0,.15)', borderBottom: `1px solid ${LL.yellow}`, color: LL.yellow, fontSize: 13, padding: '6px 16px', textAlign: 'center' }}>
           {tokenRefreshError}
         </div>
       )}
-      {/* Stream info bar */}
-      <div className="flex-shrink-0 bg-white/60 backdrop-blur-md border-b border-casual-pink/30 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <img 
-            src="/assets/logos/icon.jpg" 
-            alt="Channel Avatar" 
-            className="h-12 w-12 rounded-full object-cover ring-2 ring-casual-pink cursor-pointer hover:ring-casual-violet transition-all"
-            onClick={spawnEasterEmojis}
-          />
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold text-casual-dark">{streamData.title}</h2>
-            <p className="text-sm text-casual-dark/70">Da Movies - Movie Marathon</p>
-          </div>
-          <h2 className="text-lg md:text-xl text-casual-dark font-bold hidden md:block">
-            Welcome to the Movie Marathon!
-          </h2>
-        </div>
+
+      <div
+        className="f-mono"
+        style={{
+          background: LL.deep,
+          color: LL.mint,
+          padding: '6px 16px',
+          display: 'flex',
+          gap: 14,
+          alignItems: 'center',
+          fontSize: 14,
+          borderBottom: `2px solid ${LL.ink}`,
+        }}
+      >
+        <span style={{ color: LL.lime }}>NOW PLAYING ·</span>
+        <strong
+          style={{ color: LL.frost1, cursor: 'pointer' }}
+          onClick={spawnEasterEmojis}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && spawnEasterEmojis()}
+        >
+          {streamData.title}
+        </strong>
       </div>
 
-      {/* Main content area */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Video Player Section - Takes most of the width */}
-        <div className="flex-1 bg-black/30 flex flex-col overflow-hidden min-h-0">
-          {/* Video Player - Fixed height to prevent resizing */}
-          <div className="flex-shrink-0 bg-black">
+      <main id="ll-watch-main" className="ll-watch-grid" style={{ overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, gap: 12 }}>
+          <div
+            style={{
+              background: '#000',
+              border: `3px solid ${LL.ink}`,
+              borderRadius: 6,
+              overflow: 'hidden',
+              boxShadow: '4px 4px 0 rgba(0,0,0,.5)',
+              flexShrink: 0,
+            }}
+          >
             <ErrorBoundary
               fallback={
-                <div className="aspect-video bg-black flex items-center justify-center">
-                  <div className="text-center p-6">
-                    <p className="text-red-500 mb-4">Video player encountered an error</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="twitch-button"
-                    >
-                      Refresh Page
+                <div style={{ aspectRatio: '16/9', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ textAlign: 'center', padding: 24 }}>
+                    <p className="f-comic" style={{ color: LL.frost2, marginBottom: 12 }}>Video player encountered an error</p>
+                    <button type="button" onClick={() => window.location.reload()} className="bevel-btn f-display" style={{
+                      padding: '8px 16px', borderRadius: 8, color: LL.ink,
+                      background: `linear-gradient(180deg, ${LL.frost1} 0%, ${LL.lime} 55%, #95cc1f 100%)`,
+                    }}>
+                      REFRESH
                     </button>
                   </div>
                 </div>
@@ -420,88 +425,50 @@ export default function EventPage() {
               />
             </ErrorBoundary>
           </div>
-          
-          {/* Scrollable content below video */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Clip show link */}
-            <div className="bg-white/40 backdrop-blur-sm border-t border-casual-violet/30 px-4 py-5 sm:py-6">
-              <div className="flex items-center justify-center gap-2 sm:gap-4 md:gap-6 max-w-3xl mx-auto">
-                <svg
-                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0 text-casual-pink drop-shadow-md"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
 
-                <a
-                  href="https://www.youtube.com/playlist?list=PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative flex-1 min-w-0 rounded-2xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
-                >
-                  <div className="bg-gradient-to-r from-casual-yellow via-casual-pink to-casual-violet rounded-2xl px-6 sm:px-10 py-4 sm:py-5 text-center shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-white/60">
-                    <div className="text-lg sm:text-xl md:text-2xl font-extrabold text-casual-dark tracking-tight">
-                      Click here for the clip show
-                    </div>
-                  </div>
-                </a>
-
-                <svg
-                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 shrink-0 text-casual-pink drop-shadow-md"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path d="M19 12H5M11 19l-7-7 7-7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ textAlign: 'center' }}>
+              <a
+                href="https://www.youtube.com/playlist?list=PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="f-display bevel-btn"
+                style={{
+                  display: 'inline-block',
+                  padding: '10px 20px',
+                  borderRadius: 10,
+                  color: LL.ink,
+                  background: `linear-gradient(180deg, ${LL.frost1} 0%, ${LL.mint} 60%, #7eb9a0 100%)`,
+                  textDecoration: 'none',
+                  fontSize: 14,
+                }}
+              >
+                ◄ CLIP SHOW ►
+              </a>
             </div>
 
-            {/* Polls Section */}
-            <div className="bg-white/30 backdrop-blur-sm border-t-2 border-casual-violet/30 px-4 py-4">
-              {/* Polls Header */}
-              <div className="text-center mb-4">
-                <h3 className="text-2xl font-bold text-casual-dark inline-block">
-                  Polls
-                </h3>
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-pink to-transparent"></div>
-                  <span className="text-xs uppercase tracking-wider text-casual-dark/70 font-semibold">
-                    Vote & See Results
-                  </span>
-                  <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-casual-pink to-transparent"></div>
-                </div>
-              </div>
-
-              {/* Polls Tab Component */}
-              <div className="pb-4">
-                <ErrorBoundary
-                  fallback={
-                    <div className="text-center p-4">
-                      <p className="text-casual-dark/70 text-sm">Polls unavailable</p>
-                    </div>
-                  }
-                >
-                  <PollsTab userId={userId} room={ROOM_NAMES.DEFAULT} />
-                </ErrorBoundary>
-              </div>
+            <div>
+              <h3 className="f-display" style={{ textAlign: 'center', color: LL.lime, fontSize: 16, marginBottom: 8 }}>
+                ★ POLLS ★
+              </h3>
+              <ErrorBoundary
+                fallback={
+                  <p className="f-comic" style={{ textAlign: 'center', color: LL.frost2, fontSize: 13 }}>Polls unavailable</p>
+                }
+              >
+                <PollsTab userId={userId} room={ROOM_NAMES.DEFAULT} />
+              </ErrorBoundary>
             </div>
           </div>
         </div>
 
-        {/* Chat Sidebar - Full width on mobile, fixed width on desktop */}
-        <div className="w-full h-96 lg:h-auto lg:w-80 xl:w-96 flex-shrink-0">
+        <aside style={{ minHeight: 0 }}>
           <ErrorBoundary
             fallback={
-              <div className="h-full bg-white/50 backdrop-blur-md flex items-center justify-center">
-                <div className="text-center p-4">
-                  <p className="text-casual-dark/70 text-sm mb-2">Chat unavailable</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="text-xs text-casual-pink hover:underline"
-                  >
+              <div style={{ height: '100%', background: LL.deep, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ textAlign: 'center', padding: 16 }}>
+                  <p className="f-comic" style={{ color: LL.frost2, fontSize: 13, marginBottom: 8 }}>Chat unavailable</p>
+                  <button type="button" onClick={() => window.location.reload()} style={{ color: LL.lime, fontSize: 12, textDecoration: 'underline', background: 'none', border: 0, cursor: 'pointer' }}>
                     Reload to fix
                   </button>
                 </div>
@@ -510,9 +477,8 @@ export default function EventPage() {
           >
             <Chat room={ROOM_NAMES.DEFAULT} userId={userId} />
           </ErrorBoundary>
-        </div>
+        </aside>
       </main>
     </div>
   );
 }
-

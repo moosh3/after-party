@@ -224,30 +224,31 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-white/50 backdrop-blur-md">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-casual-pink"></div>
+      <div className="flex items-center justify-center h-full" style={{ background: '#f5fbff' }}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#a18ad4' }}></div>
       </div>
     );
   }
 
   return (
-    <div 
-      className="flex flex-col h-full bg-white/50 backdrop-blur-md border-t lg:border-t-0 lg:border-l border-casual-violet/30"
-      style={{ fontFamily: 'Inter, Helvetica, Arial, sans-serif' }}
+    <div
+      className="flex flex-col h-full"
+      style={{ fontFamily: 'var(--ll-f-outfit), system-ui, sans-serif', background: '#f5fbff', border: '2px solid #1a1230', borderRadius: 14, boxShadow: '4px 4px 0 rgba(26,18,48,.35)', overflow: 'hidden' }}
     >
       {/* Header */}
-      <div className="flex-shrink-0 p-3 border-b border-casual-violet/30 bg-white/30">
-        <h2 className="text-sm font-bold uppercase text-casual-dark">Chat</h2>
+      <div className="flex-shrink-0" style={{ padding: '7px 12px', background: '#1a1230', borderBottom: '2px solid #1a1230' }}>
+        <h2 className="f-display" style={{ margin: 0, fontSize: 13, letterSpacing: '.04em', color: '#c9ff2d' }}>💬 CHAT</h2>
       </div>
 
       {/* Messages */}
       <div
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto min-h-0"
+        style={{ padding: '4px 0' }}
       >
         {messages.length === 0 ? (
           <div className="p-4 text-center">
-            <p className="text-sm text-casual-dark/70">
+            <p className="f-comic text-sm" style={{ color: '#2a1a55' }}>
               Welcome to the chat!
             </p>
           </div>
@@ -269,8 +270,8 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             // Render system messages differently
             if (message.kind === 'system') {
               return (
-                <div key={message.id} className="chat-message">
-                  <div className="text-xs text-casual-dark/60 italic">
+                <div key={message.id} style={{ padding: '4px 10px' }}>
+                  <div className="f-comic text-xs italic" style={{ color: '#a18ad4' }}>
                     {message.body}
                   </div>
                 </div>
@@ -280,16 +281,16 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             // Render regular user messages (compact, inline)
             const userColor = getUsernameColor(message.user_name);
             return (
-              <div key={message.id} className="chat-message">
+              <div key={message.id} style={{ padding: '4px 10px' }}>
                 <div className="flex flex-wrap items-baseline gap-1 text-sm leading-relaxed">
-                  <span 
-                    className="chat-username"
+                  <span
+                    className="font-bold"
                     style={{ color: userColor }}
                   >
                     {message.user_name}
                   </span>
-                  <span className="text-casual-dark/50">:</span>
-                  <span className="text-casual-dark break-words">{message.body}</span>
+                  <span style={{ color: '#a18ad4' }}>:</span>
+                  <span className="break-words" style={{ color: '#1a1230' }}>{message.body}</span>
                 </div>
               </div>
             );
@@ -300,13 +301,14 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
 
       {/* Scroll to bottom indicator */}
       {!autoScroll && (
-        <div className="flex-shrink-0 px-2 py-1 border-t border-casual-violet/30">
+        <div className="flex-shrink-0" style={{ padding: '4px 8px', borderTop: '2px solid #1a1230' }}>
           <button
             onClick={() => {
               messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
               setAutoScroll(true);
             }}
-            className="w-full text-xs text-casual-dark hover:text-casual-dark/80 py-1"
+            className="w-full text-xs py-1 f-comic"
+            style={{ color: '#2a1a55' }}
           >
             More messages below
           </button>
@@ -314,27 +316,28 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
       )}
 
       {/* Input */}
-      <div className="flex-shrink-0 p-2 border-t border-casual-violet/30 bg-white/30">
+      <div className="flex-shrink-0" style={{ padding: 8, borderTop: '2px solid #1a1230', background: '#f0e6cf' }}>
         {error && (
-          <div className="text-xs text-red-500 mb-1 px-2">{error}</div>
+          <div className="text-xs mb-1" style={{ color: '#a31616' }}>{error}</div>
         )}
-        
+
         {rateLimitSeconds > 0 && (
-          <div className="text-xs text-casual-dark/60 mb-1 px-2">
+          <div className="text-xs mb-1 f-mono" style={{ color: '#2a1a55' }}>
             Slow mode: {rateLimitSeconds}s
           </div>
         )}
-        
+
         <form onSubmit={handleSend} className="flex flex-col gap-2">
-          <div className="text-xs text-casual-dark/60 mb-1 px-2">
-            Chatting as: <span className="text-casual-dark font-medium">{userName}</span>
+          <div className="text-xs mb-1 f-mono" style={{ color: '#2a1a55' }}>
+            Chatting as: <span className="font-medium">{userName}</span>
           </div>
           <input
             type="text"
             value={messageBody}
             onChange={(e) => setMessageBody(e.target.value)}
-            placeholder="Send a message"
-            className="twitch-input w-full text-sm"
+            placeholder="say something..."
+            className="w-full text-sm"
+            style={{ border: '2px solid #1a1230', borderRadius: 6, padding: '7px 10px', background: '#fff', color: '#1a1230' }}
             disabled={sending || rateLimitSeconds > 0}
             maxLength={MAX_MESSAGE_LENGTH}
           />

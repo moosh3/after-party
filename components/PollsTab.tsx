@@ -89,7 +89,7 @@ export default function PollsTab({ userId, room = ROOM_NAMES.DEFAULT }: PollsTab
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-casual-pink"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: '#c9ff2d' }}></div>
       </div>
     );
   }
@@ -97,7 +97,7 @@ export default function PollsTab({ userId, room = ROOM_NAMES.DEFAULT }: PollsTab
   if (polls.length === 0) {
     return (
       <div className="text-center p-8">
-        <p className="text-casual-dark/70 text-sm">No polls yet. Check back later!</p>
+        <p className="f-comic text-sm" style={{ color: '#cbb6ff' }}>No polls yet. Check back later!</p>
       </div>
     );
   }
@@ -105,41 +105,35 @@ export default function PollsTab({ userId, room = ROOM_NAMES.DEFAULT }: PollsTab
   return (
     <div className="space-y-4">
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-casual-violet/30">
+      <div className="flex gap-2" style={{ borderBottom: '2px solid #2a1a55' }}>
         <button
           onClick={() => setActiveTab('active')}
-          className={`px-4 py-2 font-semibold text-sm transition-colors relative ${
-            activeTab === 'active'
-              ? 'text-casual-dark'
-              : 'text-casual-dark/60 hover:text-casual-dark'
-          }`}
+          className="px-4 py-2 font-semibold text-sm transition-colors relative f-comic"
+          style={{ color: activeTab === 'active' ? '#c9ff2d' : '#cbb6ff' }}
         >
           Active Polls
           {activePolls.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-casual-pink text-casual-dark font-bold">
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full font-bold" style={{ background: '#ff2eb8', color: '#fff' }}>
               {activePolls.length}
             </span>
           )}
           {activeTab === 'active' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-casual-pink"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: '#c9ff2d' }}></div>
           )}
         </button>
         <button
           onClick={() => setActiveTab('closed')}
-          className={`px-4 py-2 font-semibold text-sm transition-colors relative ${
-            activeTab === 'closed'
-              ? 'text-casual-dark'
-              : 'text-casual-dark/60 hover:text-casual-dark'
-          }`}
+          className="px-4 py-2 font-semibold text-sm transition-colors relative f-comic"
+          style={{ color: activeTab === 'closed' ? '#c9ff2d' : '#cbb6ff' }}
         >
           Past Results
           {closedPolls.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-casual-violet text-casual-dark/80">
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full" style={{ background: '#a18ad4', color: '#1a1230' }}>
               {closedPolls.length}
             </span>
           )}
           {activeTab === 'closed' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-casual-pink"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: '#c9ff2d' }}></div>
           )}
         </button>
       </div>

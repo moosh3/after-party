@@ -1,0 +1,64 @@
+/* Da Lobby Lounge — shared Y2K styling for Landing/Login/Home/Watch/Door.
+   Scoped under .dm-lobby-lounge so it can't leak into the rest of the site. */
+
+.dm-lobby-lounge {
+  font-family: var(--ll-f-outfit), system-ui, sans-serif;
+}
+.dm-lobby-lounge .f-display { font-family: var(--ll-f-bungee), sans-serif; letter-spacing: .02em; }
+.dm-lobby-lounge .f-shade { font-family: var(--ll-f-bungee-shade), sans-serif; }
+.dm-lobby-lounge .f-mono { font-family: var(--ll-f-vt323), 'Courier New', monospace; }
+.dm-lobby-lounge .f-comic { font-family: var(--ll-f-comic-neue), 'Comic Sans MS', cursive; font-weight: 700; }
+
+.dm-lobby-lounge .skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 200;
+  background: #fff; color: #1a1230; padding: 10px 16px; border-radius: 0 0 8px 0;
+  font-weight: 800;
+}
+.dm-lobby-lounge .skip-link:focus { left: 0; }
+
+.dm-lobby-lounge .bevel-btn {
+  border: 1.5px solid #1a1230;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.85), 2px 2px 0 rgba(0,0,0,.5);
+  cursor: pointer;
+}
+.dm-lobby-lounge .bevel-btn:hover { transform: translate(-1px, -1px); }
+.dm-lobby-lounge .bevel-btn:active { transform: translate(1px, 1px); }
+
+.dm-lobby-lounge .lock-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 800; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 6px; box-shadow: 1px 1px 0 rgba(0,0,0,.5);
+}
+
+.dm-lobby-lounge .now-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #ff2eb8; color: #fff; font-weight: 800; font-size: 10px; letter-spacing: .08em;
+  padding: 3px 8px; border-radius: 999px; border: 1.5px solid #1a1230;
+}
+.dm-lobby-lounge .now-pill .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  background: #fff; animation: ll-blip 1.3s infinite;
+}
+@keyframes ll-blip { 50% { opacity: .25; } }
+
+.dm-lobby-lounge .marq {
+  overflow: hidden; white-space: nowrap; padding: 6px 0;
+  border-top: 2px solid rgba(255,255,255,.12); border-bottom: 2px solid rgba(255,255,255,.12);
+}
+.dm-lobby-lounge .marq-track {
+  display: inline-flex; gap: 40px; padding-left: 100%; animation: ll-tick 32s linear infinite;
+}
+@keyframes ll-tick { to { transform: translateX(-100%); } }
+
+.dm-lobby-lounge .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-lobby-lounge .marq-track,
+  .dm-lobby-lounge .now-pill .dot,
+  .dm-lobby-lounge .ll-door-lock {
+    animation: none;
+  }
+}
