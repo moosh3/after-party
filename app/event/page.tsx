@@ -42,7 +42,6 @@ interface StreamData {
   activeSlotId?: string | null;
   scheduleStatus?: string | null;
   nextTransitionAt?: string | null;
-  captionUrl?: string | null;
 }
 
 function ScreenChrome({ children }: { children: React.ReactNode }) {
@@ -136,8 +135,7 @@ export default function EventPage() {
             previous.isHoldScreen !== next.isHoldScreen ||
             previous.activeSlotId !== next.activeSlotId ||
             previous.scheduleStatus !== next.scheduleStatus ||
-            previous.nextTransitionAt !== next.nextTransitionAt ||
-            previous.captionUrl !== next.captionUrl
+            previous.nextTransitionAt !== next.nextTransitionAt
           ) {
             return next;
           }
@@ -514,7 +512,6 @@ export default function EventPage() {
                 playbackUpdatedAt={streamData.playbackUpdatedAt}
                 playbackElapsedMs={streamData.playbackElapsedMs}
                 activeSlotId={streamData.activeSlotId}
-                captionUrl={streamData.captionUrl}
               />
             </ErrorBoundary>
           </div>
