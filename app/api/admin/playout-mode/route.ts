@@ -24,7 +24,11 @@ export async function GET() {
   }
 
   const mode: PlayoutMode = data.playout_mode || 'schedule';
-  const schedule = resolveShowtimePlayout(new Date(), data.schedule_early_ended_slot);
+  const schedule = resolveShowtimePlayout(
+    new Date(),
+    data.schedule_early_ended_slot,
+    data.schedule_early_ended_at
+  );
 
   return NextResponse.json({
     mode,

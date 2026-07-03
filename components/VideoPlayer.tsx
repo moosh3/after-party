@@ -26,6 +26,7 @@ interface VideoPlayerProps {
   playbackUpdatedAt?: string;
   playbackElapsedMs?: number;
   activeSlotId?: string | null;
+  captionUrl?: string | null;
 }
 
 type PlaybackStateResponse = {
@@ -49,6 +50,7 @@ export default function VideoPlayer({
   playbackUpdatedAt,
   playbackElapsedMs = 0,
   activeSlotId = null,
+  captionUrl = null,
 }: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +214,48 @@ export default function VideoPlayer({
     manualEndedPlaybackRef.current = null;
     lastSyncedStateRef.current = null;
   }, [playbackId, activeSlotId]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !captionUrl) return;
+
+    let attempts = 0;
+    let timeout: NodeJS.Timeout | null = null;
+
+    const requestCaptions = () => {
+      player.setAttribute('defaultsubtitles', '');
+      player.dispatchEvent(
+        new CustomEvent('mediashowsubtitlesrequest', {
+          bubbles: true,
+          composed: true,
+          detail: true,
+        })
+      );
+
+      attempts += 1;
+      if (attempts < 6) {
+        timeout = setTimeout(requestCaptions, 750);
+      }
+    };
+
+    const handleReady = () => {
+      attempts = 0;
+      if (timeout) clearTimeout(timeout);
+      requestCaptions();
+    };
+
+    player.addEventListener('loadstart', handleReady);
+    player.addEventListener('loadedmetadata', handleReady);
+    player.addEventListener('canplay', handleReady);
+    requestCaptions();
+
+    return () => {
+      player.removeEventListener('loadstart', handleReady);
+      player.removeEventListener('loadedmetadata', handleReady);
+      player.removeEventListener('canplay', handleReady);
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [playbackId, captionUrl]);
 
   useEffect(() => {
     if (canBroadcastAdminControls || !playerRef.current) return;
@@ -413,9 +457,33 @@ export default function VideoPlayer({
 
   const viewerControlStyle = viewerLocked
     ? ({
+        '--play-button': 'none',
+        '--center-play-button': 'none',
+        '--bottom-play-button': 'none',
+        '--top-play-button': 'none',
+        '--seek-backward-button': 'none',
+        '--center-seek-backward-button': 'none',
+        '--bottom-seek-backward-button': 'none',
+        '--top-seek-backward-button': 'none',
+        '--seek-forward-button': 'none',
+        '--center-seek-forward-button': 'none',
+        '--bottom-seek-forward-button': 'none',
+        '--top-seek-forward-button': 'none',
+        '--time-range': 'none',
+        '--bottom-time-range': 'none',
+        '--top-time-range': 'none',
+        '--time-display': 'none',
+        '--duration-display': 'none',
+        '--playback-rate-button': 'none',
+        '--playback-rate-menu-button': 'none',
         '--media-time-range-display': 'none',
+        '--media-time-display-display': 'none',
+        '--media-duration-display-display': 'none',
+        '--media-play-button-display': 'none',
         '--media-seek-backward-button-display': 'none',
         '--media-seek-forward-button-display': 'none',
+        '--media-playback-rate-button-display': 'none',
+        '--media-playback-rate-menu-button-display': 'none',
       } as React.CSSProperties)
     : undefined;
 
@@ -426,6 +494,7 @@ export default function VideoPlayer({
         playbackId={playbackId}
         tokens={{ playback: token !== 'placeholder-token' && token !== 'unsigned' ? token : undefined }}
         streamType={kind === 'live' ? 'live' : undefined}
+        defaultStreamType={kind === 'live' ? 'live' : 'on-demand'}
         startTime={Math.max(0, playbackPosition || 0)}
         metadata={{
           video_title: title,
@@ -433,7 +502,7 @@ export default function VideoPlayer({
         defaultShowRemainingTime
         defaultHiddenCaptions={false}
         accentColor="#fbcfe8"
-        className="w-full h-full"
+        className={`w-full h-full ${viewerLocked ? 'watch-party-locked' : ''}`}
         style={viewerControlStyle}
         nohotkeys={viewerLocked}
         onPlay={canBroadcastAdminControls ? handlePlay : undefined}
