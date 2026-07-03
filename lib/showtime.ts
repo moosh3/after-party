@@ -2,6 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import { parse } from 'yaml';
 import type { ScheduleAccent, ScheduleEntry, ScheduleSettings } from '@/app/schedule/config';
+import {
+  emptyCaptionTrack,
+  getCaptionTrack,
+  normalizeCaptionFilename,
+  type CaptionTrackFields,
+} from '@/lib/captions';
 
 export type PlayoutMode = 'manual' | 'schedule';
 export type ShowtimeAssetKind = 'vod' | 'live';
@@ -107,7 +113,7 @@ export type ResolvedSchedulePlayout = {
   nextTransitionAt: string | null;
   eventSlug: string;
   scheduleTitle: string;
-};
+} & CaptionTrackFields;
 
 let cachedShowtime: Showtime | null = null;
 let cachedMtimeMs = 0;
@@ -183,6 +189,22 @@ export function resolveShowtimePlayout(
   return resolveShowtimePlayoutFor(loadShowtime(), now, earlyEndedSlotId, earlyEndedAt);
 }
 
+export function findShowtimeAssetByPlaybackId(playbackId?: string | null): ShowtimeAsset | null {
+  if (!playbackId) return null;
+
+  const showtime = loadShowtime();
+  return Object.values(showtime.assets).find((asset) => asset.playbackId === playbackId) || null;
+}
+
+export function getCaptionTrackForPlaybackId(playbackId?: string | null): CaptionTrackFields {
+  const asset = findShowtimeAssetByPlaybackId(playbackId);
+  return getCaptionTrackForAsset(asset);
+}
+
+export function getCaptionTrackForAsset(asset?: ShowtimeAsset | null): CaptionTrackFields {
+  return asset?.captions ? getCaptionTrack(asset.captions) : emptyCaptionTrack();
+}
+
 export function resolveShowtimePlayoutFor(
   showtime: Showtime,
   now = new Date(),
@@ -245,6 +267,7 @@ export function resolveShowtimePlayoutFor(
         nextTransitionAt: slot.endIso,
         eventSlug: showtime.event.slug,
         scheduleTitle: showtime.event.title,
+        ...getCaptionTrackForAsset(slot.assetDetails),
       };
     }
 
@@ -349,6 +372,7 @@ function requireAssets(rawAssets?: Record<string, RawAsset>): Record<string, Sho
       if (asset.durationSeconds !== undefined && asset.durationSeconds <= 0) {
         throw new Error(`assets.${key}.durationSeconds must be greater than 0`);
       }
+      const captions = asset.captions ? normalizeCaptionFilename(asset.captions) : undefined;
 
       return [
         key,
@@ -357,6 +381,7 @@ function requireAssets(rawAssets?: Record<string, RawAsset>): Record<string, Sho
           key,
           title: asset.title,
           playbackId: asset.playbackId,
+          captions,
           kind: asset.kind || 'vod',
         },
       ];
@@ -467,6 +492,7 @@ function holdPlayout(
     nextTransitionAt,
     eventSlug: showtime.event.slug,
     scheduleTitle: showtime.event.title,
+    ...getCaptionTrackForAsset(holdAsset),
   };
 }
 

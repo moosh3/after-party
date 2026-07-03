@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generatePlaybackToken } from '@/lib/mux';
 import { isDevelopment } from '@/lib/config';
-import { resolveShowtimePlayout, type PlayoutMode } from '@/lib/showtime';
+import {
+  getCaptionTrackForPlaybackId,
+  resolveShowtimePlayout,
+  type PlayoutMode,
+} from '@/lib/showtime';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -49,6 +53,10 @@ export async function GET(request: NextRequest) {
           playbackPosition: 0,
           playbackUpdatedAt: new Date().toISOString(),
           playbackElapsedMs: 0,
+          captionFilename: null,
+          captionUrl: null,
+          captionLabel: null,
+          captionLanguage: null,
         }, {
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -77,6 +85,10 @@ export async function GET(request: NextRequest) {
     let nextTransitionAt: string | null = null;
     let eventSlug: string | null = null;
     let scheduleTitle: string | null = null;
+    let captionFilename: string | null = null;
+    let captionUrl: string | null = null;
+    let captionLabel: string | null = null;
+    let captionLanguage: string | null = null;
 
     if (playoutMode === 'schedule') {
       const resolved = resolveShowtimePlayout(
@@ -98,6 +110,10 @@ export async function GET(request: NextRequest) {
       nextTransitionAt = resolved.nextTransitionAt;
       eventSlug = resolved.eventSlug;
       scheduleTitle = resolved.scheduleTitle;
+      captionFilename = resolved.captionFilename;
+      captionUrl = resolved.captionUrl;
+      captionLabel = resolved.captionLabel;
+      captionLanguage = resolved.captionLanguage;
     } else {
       if (isHoldScreen && data.hold_screen_mux_item) {
         const holdScreenItem = Array.isArray(data.hold_screen_mux_item)
@@ -114,6 +130,12 @@ export async function GET(request: NextRequest) {
       } else if (isHoldScreen) {
         isHoldScreen = false;
       }
+
+      const captions = getCaptionTrackForPlaybackId(playbackId);
+      captionFilename = captions.captionFilename;
+      captionUrl = captions.captionUrl;
+      captionLabel = captions.captionLabel;
+      captionLanguage = captions.captionLanguage;
     }
 
     // Generate playback token (or use unsigned if credentials not configured)
@@ -141,6 +163,10 @@ export async function GET(request: NextRequest) {
       nextTransitionAt,
       eventSlug,
       scheduleTitle,
+      captionFilename,
+      captionUrl,
+      captionLabel,
+      captionLanguage,
     }, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',

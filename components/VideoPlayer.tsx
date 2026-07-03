@@ -26,6 +26,7 @@ interface VideoPlayerProps {
   playbackUpdatedAt?: string;
   playbackElapsedMs?: number;
   activeSlotId?: string | null;
+  captionUrl?: string | null;
 }
 
 type PlaybackStateResponse = {
@@ -49,6 +50,7 @@ export default function VideoPlayer({
   playbackUpdatedAt,
   playbackElapsedMs = 0,
   activeSlotId = null,
+  captionUrl = null,
 }: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +214,48 @@ export default function VideoPlayer({
     manualEndedPlaybackRef.current = null;
     lastSyncedStateRef.current = null;
   }, [playbackId, activeSlotId]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !captionUrl) return;
+
+    let attempts = 0;
+    let timeout: NodeJS.Timeout | null = null;
+
+    const requestCaptions = () => {
+      player.setAttribute('defaultsubtitles', '');
+      player.dispatchEvent(
+        new CustomEvent('mediashowsubtitlesrequest', {
+          bubbles: true,
+          composed: true,
+          detail: true,
+        })
+      );
+
+      attempts += 1;
+      if (attempts < 6) {
+        timeout = setTimeout(requestCaptions, 750);
+      }
+    };
+
+    const handleReady = () => {
+      attempts = 0;
+      if (timeout) clearTimeout(timeout);
+      requestCaptions();
+    };
+
+    player.addEventListener('loadstart', handleReady);
+    player.addEventListener('loadedmetadata', handleReady);
+    player.addEventListener('canplay', handleReady);
+    requestCaptions();
+
+    return () => {
+      player.removeEventListener('loadstart', handleReady);
+      player.removeEventListener('loadedmetadata', handleReady);
+      player.removeEventListener('canplay', handleReady);
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [playbackId, captionUrl]);
 
   useEffect(() => {
     if (canBroadcastAdminControls || !playerRef.current) return;

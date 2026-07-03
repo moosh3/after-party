@@ -36,7 +36,10 @@
           "rating": { "type": "string" },
           "runtime": { "type": "string" },
           "still": { "type": "string" },
-          "captions": { "type": "string" },
+          "captions": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.([sS][rR][tT]|[vV][tT][tT])$"
+          },
           "blurb": { "type": "string" },
           "accent": { "type": "string" }
         }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { getCaptionTrack, srtToWebVtt } from '../lib/captions';
 import { loadShowtime, parseShowtimeYaml, resolveShowtimePlayoutFor } from '../lib/showtime';
 
 const baseYaml = `
@@ -32,18 +33,29 @@ const showtime = loadShowtime();
 assert.equal(showtime.event.slug, 'cage-a-thon-2026');
 assert.equal(showtime.assets['national-treasure'].assetId, 'lYOIuSPBfwair3597nD8P5JTlLX5VsArV3A8KDK8kow');
 assert.equal(showtime.assets['national-treasure'].playbackId, '5K0001THGMsHg02oRgspFcKcR1sEqtr00ZpcvM8AUdOtO1A');
+assert.equal(showtime.assets['national-treasure'].captions, 'national-treasure-2004.srt');
 assert.equal(showtime.schedule.at(-1)?.id, 'national-treasure-encore');
 assert.ok(showtime.schedule.at(-1)!.absoluteEndMinute > showtime.schedule.at(-1)!.absoluteStartMinute);
+
+const captionTrack = getCaptionTrack(showtime.assets['valley-girl'].captions);
+assert.equal(captionTrack.captionUrl, '/api/captions/valley-girl-1983.vtt');
+assert.equal(captionTrack.captionLanguage, 'en');
+
+const convertedCaptions = srtToWebVtt('1\n00:00:01,250 --> 00:00:03,000\nhi');
+assert.match(convertedCaptions, /^WEBVTT/);
+assert.match(convertedCaptions, /00:00:01\.250 --> 00:00:03\.000/);
 
 const before = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T13:30:00.000Z'));
 assert.equal(before.status, 'before');
 assert.equal(before.isHoldScreen, true);
 assert.equal(before.playbackPosition, 310);
+assert.equal(before.captionUrl, null);
 
 const nationalTreasure = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T14:30:00.000Z'));
 assert.equal(nationalTreasure.status, 'movie');
 assert.equal(nationalTreasure.activeSlotId, 'national-treasure-am');
 assert.equal(nationalTreasure.playbackPosition, 1800);
+assert.equal(nationalTreasure.captionUrl, '/api/captions/national-treasure-2004.vtt');
 
 const firstGap = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T16:20:00.000Z'));
 assert.equal(firstGap.status, 'gap');
