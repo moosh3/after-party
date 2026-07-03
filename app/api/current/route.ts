@@ -79,7 +79,11 @@ export async function GET(request: NextRequest) {
     let scheduleTitle: string | null = null;
 
     if (playoutMode === 'schedule') {
-      const resolved = resolveShowtimePlayout(new Date(), data.schedule_early_ended_slot);
+      const resolved = resolveShowtimePlayout(
+        new Date(),
+        data.schedule_early_ended_slot,
+        data.schedule_early_ended_at
+      );
       playbackId = resolved.playbackId;
       title = resolved.title;
       kind = resolved.kind;

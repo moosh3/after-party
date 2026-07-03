@@ -24,6 +24,7 @@ assets:
     playbackId: olbSIYHIQXS6Wn7knqA9fqhZeTPaXQf83d1EfJILGlY
     assetId: D6nsbwR5E2EfaDPPtr601NlILl3LHs3vVH1RJ00MkI01Hw
     kind: vod
+    durationSeconds: 797.1
 
   national-treasure:
     title: National Treasure (2004)
