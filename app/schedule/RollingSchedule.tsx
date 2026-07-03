@@ -7,10 +7,9 @@ import './schedule.css';
 import {
   ADS,
   AdEntry,
-  SCHEDULE,
   ScheduleEntry,
   ScheduleLayout,
-  SETTINGS,
+  ScheduleSettings,
   TWEAKS_DEFAULTS,
   TWEAKS_STORAGE_KEY,
   ScheduleTweaks,
@@ -134,7 +133,7 @@ function stillFallback(title: string): string {
   return m ? m[1] : '▶';
 }
 
-function Thumb({ entry }: { entry: ScheduleEntry }) {
+function Thumb({ entry, stillsDir }: { entry: ScheduleEntry; stillsDir: string }) {
   const [failed, setFailed] = useState(!entry.still);
   if (failed || !entry.still) {
     return (
@@ -146,12 +145,22 @@ function Thumb({ entry }: { entry: ScheduleEntry }) {
   return (
     <div className="thumb">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`${SETTINGS.stillsDir}/${entry.still}`} alt={entry.title} onError={() => setFailed(true)} />
+      <img src={`${stillsDir}/${entry.still}`} alt={entry.title} onError={() => setFailed(true)} />
     </div>
   );
 }
 
-function Row({ entry, index, status }: { entry: ScheduleEntry; index: number; status: RowStatus }) {
+function Row({
+  entry,
+  index,
+  status,
+  stillsDir,
+}: {
+  entry: ScheduleEntry;
+  index: number;
+  status: RowStatus;
+  stillsDir: string;
+}) {
   const accent = entry.accent || CYCLE[index % CYCLE.length];
   return (
     <div
@@ -162,7 +171,7 @@ function Row({ entry, index, status }: { entry: ScheduleEntry; index: number; st
         <div className="t1">{entry.start}</div>
         <div className="t2">{`→ ${entry.end}`}</div>
       </div>
-      <Thumb entry={entry} />
+      <Thumb entry={entry} stillsDir={stillsDir} />
       <div className="mid">
         <h3>{entry.title}</h3>
         {entry.blurb && <p>{entry.blurb}</p>}
@@ -179,11 +188,29 @@ function Row({ entry, index, status }: { entry: ScheduleEntry; index: number; st
   );
 }
 
-function Listings({ statusInfo, scrollSpeed }: { statusInfo: StatusInfo; scrollSpeed: number }) {
+function Listings({
+  schedule,
+  statusInfo,
+  scrollSpeed,
+  stillsDir,
+}: {
+  schedule: ScheduleEntry[];
+  statusInfo: StatusInfo;
+  scrollSpeed: number;
+  stillsDir: string;
+}) {
   return (
     <RollingTrack scrollSpeed={scrollSpeed}>
       {[0, 1].map((pass) =>
-        SCHEDULE.map((entry, i) => <Row key={`${pass}-${i}`} entry={entry} index={i} status={statusInfo.st[i]} />)
+        schedule.map((entry, i) => (
+          <Row
+            key={`${pass}-${i}`}
+            entry={entry}
+            index={i}
+            status={statusInfo.st[i]}
+            stillsDir={stillsDir}
+          />
+        ))
       )}
     </RollingTrack>
   );
@@ -335,12 +362,12 @@ function AdStrip({ adSeconds }: { adSeconds: number }) {
   );
 }
 
-function ChannelCard() {
-  if (SETTINGS.marathonArt) {
+function ChannelCard({ settings }: { settings: ScheduleSettings }) {
+  if (settings.marathonArt) {
     return (
       <div className="art-panel contain rail-art">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={SETTINGS.marathonArt} alt={`${SETTINGS.channel} marathon art`} />
+        <img src={settings.marathonArt} alt={`${settings.channel} marathon art`} />
       </div>
     );
   }
@@ -348,23 +375,23 @@ function ChannelCard() {
     <div className="ch-card">
       <ReelIcon />
       <div>
-        <div className="big">{SETTINGS.channel}</div>
-        <div className="small">{`${SETTINGS.date} · ${SETTINGS.stamp}`}</div>
+        <div className="big">{settings.channel}</div>
+        <div className="small">{`${settings.date} · ${settings.stamp}`}</div>
       </div>
     </div>
   );
 }
 
-function PromoScreen() {
-  if (SETTINGS.marathonArt) {
+function PromoScreen({ settings, schedule }: { settings: ScheduleSettings; schedule: ScheduleEntry[] }) {
+  if (settings.marathonArt) {
     return (
       <div className="promo art-panel">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={SETTINGS.marathonArt} alt={`${SETTINGS.channel} marathon art`} />
+        <img src={settings.marathonArt} alt={`${settings.channel} marathon art`} />
       </div>
     );
   }
-  const upNext = SCHEDULE[0];
+  const upNext = schedule[0];
   return (
     <div
       className="promo"
@@ -391,8 +418,8 @@ function PromoScreen() {
   );
 }
 
-function Ticker() {
-  const items = [...SETTINGS.ticker, ...SETTINGS.ticker];
+function Ticker({ settings }: { settings: ScheduleSettings }) {
+  const items = [...settings.ticker, ...settings.ticker];
   return (
     <div className="ticker">
       <div className="ticker-track">
@@ -410,8 +437,16 @@ function Ticker() {
   );
 }
 
-function NowBar({ statusInfo }: { statusInfo: StatusInfo }) {
-  const tz = SETTINGS.tzLabel ? ` ${SETTINGS.tzLabel}` : '';
+function NowBar({
+  schedule,
+  settings,
+  statusInfo,
+}: {
+  schedule: ScheduleEntry[];
+  settings: ScheduleSettings;
+  statusInfo: StatusInfo;
+}) {
+  const tz = settings.tzLabel ? ` ${settings.tzLabel}` : '';
   let content: React.ReactNode;
   if (statusInfo.state === 'over') {
     content = (
@@ -420,7 +455,7 @@ function NowBar({ statusInfo }: { statusInfo: StatusInfo }) {
       </>
     );
   } else if (statusInfo.state === 'before') {
-    const s = SCHEDULE[0];
+    const s = schedule[0];
     content = (
       <>
         STARTS {s.start}
@@ -428,38 +463,40 @@ function NowBar({ statusInfo }: { statusInfo: StatusInfo }) {
       </>
     );
   } else if (statusInfo.liveIdx >= 0) {
-    const s = SCHEDULE[statusInfo.liveIdx];
+    const s = schedule[statusInfo.liveIdx];
     content = (
       <>
         NOW: <b>{s.title}</b> ({s.start}–{s.end})
       </>
     );
   } else {
-    content = `${SCHEDULE.length} listings${SETTINGS.tzLabel ? ` · all times ${SETTINGS.tzLabel}` : ''}`;
+    content = `${schedule.length} listings${settings.tzLabel ? ` · all times ${settings.tzLabel}` : ''}`;
   }
   return (
     <div className="nowbar f-comic">
-      <span>{SETTINGS.date}</span>
+      <span>{settings.date}</span>
       <span className="sep">·</span>
       <span aria-live="polite">{content}</span>
     </div>
   );
 }
 
-function Footer() {
+function Footer({ settings }: { settings: ScheduleSettings }) {
   return (
     <footer className="rs-foot">
-      <span>{SETTINGS.footerLeft}</span>
-      <span>{SETTINGS.footerRight}</span>
+      <span>{settings.footerLeft}</span>
+      <span>{settings.footerRight}</span>
     </footer>
   );
 }
 
 function Header({
+  settings,
   tagline,
   onSwitchView,
   onToggleTweaks,
 }: {
+  settings: ScheduleSettings;
   tagline: string;
   onSwitchView: () => void;
   onToggleTweaks: () => void;
@@ -470,16 +507,16 @@ function Header({
       <div className="rs-brand">
         <ReelIcon />
         <div>
-          <h1 className="f-shade">{SETTINGS.brandLine}</h1>
+          <h1 className="f-shade">{settings.brandLine}</h1>
           <p className="f-comic">{`~ ${tagline} ~`}</p>
         </div>
       </div>
       <div className="rs-head-right">
         <div className="rs-cta-row">
-          <Link className="switch-btn" href={SETTINGS.homeHref}>
+          <Link className="switch-btn" href={settings.homeHref}>
             🏠 HOME
           </Link>
-          <Link className="join-btn" href={SETTINGS.joinUrl}>
+          <Link className="join-btn" href={settings.joinUrl}>
             JOIN SCREENING ▶
           </Link>
         </div>
@@ -490,9 +527,9 @@ function Header({
           <button type="button" className="switch-btn" onClick={onToggleTweaks}>
             ⚙ TWEAKS
           </button>
-          <span className="ch-badge">{`● ${SETTINGS.channel}`}</span>
+          <span className="ch-badge">{`● ${settings.channel}`}</span>
         </div>
-        <span className="stamp f-mono">{SETTINGS.stamp}</span>
+        <span className="stamp f-mono">{settings.stamp}</span>
       </div>
     </header>
   );
@@ -582,12 +619,18 @@ function TweaksPanel({
   );
 }
 
-export default function RollingSchedule() {
+export default function RollingSchedule({
+  settings,
+  schedule,
+}: {
+  settings: ScheduleSettings;
+  schedule: ScheduleEntry[];
+}) {
   const [tweaks, setTweaks] = useState<ScheduleTweaks>(TWEAKS_DEFAULTS);
   const [hydrated, setHydrated] = useState(false);
   const [showTweaks, setShowTweaks] = useState(false);
   const [statusInfo, setStatusInfo] = useState<StatusInfo>(() =>
-    computeStatus(SCHEDULE, SETTINGS.eventDate, SETTINGS.timezone)
+    computeStatus(schedule, settings.eventDate, settings.timezone)
   );
 
   useEffect(() => {
@@ -596,11 +639,11 @@ export default function RollingSchedule() {
   }, []);
 
   useEffect(() => {
-    const refresh = () => setStatusInfo(computeStatus(SCHEDULE, SETTINGS.eventDate, SETTINGS.timezone));
+    const refresh = () => setStatusInfo(computeStatus(schedule, settings.eventDate, settings.timezone));
     refresh();
     const id = window.setInterval(refresh, 30000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [schedule, settings.eventDate, settings.timezone]);
 
   function patchTweaks(patch: Partial<ScheduleTweaks>) {
     setTweaks((prev) => {
@@ -624,25 +667,40 @@ export default function RollingSchedule() {
 
   return (
     <div className={`rs lay-${tweaks.layout} ${FONT_VARS}`}>
-      <Header tagline={tweaks.tagline} onSwitchView={switchView} onToggleTweaks={() => setShowTweaks((v) => !v)} />
-      {tweaks.showTicker && <Ticker />}
-      <NowBar statusInfo={statusInfo} />
+      <Header
+        settings={settings}
+        tagline={tweaks.tagline}
+        onSwitchView={switchView}
+        onToggleTweaks={() => setShowTweaks((v) => !v)}
+      />
+      {tweaks.showTicker && <Ticker settings={settings} />}
+      <NowBar schedule={schedule} settings={settings} statusInfo={statusInfo} />
 
       {tweaks.layout === 'classic' && (
         <>
           <div className="top">
-            <PromoScreen />
+            <PromoScreen settings={settings} schedule={schedule} />
             <AdCard adSeconds={tweaks.adSeconds} />
           </div>
-          <Listings statusInfo={statusInfo} scrollSpeed={tweaks.scrollSpeed} />
+          <Listings
+            schedule={schedule}
+            statusInfo={statusInfo}
+            scrollSpeed={tweaks.scrollSpeed}
+            stillsDir={settings.stillsDir}
+          />
         </>
       )}
 
       {tweaks.layout === 'sidebar' && (
         <div className="body">
-          <Listings statusInfo={statusInfo} scrollSpeed={tweaks.scrollSpeed} />
+          <Listings
+            schedule={schedule}
+            statusInfo={statusInfo}
+            scrollSpeed={tweaks.scrollSpeed}
+            stillsDir={settings.stillsDir}
+          />
           <div className="rail">
-            <ChannelCard />
+            <ChannelCard settings={settings} />
             <AdCard adSeconds={tweaks.adSeconds} />
           </div>
         </div>
@@ -650,12 +708,17 @@ export default function RollingSchedule() {
 
       {tweaks.layout === 'fullroll' && (
         <>
-          <Listings statusInfo={statusInfo} scrollSpeed={tweaks.scrollSpeed} />
+          <Listings
+            schedule={schedule}
+            statusInfo={statusInfo}
+            scrollSpeed={tweaks.scrollSpeed}
+            stillsDir={settings.stillsDir}
+          />
           <AdStrip adSeconds={tweaks.adSeconds} />
         </>
       )}
 
-      <Footer />
+      <Footer settings={settings} />
       {showTweaks && (
         <TweaksPanel tweaks={tweaks} onChange={patchTweaks} onClose={() => setShowTweaks(false)} />
       )}

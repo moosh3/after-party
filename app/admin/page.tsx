@@ -17,6 +17,27 @@ interface StreamData {
   title: string;
   kind: string;
   isHoldScreen?: boolean;
+  showPoster?: boolean;
+  playoutMode?: 'manual' | 'schedule' | string;
+  playbackState?: 'playing' | 'paused' | string;
+  playbackPosition?: number;
+  playbackUpdatedAt?: string;
+  playbackElapsedMs?: number;
+  activeSlotId?: string | null;
+  activeAssetKey?: string | null;
+  scheduleStatus?: string | null;
+  nextTransitionAt?: string | null;
+  scheduleTitle?: string | null;
+}
+
+function formatTransition(value?: string | null) {
+  if (!value) return 'None scheduled';
+
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date(value));
 }
 
 export default function AdminDashboard() {
@@ -81,9 +102,13 @@ export default function AdminDashboard() {
           const newData = payload.new;
           const oldData = payload.old;
           
-          // Reload stream data when hold screen changes
-          if (newData.hold_screen_enabled !== oldData.hold_screen_enabled ||
-              newData.playback_id !== oldData.playback_id) {
+          if (
+            newData.hold_screen_enabled !== oldData.hold_screen_enabled ||
+            newData.playback_id !== oldData.playback_id ||
+            newData.playout_mode !== oldData.playout_mode ||
+            newData.schedule_early_ended_slot !== oldData.schedule_early_ended_slot ||
+            newData.last_command_id !== oldData.last_command_id
+          ) {
             console.log('Stream changed, reloading...');
             fetch('/api/current')
               .then(res => res.json())
@@ -202,6 +227,32 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto p-4 sm:p-6">
+        {streamData && (
+          <div className="twitch-card p-4 mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-twitch-text-alt mb-1">Mode</p>
+                <p className="font-semibold text-twitch-purple">{streamData.playoutMode || 'schedule'}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-twitch-text-alt mb-1">Status</p>
+                <p className="font-semibold">{streamData.scheduleStatus || (streamData.isHoldScreen ? 'hold' : 'manual')}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-twitch-text-alt mb-1">Active Slot</p>
+                <p className="font-semibold">{streamData.activeSlotId || 'Manual queue'}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-twitch-text-alt mb-1">Next Transition</p>
+                <p className="font-semibold">{formatTransition(streamData.nextTransitionAt)}</p>
+              </div>
+            </div>
+            <p className="text-xs text-twitch-text-alt mt-3">
+              Current source: {streamData.title}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Column - Video Preview and Library Controls */}
           <div className="lg:col-span-2 space-y-6">
@@ -209,16 +260,24 @@ export default function AdminDashboard() {
             <div className="twitch-card p-4">
               <h2 className="text-lg font-semibold mb-3 text-twitch-text">Video Preview</h2>
               <p className="text-xs text-twitch-text-alt mb-4">
-                Control playback directly here - changes sync to all viewers
+                Read-only preview. Use the explicit controls in manual mode to change viewer playback.
               </p>
               {streamData ? (
                 <VideoPlayer
-                  key={streamData.playbackId}
+                  key={`${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
                   playbackId={streamData.playbackId}
                   token={streamData.token}
                   title={streamData.title}
+                  kind={streamData.kind}
                   isAdmin={true}
+                  allowAdminBroadcast={false}
                   isHoldScreen={streamData.isHoldScreen}
+                  playoutMode={streamData.playoutMode}
+                  playbackState={streamData.playbackState}
+                  playbackPosition={streamData.playbackPosition}
+                  playbackUpdatedAt={streamData.playbackUpdatedAt}
+                  playbackElapsedMs={streamData.playbackElapsedMs}
+                  activeSlotId={streamData.activeSlotId}
                 />
               ) : (
                 <div className="aspect-video bg-twitch-darker flex items-center justify-center rounded">
@@ -241,4 +300,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

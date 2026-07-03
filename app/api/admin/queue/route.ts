@@ -64,69 +64,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify mux item exists
-    const { data: muxItem, error: muxError } = await supabaseAdmin
-      .from('mux_items')
-      .select('id')
-      .eq('id', muxItemId)
-      .single();
-
-    if (muxError || !muxItem) {
-      return NextResponse.json(
-        { error: 'Mux item not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get next position (max position + 1)
-    const { data: maxPos } = await supabaseAdmin
-      .from('video_queue')
-      .select('position')
-      .order('position', { ascending: false })
-      .limit(1)
-      .single();
-
-    const nextPosition = (maxPos?.position || 0) + 1;
-
-    // Add to queue
     const { data, error } = await supabaseAdmin
-      .from('video_queue')
-      .insert({
+      .rpc('enqueue_video', {
         mux_item_id: muxItemId,
-        position: nextPosition,
-      })
-      .select(`
-        id,
-        position,
-        created_at,
-        mux_item_id,
-        mux_items (
-          id,
-          playback_id,
-          label,
-          kind,
-          duration_seconds
-        )
-      `)
-      .single();
+        admin_user_id: session.userId,
+      });
 
     if (error) {
+      if (error.message.includes('Mux item not found')) {
+        return NextResponse.json(
+          { error: 'Mux item not found' },
+          { status: 404 }
+        );
+      }
+
       console.error('Error adding to queue:', error);
       return NextResponse.json(
         { error: 'Failed to add to queue' },
         { status: 500 }
       );
     }
-
-    // Log admin action
-    await supabaseAdmin.from('admin_actions').insert({
-      action_type: 'queue_add',
-      admin_user: session.userId,
-      details: {
-        mux_item_id: muxItemId,
-        position: nextPosition,
-      },
-    });
 
     return NextResponse.json({ success: true, item: data }, { status: 201 });
   } catch (error) {
@@ -190,4 +147,3 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
-

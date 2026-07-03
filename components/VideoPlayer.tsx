@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 import type MuxPlayerElement from '@mux/mux-player';
 import { supabase } from '@/lib/supabase';
-import { useRealtimeHealth, type RealtimeHealthStatus } from '@/hooks/useRealtimeHealth';
+import { useRealtimeHealth } from '@/hooks/useRealtimeHealth';
 import {
   CHANNEL_NAMES,
   PLAYBACK_ACTIONS,
@@ -16,158 +16,72 @@ interface VideoPlayerProps {
   playbackId: string;
   token: string;
   title: string;
-  isAdmin?: boolean; // Allow admin to control playback manually
-  isHoldScreen?: boolean; // Loop playback for hold screens
+  kind?: string;
+  isAdmin?: boolean;
+  allowAdminBroadcast?: boolean;
+  isHoldScreen?: boolean;
+  playoutMode?: 'manual' | 'schedule' | string;
+  playbackState?: 'playing' | 'paused' | string;
+  playbackPosition?: number;
+  playbackUpdatedAt?: string;
+  playbackElapsedMs?: number;
+  activeSlotId?: string | null;
 }
 
-export default function VideoPlayer({ playbackId, token, title, isAdmin = false, isHoldScreen = false }: VideoPlayerProps) {
+type PlaybackStateResponse = {
+  playback_state?: string;
+  playback_position?: number | string;
+  playback_updated_at?: string;
+  playback_elapsed_ms?: number | string;
+};
+
+export default function VideoPlayer({
+  playbackId,
+  token,
+  title,
+  kind = 'vod',
+  isAdmin = false,
+  allowAdminBroadcast = isAdmin,
+  isHoldScreen = false,
+  playoutMode = 'manual',
+  playbackState = 'playing',
+  playbackPosition = 0,
+  playbackUpdatedAt,
+  playbackElapsedMs = 0,
+  activeSlotId = null,
+}: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
-  
-  // Realtime connection health monitoring
+
+  const canBroadcastAdminControls = isAdmin && allowAdminBroadcast;
+  const viewerLocked = !canBroadcastAdminControls;
   const realtimeHealth = useRealtimeHealth();
-  
-  // Track when we last received a realtime update
+
+  const isSyncingRef = useRef(false);
   const lastRealtimeUpdateRef = useRef<number>(Date.now());
-  
-  // Track last update timestamp to prevent echoing admin's own actions
-  const lastLocalUpdateRef = useRef<number>(0);
-  
-  // Track pending actions with unique IDs for better echo prevention
-  const pendingActionsRef = useRef<Map<string, number>>(new Map());
-  
-  // Debounce admin control updates to prevent rapid-fire syncs
   const adminUpdateDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Circuit breaker for sync failures
+  const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const syncErrorCountRef = useRef<number>(0);
-  const lastSyncErrorRef = useRef<number>(0);
-  
-  // SYNC FIX: Track last synced state to prevent redundant syncs
+  const endedSlotRef = useRef<string | null>(null);
+  const manualEndedPlaybackRef = useRef<string | null>(null);
   const lastSyncedStateRef = useRef<{
     playbackId: string;
     state: string;
     position: number;
     updatedAt: string;
   } | null>(null);
-  
-  // SYNC FIX: Debounce realtime sync events to prevent rapid-fire updates
-  const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // ISSUE #2: Track if auto-advance is in progress to prevent race conditions
-  const autoAdvanceInProgressRef = useRef<boolean>(false);
 
-  // Load auto-advance status for admin
-  useEffect(() => {
-    if (!isAdmin) return;
-
-    async function loadAutoAdvanceStatus() {
-      try {
-        const response = await fetch('/api/admin/queue/auto-advance');
-        if (response.ok) {
-          const data = await response.json();
-          setAutoAdvanceEnabled(data.auto_advance_enabled || false);
-        }
-      } catch (err) {
-        console.error('Failed to load auto-advance status:', err);
-      }
-    }
-
-    loadAutoAdvanceStatus();
-
-    // Poll for status updates every 5 seconds
-    const interval = setInterval(loadAutoAdvanceStatus, 5000);
-    return () => clearInterval(interval);
-  }, [isAdmin]);
-
-  // Handle video ended - auto-advance to next in queue
-  useEffect(() => {
-    if (!playerRef.current || !isAdmin) return;
-
-    const player = playerRef.current;
-
-    const handleVideoEnded = async () => {
-      console.log('Video ended, auto-advance enabled:', autoAdvanceEnabled);
-
-      if (!autoAdvanceEnabled) {
-        console.log('Auto-advance is disabled');
-        return;
-      }
-
-      // Don't auto-advance when hold screen is active (it should loop indefinitely)
-      if (isHoldScreen) {
-        console.log('Hold screen is active, skipping auto-advance');
-        return;
-      }
-
-      // Prevent concurrent auto-advance operations
-      if (autoAdvanceInProgressRef.current) {
-        console.log('Auto-advance already in progress, skipping...');
-        return;
-      }
-
-      autoAdvanceInProgressRef.current = true;
-
-      try {
-        const response = await fetch('/api/admin/queue/next', {
-          method: 'POST',
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Advanced to next video:', data.advanced_to.title);
-        } else {
-          const data = await response.json();
-          if (data.empty) {
-            console.log('No more videos in queue');
-          } else {
-            console.error('Failed to advance to next video:', data.error);
-          }
-        }
-      } catch (err) {
-        console.error('Error advancing to next video:', err);
-      }
-    };
-
-    player.addEventListener('ended', handleVideoEnded);
-
-    return () => {
-      player.removeEventListener('ended', handleVideoEnded);
-    };
-  }, [isAdmin, autoAdvanceEnabled, isHoldScreen]);
-
-  // Reset auto-advance lock when playbackId changes (new video started)
-  useEffect(() => {
-    autoAdvanceInProgressRef.current = false;
-  }, [playbackId]);
-
-  // Development mode check
-  useEffect(() => {
-    if (playbackId === 'demo-playback-id') {
-      console.log('⚠️  Development mode: Mock video player (configure Mux for real playback)');
-      setError('Configure Mux credentials in .env.local to enable video playback');
-    }
-  }, [playbackId]);
-
-  // Synchronized playback effect - subscribe to admin's playback control
-  useEffect(() => {
-    // Admins don't need to sync - they ARE the source of truth
-    if (isAdmin || !playerRef.current) return;
-
-    const video = playerRef.current;
-
-    // Function to sync video state
-    const syncPlaybackState = async (
+  const applyPlaybackState = useCallback(
+    async (
       state: string,
       position: number | string,
       updatedAt: string,
       elapsedMs: number | string = 0
     ) => {
-      if (!video || isSyncing) return;
-      
-      const updateTimestamp = new Date(updatedAt).getTime();
+      const video = playerRef.current;
+      if (!video || isSyncingRef.current) return;
+
       const numericPosition = typeof position === 'string' ? parseFloat(position) : position;
       const numericElapsedMs = typeof elapsedMs === 'string' ? parseFloat(elapsedMs) : elapsedMs;
 
@@ -175,137 +89,149 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         console.warn('Skipping sync due to invalid playback position:', position);
         return;
       }
-      
-      // SYNC FIX: Check if this is a duplicate sync event
+
       const lastSynced = lastSyncedStateRef.current;
-      if (lastSynced && 
-          lastSynced.playbackId === playbackId &&
-          lastSynced.state === state && 
-          Math.abs(lastSynced.position - numericPosition) < 0.5 &&
-          lastSynced.updatedAt === updatedAt) {
-        console.log('📍 Skipping duplicate sync event');
+      if (
+        lastSynced &&
+        lastSynced.playbackId === playbackId &&
+        lastSynced.state === state &&
+        Math.abs(lastSynced.position - numericPosition) < 0.5 &&
+        lastSynced.updatedAt === updatedAt
+      ) {
         return;
       }
-      
-      // SYNC FIX: Debounce rapid sync events (except for state changes)
-      const stateChanged = lastSynced && lastSynced.state !== state;
-      const videoChanged = lastSynced && lastSynced.playbackId !== playbackId;
-      
-      if (!stateChanged && !videoChanged && syncDebounceRef.current) {
-        clearTimeout(syncDebounceRef.current);
-      }
-      
+
       const performSync = async () => {
+        isSyncingRef.current = true;
         setIsSyncing(true);
 
         try {
-          // CLOCK SKEW FIX: Use server-side elapsed time if available
           const latencySeconds = SYNC_THRESHOLDS.LATENCY_ESTIMATE_MS / 1000;
           let targetPosition = numericPosition;
+
           if (state === 'playing') {
             if (!Number.isNaN(numericElapsedMs) && numericElapsedMs > 0) {
-              // Use server-calculated elapsed time (no clock skew)
-              targetPosition = numericPosition + (numericElapsedMs / 1000) + latencySeconds;
+              targetPosition = numericPosition + numericElapsedMs / 1000 + latencySeconds;
             } else {
-              // Fallback to client-side calculation
-              const now = Date.now();
-              const elapsed = (now - updateTimestamp) / 1000;
+              const updateTimestamp = new Date(updatedAt).getTime();
+              const elapsed = Number.isNaN(updateTimestamp) ? 0 : (Date.now() - updateTimestamp) / 1000;
               targetPosition = numericPosition + elapsed + latencySeconds;
             }
           }
 
-          // Sync position to keep everyone in sync
-          const currentTime = video.currentTime;
-          const timeDiff = Math.abs(currentTime - targetPosition);
-          
-          // SYNC FIX: Use more lenient thresholds to prevent unnecessary seeks
-          // Only seek if significantly out of sync to avoid "restart" feeling
-          const syncThreshold = state === 'playing' ? SYNC_THRESHOLDS.SYNC_THRESHOLD_PLAYING : SYNC_THRESHOLDS.SYNC_THRESHOLD_PAUSED;
-          
+          const timeDiff = Math.abs(video.currentTime - targetPosition);
+          const syncThreshold =
+            state === 'playing'
+              ? SYNC_THRESHOLDS.SYNC_THRESHOLD_PLAYING
+              : SYNC_THRESHOLDS.SYNC_THRESHOLD_PAUSED;
+
           if (timeDiff > syncThreshold) {
-            console.log(`🔄 Syncing: seeking to ${targetPosition.toFixed(1)}s (off by ${timeDiff.toFixed(1)}s)`);
-            video.currentTime = targetPosition;
-          } else if (timeDiff > SYNC_THRESHOLDS.MINOR_DRIFT_THRESHOLD) {
-            console.log(`📍 Minor drift detected (${timeDiff.toFixed(1)}s) but within tolerance`);
+            video.currentTime = Math.max(0, targetPosition);
           }
 
-          // Sync play/pause state
           if (state === 'playing' && video.paused) {
-            try {
-              console.log('▶️ Playing video');
-              await video.play();
-            } catch (err) {
+            await video.play().catch((err) => {
               console.error('Failed to play video:', err);
-            }
+            });
           } else if (state === 'paused' && !video.paused) {
-            console.log('⏸️ Pausing video');
             video.pause();
           }
-          
-          // Update last synced state to prevent duplicate syncs
+
           lastSyncedStateRef.current = {
             playbackId,
             state,
             position: numericPosition,
             updatedAt,
           };
-          
-          // CIRCUIT BREAKER: Reset error count on success
           syncErrorCountRef.current = 0;
         } catch (err) {
           console.error('Error syncing playback:', err);
-          
-          // CIRCUIT BREAKER: Track sync failures
-          syncErrorCountRef.current++;
-          lastSyncErrorRef.current = Date.now();
-          
+          syncErrorCountRef.current += 1;
+
           if (syncErrorCountRef.current >= 5) {
-            console.error('⚠️ Too many sync failures, entering degraded mode');
             setError('Connection issues detected. Playback may be out of sync. Try refreshing.');
           }
         } finally {
+          isSyncingRef.current = false;
           setIsSyncing(false);
         }
       };
-      
-      // SYNC FIX: For state changes or video changes, sync immediately
-      // For position updates, debounce to prevent rapid-fire syncs
+
+      const stateChanged = lastSynced && lastSynced.state !== state;
+      const videoChanged = lastSynced && lastSynced.playbackId !== playbackId;
+
       if (stateChanged || videoChanged) {
-        console.log(`🎬 Immediate sync: ${stateChanged ? 'state change' : 'video change'}`);
         await performSync();
       } else {
-        // Debounce position-only updates
+        if (syncDebounceRef.current) {
+          clearTimeout(syncDebounceRef.current);
+        }
         syncDebounceRef.current = setTimeout(performSync, 200);
       }
-    };
+    },
+    [playbackId]
+  );
 
-    // Load initial playback state
-    async function loadPlaybackState() {
-      try {
-        const response = await fetch('/api/admin/playback-control');
-        if (response.ok) {
-          const data = await response.json();
-          await syncPlaybackState(
-            data.playback_state,
-            data.playback_position,
-            data.playback_updated_at,
-            data.playback_elapsed_ms || 0
-          );
-        }
-      } catch (err) {
-        console.error('Failed to load playback state:', err);
-        
-        // CIRCUIT BREAKER: Track polling failures too
-        syncErrorCountRef.current++;
-        if (syncErrorCountRef.current >= 5) {
-          setError('Unable to connect to playback server. Try refreshing.');
-        }
+  const loadAndSyncPlaybackState = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/playback-control');
+      if (!response.ok) return;
+
+      const data = (await response.json()) as PlaybackStateResponse;
+      if (
+        data.playback_state &&
+        data.playback_position !== undefined &&
+        data.playback_updated_at
+      ) {
+        await applyPlaybackState(
+          data.playback_state,
+          data.playback_position,
+          data.playback_updated_at,
+          data.playback_elapsed_ms || 0
+        );
+      }
+    } catch (err) {
+      console.error('Failed to load playback state:', err);
+      syncErrorCountRef.current += 1;
+
+      if (syncErrorCountRef.current >= 5) {
+        setError('Unable to connect to playback server. Try refreshing.');
       }
     }
+  }, [applyPlaybackState]);
 
-    loadPlaybackState();
+  useEffect(() => {
+    if (playbackId === 'demo-playback-id') {
+      console.log('Development mode: Mock video player (configure Mux for real playback)');
+      setError('Configure Mux credentials in .env.local to enable video playback');
+    }
+  }, [playbackId]);
 
-    // Subscribe to playback state changes via Supabase realtime
+  useEffect(() => {
+    endedSlotRef.current = null;
+    manualEndedPlaybackRef.current = null;
+    lastSyncedStateRef.current = null;
+  }, [playbackId, activeSlotId]);
+
+  useEffect(() => {
+    if (canBroadcastAdminControls || !playerRef.current) return;
+
+    const updatedAt = playbackUpdatedAt || new Date().toISOString();
+    applyPlaybackState(playbackState, playbackPosition, updatedAt, playbackElapsedMs);
+  }, [
+    canBroadcastAdminControls,
+    playbackState,
+    playbackPosition,
+    playbackUpdatedAt,
+    playbackElapsedMs,
+    applyPlaybackState,
+  ]);
+
+  useEffect(() => {
+    if (canBroadcastAdminControls || !playerRef.current) return;
+
+    loadAndSyncPlaybackState();
+
     const channel = supabase
       .channel(CHANNEL_NAMES.PLAYBACK_SYNC)
       .on(
@@ -317,32 +243,28 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
           filter: 'id=eq.1',
         },
         (payload) => {
-          // Track that we received a realtime update
           lastRealtimeUpdateRef.current = Date.now();
-          
+
           const newState = payload.new as any;
           const oldState = payload.old as any;
-          
-          // SYNC FIX: Enhanced logging to track what changed
-          const changes: string[] = [];
-          if (newState.playback_state !== oldState.playback_state) {
-            changes.push(`state: ${oldState.playback_state} → ${newState.playback_state}`);
+          const playbackChanged =
+            newState.playback_state !== oldState.playback_state ||
+            Number(newState.playback_position || 0) !== Number(oldState.playback_position || 0) ||
+            newState.playback_updated_at !== oldState.playback_updated_at ||
+            newState.playback_id !== oldState.playback_id ||
+            newState.playout_mode !== oldState.playout_mode ||
+            newState.schedule_early_ended_slot !== oldState.schedule_early_ended_slot ||
+            newState.last_command_id !== oldState.last_command_id;
+
+          if (!playbackChanged) return;
+
+          if (newState.playout_mode === 'schedule' || newState.schedule_early_ended_slot) {
+            loadAndSyncPlaybackState();
+            return;
           }
-          if (Math.abs(newState.playback_position - oldState.playback_position) > 0.1) {
-            changes.push(`position: ${oldState.playback_position.toFixed(1)}s → ${newState.playback_position.toFixed(1)}s`);
-          }
-          if (newState.playback_id !== oldState.playback_id) {
-            changes.push(`video changed`);
-          }
-          
-          if (changes.length > 0) {
-            console.log(`📡 Realtime update (${newState.last_playback_command || 'unknown'}):`, changes.join(', '));
-          } else {
-            console.log('📡 Realtime update received but no playback changes detected');
-          }
-          
+
           if (newState.playback_state && newState.playback_position !== undefined) {
-            syncPlaybackState(
+            applyPlaybackState(
               newState.playback_state,
               newState.playback_position,
               newState.playback_updated_at,
@@ -358,146 +280,118 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         }
       });
 
-    // Dynamic polling based on realtime health
-    // If realtime is healthy, poll less frequently (30s)
-    // If degraded/offline, poll more frequently (5s)
-    const syncInterval = setInterval(() => {
-      loadPlaybackState();
-    }, realtimeHealth === 'healthy' ? 30000 : 5000);
+    const syncInterval = setInterval(
+      loadAndSyncPlaybackState,
+      realtimeHealth === 'healthy' ? 30000 : 5000
+    );
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(syncInterval);
-    };
-  }, [playbackId, isSyncing, realtimeHealth, isAdmin]);
-
-  // ISSUE #6: Handle page visibility to prevent drift when tab is backgrounded
-  useEffect(() => {
-    if (isAdmin) return; // Admin doesn't need this
-    
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible' && !isSyncing) {
-        // Tab became visible - force a sync to catch up
-        console.log('Tab became visible, forcing sync...');
-        try {
-          const response = await fetch('/api/admin/playback-control');
-          if (response.ok) {
-            const data = await response.json();
-            const video = playerRef.current;
-            if (video) {
-              const updateTimestamp = new Date(data.playback_updated_at).getTime();
-              const now = Date.now();
-              const elapsed = (now - updateTimestamp) / 1000;
-              const latencySeconds = SYNC_THRESHOLDS.LATENCY_ESTIMATE_MS / 1000;
-              
-              let targetPosition = data.playback_position;
-              if (data.playback_state === 'playing') {
-                targetPosition = data.playback_position + elapsed + latencySeconds;
-              }
-              
-              const timeDiff = Math.abs(video.currentTime - targetPosition);
-              if (timeDiff > SYNC_THRESHOLDS.MINOR_DRIFT_THRESHOLD) {
-                console.log(`Correcting drift after tab visibility: ${timeDiff.toFixed(1)}s`);
-                video.currentTime = targetPosition;
-              }
-              
-              // Sync play/pause state
-              if (data.playback_state === 'playing' && video.paused) {
-                await video.play();
-              } else if (data.playback_state === 'paused' && !video.paused) {
-                video.pause();
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Failed to sync on visibility change:', err);
-        }
+      if (syncDebounceRef.current) {
+        clearTimeout(syncDebounceRef.current);
       }
     };
-    
+  }, [
+    canBroadcastAdminControls,
+    playbackId,
+    realtimeHealth,
+    applyPlaybackState,
+    loadAndSyncPlaybackState,
+  ]);
+
+  useEffect(() => {
+    if (canBroadcastAdminControls) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !isSyncingRef.current) {
+        loadAndSyncPlaybackState();
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAdmin, isSyncing]);
+  }, [canBroadcastAdminControls, loadAndSyncPlaybackState]);
 
-  // Handle seeking - sync to all viewers if admin
+  const sendAdminPlaybackCommand = async (action: string, position?: number) => {
+    if (!canBroadcastAdminControls) return;
+
+    try {
+      const response = await fetch('/api/admin/playback-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, position }),
+      });
+
+      if (response.status === 409) {
+        const data = await response.json();
+        console.warn(data.error);
+      }
+    } catch (err) {
+      console.error(`Failed to sync ${action}:`, err);
+    }
+  };
+
   const handleSeek = async () => {
-    if (!playerRef.current || !isAdmin) return;
-    
-    // IMPROVED: Track pending action with unique ID
-    const actionId = `seek-${Date.now()}`;
-    const actionTimestamp = Date.now();
-    pendingActionsRef.current.set(actionId, actionTimestamp);
-    lastLocalUpdateRef.current = actionTimestamp;
-    
-    // Debounce seek events (user might be scrubbing)
+    if (!playerRef.current || !canBroadcastAdminControls) return;
+
     if (adminUpdateDebounceRef.current) {
       clearTimeout(adminUpdateDebounceRef.current);
     }
-    
-    adminUpdateDebounceRef.current = setTimeout(async () => {
-      try {
-        await fetch('/api/admin/playback-control', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: PLAYBACK_ACTIONS.SEEK,
-            position: playerRef.current?.currentTime || 0
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to sync seek:', err);
-        pendingActionsRef.current.delete(actionId);
-      }
-    }, 500); // Wait 500ms after last seek before syncing
+
+    adminUpdateDebounceRef.current = setTimeout(() => {
+      sendAdminPlaybackCommand(PLAYBACK_ACTIONS.SEEK, playerRef.current?.currentTime || 0);
+    }, 500);
   };
 
   const handlePlay = async () => {
-    if (!isAdmin || !playerRef.current) return;
-    
-    // IMPROVED: Track pending action with unique ID
-    const actionId = `playing-${Date.now()}`;
-    const actionTimestamp = Date.now();
-    pendingActionsRef.current.set(actionId, actionTimestamp);
-    lastLocalUpdateRef.current = actionTimestamp;
-    
-    try {
-      await fetch('/api/admin/playback-control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: PLAYBACK_ACTIONS.PLAY,
-          position: playerRef.current.currentTime 
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to sync play:', err);
-      pendingActionsRef.current.delete(actionId);
-    }
+    if (!playerRef.current || !canBroadcastAdminControls) return;
+    await sendAdminPlaybackCommand(PLAYBACK_ACTIONS.PLAY, playerRef.current.currentTime);
   };
 
   const handlePause = async () => {
-    if (!isAdmin || !playerRef.current) return;
-    
-    // IMPROVED: Track pending action with unique ID
-    const actionId = `paused-${Date.now()}`;
-    const actionTimestamp = Date.now();
-    pendingActionsRef.current.set(actionId, actionTimestamp);
-    lastLocalUpdateRef.current = actionTimestamp;
-    
-    try {
-      await fetch('/api/admin/playback-control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: PLAYBACK_ACTIONS.PAUSE,
-          position: playerRef.current.currentTime 
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to sync pause:', err);
-      pendingActionsRef.current.delete(actionId);
+    if (!playerRef.current || !canBroadcastAdminControls) return;
+    await sendAdminPlaybackCommand(PLAYBACK_ACTIONS.PAUSE, playerRef.current.currentTime);
+  };
+
+  const correctViewerControlAttempt = () => {
+    if (canBroadcastAdminControls || isSyncingRef.current || playerRef.current?.ended) return;
+    window.setTimeout(loadAndSyncPlaybackState, 100);
+  };
+
+  const handleEnded = async () => {
+    if (playoutMode === 'schedule' && activeSlotId && !isHoldScreen) {
+      if (endedSlotRef.current === activeSlotId) return;
+      endedSlotRef.current = activeSlotId;
+
+      try {
+        await fetch('/api/playout/slot-ended', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slotId: activeSlotId, playbackId }),
+        });
+      } catch (err) {
+        console.error('Failed to notify scheduled slot ended:', err);
+      } finally {
+        await loadAndSyncPlaybackState();
+      }
+    } else if (playoutMode === 'manual' && !isHoldScreen) {
+      if (manualEndedPlaybackRef.current === playbackId) return;
+      manualEndedPlaybackRef.current = playbackId;
+
+      try {
+        await fetch('/api/playout/manual-ended', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playbackId }),
+        });
+      } catch (err) {
+        console.error('Failed to notify manual video ended:', err);
+      } finally {
+        await loadAndSyncPlaybackState();
+      }
     }
   };
 
@@ -517,13 +411,22 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
     );
   }
 
+  const viewerControlStyle = viewerLocked
+    ? ({
+        '--media-time-range-display': 'none',
+        '--media-seek-backward-button-display': 'none',
+        '--media-seek-forward-button-display': 'none',
+      } as React.CSSProperties)
+    : undefined;
+
   return (
     <div className="relative aspect-video bg-black overflow-hidden max-h-screen rounded-lg">
       <MuxPlayer
         ref={playerRef}
         playbackId={playbackId}
-        tokens={{ playback: (token !== 'placeholder-token' && token !== 'unsigned') ? token : undefined }}
-        streamType="live"
+        tokens={{ playback: token !== 'placeholder-token' && token !== 'unsigned' ? token : undefined }}
+        streamType={kind === 'live' ? 'live' : undefined}
+        startTime={Math.max(0, playbackPosition || 0)}
         metadata={{
           video_title: title,
         }}
@@ -531,17 +434,22 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
         defaultHiddenCaptions={false}
         accentColor="#fbcfe8"
         className="w-full h-full"
-        onPlay={isAdmin ? handlePlay : undefined}
-        onPause={isAdmin ? handlePause : undefined}
-        onSeeked={isAdmin ? handleSeek : undefined}
+        style={viewerControlStyle}
+        nohotkeys={viewerLocked}
+        onPlay={canBroadcastAdminControls ? handlePlay : undefined}
+        onPause={canBroadcastAdminControls ? handlePause : correctViewerControlAttempt}
+        onSeeked={canBroadcastAdminControls ? handleSeek : correctViewerControlAttempt}
+        onEnded={handleEnded}
         loop={isHoldScreen}
-        autoPlay={isHoldScreen}
-        // Only disable controls for viewers if you want admin-only control
-        // Leave commented to allow viewers to control their own playback
-        // disabled={!isAdmin}
+        autoPlay={isHoldScreen || playbackState === 'playing'}
       />
-      
-      {/* Realtime Health Indicator */}
+
+      {isSyncing && viewerLocked && (
+        <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-1 rounded-full z-10">
+          Syncing
+        </div>
+      )}
+
       {realtimeHealth !== 'healthy' && (
         <div className={`absolute top-4 right-4 text-casual-dark text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10 backdrop-blur-sm ${
           realtimeHealth === 'degraded' ? 'bg-casual-yellow/90' : 'bg-casual-pink/90'
@@ -549,15 +457,7 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
           {realtimeHealth === 'degraded' ? 'Connection Degraded' : 'Connection Lost'}
         </div>
       )}
-      
-      {/* Admin Mode Indicator */}
-      {isAdmin && autoAdvanceEnabled && !isHoldScreen && (
-        <div className="absolute top-4 left-4 bg-casual-mint/90 backdrop-blur-sm text-casual-dark text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10">
-          <span>Auto-Advance On</span>
-        </div>
-      )}
-      
-      {/* Hold Screen Indicator */}
+
       {isHoldScreen && (
         <div className="absolute top-4 left-4 bg-casual-violet/90 backdrop-blur-sm text-casual-dark text-xs px-3 py-1 rounded-full font-bold flex items-center gap-2 z-10">
           <span>Hold Screen</span>
@@ -566,4 +466,3 @@ export default function VideoPlayer({ playbackId, token, title, isAdmin = false,
     </div>
   );
 }
-
