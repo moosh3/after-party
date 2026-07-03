@@ -34,6 +34,14 @@ interface StreamData {
   kind: string;
   showPoster?: boolean;
   isHoldScreen?: boolean;
+  playoutMode?: 'manual' | 'schedule' | string;
+  playbackState?: 'playing' | 'paused' | string;
+  playbackPosition?: number;
+  playbackUpdatedAt?: string;
+  playbackElapsedMs?: number;
+  activeSlotId?: string | null;
+  scheduleStatus?: string | null;
+  nextTransitionAt?: string | null;
 }
 
 function ScreenChrome({ children }: { children: React.ReactNode }) {
@@ -83,7 +91,7 @@ export default function EventPage() {
       kind: streamData.kind,
       updatedAt: streamData.expiresAt || new Date().toISOString(),
     };
-  }, [streamData?.playbackId, streamData?.title, streamData?.kind]);
+  }, [streamData]);
 
   // Stream updates hook
   const updatedStream = useStreamUpdates(streamUpdateInput);
@@ -108,6 +116,51 @@ export default function EventPage() {
     }
   }, [updatedStream, streamData]);
 
+  useEffect(() => {
+    if (!streamData || streamData.playoutMode !== 'schedule') return;
+
+    let timeout: number | undefined;
+
+    const refreshScheduleStream = async () => {
+      try {
+        const response = await fetch('/api/current');
+        if (!response.ok) return;
+
+        const next = await response.json();
+        setStreamData((previous) => {
+          if (
+            !previous ||
+            previous.playbackId !== next.playbackId ||
+            previous.title !== next.title ||
+            previous.isHoldScreen !== next.isHoldScreen ||
+            previous.activeSlotId !== next.activeSlotId ||
+            previous.scheduleStatus !== next.scheduleStatus ||
+            previous.nextTransitionAt !== next.nextTransitionAt
+          ) {
+            return next;
+          }
+
+          return previous;
+        });
+        setShowPoster(next.showPoster || false);
+      } catch (err) {
+        console.error('Failed to refresh scheduled stream:', err);
+      }
+    };
+
+    const nextTransitionMs = streamData.nextTransitionAt
+      ? new Date(streamData.nextTransitionAt).getTime() - Date.now() + 500
+      : 30000;
+    timeout = window.setTimeout(
+      refreshScheduleStream,
+      Math.max(1000, Math.min(nextTransitionMs, 30000))
+    );
+
+    return () => {
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [streamData]);
+
   // Subscribe to hold screen changes specifically
   useEffect(() => {
     const channel = supabase
@@ -124,9 +177,14 @@ export default function EventPage() {
           const newData = payload.new;
           const oldData = payload.old;
 
-          // Check if hold_screen_enabled changed
-          if (newData.hold_screen_enabled !== oldData.hold_screen_enabled) {
-            console.log('Hold screen toggled, refetching stream data...');
+          if (
+            newData.hold_screen_enabled !== oldData.hold_screen_enabled ||
+            newData.playback_id !== oldData.playback_id ||
+            newData.playout_mode !== oldData.playout_mode ||
+            newData.schedule_early_ended_slot !== oldData.schedule_early_ended_slot ||
+            newData.last_command_id !== oldData.last_command_id
+          ) {
+            console.log('Stream state changed, refetching stream data...');
             fetch('/api/current')
               .then(res => res.json())
               .then(data => {
@@ -442,11 +500,18 @@ export default function EventPage() {
               }
             >
               <VideoPlayer
-                key={streamData.playbackId}
+                key={`${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
                 playbackId={streamData.playbackId}
                 token={streamData.token}
                 title={streamData.title}
+                kind={streamData.kind}
                 isHoldScreen={streamData.isHoldScreen}
+                playoutMode={streamData.playoutMode}
+                playbackState={streamData.playbackState}
+                playbackPosition={streamData.playbackPosition}
+                playbackUpdatedAt={streamData.playbackUpdatedAt}
+                playbackElapsedMs={streamData.playbackElapsedMs}
+                activeSlotId={streamData.activeSlotId}
               />
             </ErrorBoundary>
           </div>

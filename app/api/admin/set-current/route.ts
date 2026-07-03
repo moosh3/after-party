@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
         // Reset playback state when changing videos manually
         playback_state: 'playing',
         playback_position: 0,
+        playout_mode: 'manual',
+        schedule_early_ended_slot: null,
+        schedule_early_ended_at: null,
         // Removed: playback_updated_at - let trigger handle it
         // Removed: playback_elapsed_ms - let trigger handle it
         // Disable hold screen when manually setting a new video
@@ -112,4 +115,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

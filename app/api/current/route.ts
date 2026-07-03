@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generatePlaybackToken } from '@/lib/mux';
-import { getViewerData } from '@/lib/viewer';
 import { isDevelopment } from '@/lib/config';
+import { resolveShowtimePlayout, type PlayoutMode } from '@/lib/showtime';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,6 +44,11 @@ export async function GET(request: NextRequest) {
           expiresAt,
           showPoster: false,
           isHoldScreen: false,
+          playoutMode: 'manual',
+          playbackState: 'playing',
+          playbackPosition: 0,
+          playbackUpdatedAt: new Date().toISOString(),
+          playbackElapsedMs: 0,
         }, {
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -57,30 +62,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if hold screen is enabled
-    let isHoldScreen = data.hold_screen_enabled && data.hold_screen_mux_item_id;
-    
-    // If hold screen is enabled, use hold screen data instead
+    const playoutMode: PlayoutMode = data.playout_mode || 'schedule';
     let playbackId = data.playback_id;
     let title = data.title;
     let kind = data.kind;
-    
-    if (isHoldScreen && data.hold_screen_mux_item) {
-      const holdScreenItem = Array.isArray(data.hold_screen_mux_item) 
-        ? data.hold_screen_mux_item[0] 
-        : data.hold_screen_mux_item;
-      
-      if (holdScreenItem) {
-        playbackId = holdScreenItem.playback_id;
-        title = holdScreenItem.label;
-        kind = holdScreenItem.kind || 'vod';
-      } else {
-        // Hold screen was enabled but mux_item data is missing - fall back to regular stream
+    let isHoldScreen = Boolean(data.hold_screen_enabled && data.hold_screen_mux_item_id);
+    let playbackState = data.playback_state || 'playing';
+    let playbackPosition = data.playback_position || 0;
+    let playbackUpdatedAt = data.playback_updated_at || new Date().toISOString();
+    let playbackElapsedMs = data.playback_elapsed_ms || 0;
+    let scheduleStatus: string | null = null;
+    let activeSlotId: string | null = null;
+    let activeAssetKey: string | null = null;
+    let nextTransitionAt: string | null = null;
+    let eventSlug: string | null = null;
+    let scheduleTitle: string | null = null;
+
+    if (playoutMode === 'schedule') {
+      const resolved = resolveShowtimePlayout(new Date(), data.schedule_early_ended_slot);
+      playbackId = resolved.playbackId;
+      title = resolved.title;
+      kind = resolved.kind;
+      isHoldScreen = resolved.isHoldScreen;
+      playbackState = resolved.playbackState;
+      playbackPosition = resolved.playbackPosition;
+      playbackUpdatedAt = resolved.playbackUpdatedAt;
+      playbackElapsedMs = resolved.playbackElapsedMs;
+      scheduleStatus = resolved.status;
+      activeSlotId = resolved.activeSlotId;
+      activeAssetKey = resolved.activeAssetKey;
+      nextTransitionAt = resolved.nextTransitionAt;
+      eventSlug = resolved.eventSlug;
+      scheduleTitle = resolved.scheduleTitle;
+    } else {
+      if (isHoldScreen && data.hold_screen_mux_item) {
+        const holdScreenItem = Array.isArray(data.hold_screen_mux_item)
+          ? data.hold_screen_mux_item[0]
+          : data.hold_screen_mux_item;
+
+        if (holdScreenItem) {
+          playbackId = holdScreenItem.playback_id;
+          title = holdScreenItem.label;
+          kind = holdScreenItem.kind || 'vod';
+        } else {
+          isHoldScreen = false;
+        }
+      } else if (isHoldScreen) {
         isHoldScreen = false;
       }
-    } else if (isHoldScreen) {
-      // Hold screen was enabled but mux_item relation is null - fall back to regular stream
-      isHoldScreen = false;
     }
 
     // Generate playback token (or use unsigned if credentials not configured)
@@ -97,6 +126,17 @@ export async function GET(request: NextRequest) {
       expiresAt,
       showPoster: data.show_poster || false,
       isHoldScreen: isHoldScreen || false,
+      playoutMode,
+      playbackState,
+      playbackPosition,
+      playbackUpdatedAt,
+      playbackElapsedMs,
+      scheduleStatus,
+      activeSlotId,
+      activeAssetKey,
+      nextTransitionAt,
+      eventSlug,
+      scheduleTitle,
     }, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -113,4 +153,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

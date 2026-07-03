@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
 import { moderateRateLimit } from '@/lib/rate-limit-enhanced';
+import { resolveShowtimePlayout, type PlayoutMode } from '@/lib/showtime';
 
 export async function POST(request: NextRequest) {
   // Apply rate limiting
@@ -36,14 +37,22 @@ export async function POST(request: NextRequest) {
     const { data: currentData } = await supabaseAdmin
       .from('current_stream')
       .select(`
-        playback_position,
-        playback_id,
+        *,
         mux_items:playback_id (
           duration_seconds
         )
       `)
       .eq('id', 1)
       .single();
+
+    if ((currentData?.playout_mode || 'schedule') === 'schedule') {
+      return NextResponse.json(
+        {
+          error: 'Schedule mode is active. Switch to manual mode before sending playback commands.',
+        },
+        { status: 409 }
+      );
+    }
 
     // ISSUE #8: Validate seek position against video duration
     if (action === 'seek' && position !== undefined) {
@@ -149,7 +158,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('current_stream')
-      .select('playback_state, playback_position, playback_updated_at, playback_elapsed_ms, last_playback_command, last_command_id')
+      .select('*')
       .eq('id', 1)
       .single();
 
@@ -160,7 +169,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(data);
+    const playoutMode: PlayoutMode = data.playout_mode || 'schedule';
+
+    if (playoutMode === 'schedule') {
+      const resolved = resolveShowtimePlayout(new Date(), data.schedule_early_ended_slot);
+
+      return NextResponse.json({
+        playout_mode: playoutMode,
+        playback_state: resolved.playbackState,
+        playback_position: resolved.playbackPosition,
+        playback_updated_at: resolved.playbackUpdatedAt,
+        playback_elapsed_ms: resolved.playbackElapsedMs,
+        last_playback_command: data.last_playback_command,
+        last_command_id: data.last_command_id,
+        schedule_status: resolved.status,
+        active_slot_id: resolved.activeSlotId,
+        active_asset_key: resolved.activeAssetKey,
+        next_transition_at: resolved.nextTransitionAt,
+        title: resolved.title,
+        is_hold_screen: resolved.isHoldScreen,
+      });
+    }
+
+    return NextResponse.json({
+      ...data,
+      playout_mode: playoutMode,
+    });
   } catch (error) {
     console.error('Error fetching playback state:', error);
     return NextResponse.json(
@@ -169,4 +203,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

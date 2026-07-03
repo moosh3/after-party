@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
 
       const { data: currentData, error: currentError } = await supabaseAdmin
         .from('current_stream')
-        .select('playback_id, playback_position, playback_state, hold_screen_mux_item_id, hold_screen_resume_playback_id, hold_screen_resume_position, hold_screen_resume_state')
+        .select('playout_mode, playback_id, playback_position, playback_state, hold_screen_mux_item_id, hold_screen_resume_playback_id, hold_screen_resume_position, hold_screen_resume_state')
         .eq('id', 1)
         .single();
 
@@ -141,6 +141,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Failed to toggle hold screen' },
           { status: 500 }
+        );
+      }
+
+      if ((currentData?.playout_mode || 'schedule') === 'schedule') {
+        return NextResponse.json(
+          { error: 'Schedule mode is active. Switch to manual mode before toggling the manual hold screen.' },
+          { status: 409 }
         );
       }
 
@@ -224,4 +231,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

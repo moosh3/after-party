@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getScheduleDisplayData } from '@/lib/showtime';
 import RollingSchedule from './RollingSchedule';
 
 export const metadata: Metadata = {
@@ -6,6 +7,11 @@ export const metadata: Metadata = {
   description: 'The full lineup for the July 4th Cage-A-Thon on Da Movies.',
 };
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function SchedulePage() {
-  return <RollingSchedule />;
+  const { settings, schedule } = getScheduleDisplayData();
+
+  return <RollingSchedule settings={settings} schedule={schedule} />;
 }

@@ -17,8 +17,25 @@ interface HoldScreenMuxItem {
   duration_seconds?: number;
 }
 
+type PlayoutMode = 'manual' | 'schedule';
+
+function formatTransition(value?: string | null) {
+  if (!value) return 'None scheduled';
+
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date(value));
+}
+
 export default function PlaybackControls() {
   const [playbackState, setPlaybackState] = useState<'playing' | 'paused'>('paused');
+  const [playoutMode, setPlayoutMode] = useState<PlayoutMode>('schedule');
+  const [scheduleStatus, setScheduleStatus] = useState<string | null>(null);
+  const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
+  const [nextTransitionAt, setNextTransitionAt] = useState<string | null>(null);
+  const [activeTitle, setActiveTitle] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
@@ -42,6 +59,11 @@ export default function PlaybackControls() {
         if (response.ok) {
           const data = await response.json();
           setPlaybackState(data.playback_state);
+          setPlayoutMode(data.playout_mode || 'schedule');
+          setScheduleStatus(data.schedule_status || null);
+          setActiveSlotId(data.active_slot_id || null);
+          setNextTransitionAt(data.next_transition_at || null);
+          setActiveTitle(data.title || null);
         }
       } catch (err) {
         console.error('Failed to load playback state:', err);
@@ -81,9 +103,13 @@ export default function PlaybackControls() {
           if (newState.playback_state) {
             setPlaybackState(newState.playback_state);
           }
+          if (newState.playout_mode) {
+            setPlayoutMode(newState.playout_mode);
+          }
           if (newState.hold_screen_enabled !== undefined) {
             setHoldScreenEnabled(newState.hold_screen_enabled);
           }
+          loadState();
         }
       )
       .subscribe();
@@ -94,6 +120,11 @@ export default function PlaybackControls() {
   }, []);
 
   async function handlePlaybackControl(action: 'play' | 'pause') {
+    if (playoutMode === 'schedule') {
+      setMessage({ type: 'error', text: 'Schedule mode is active. Switch to manual mode before sending playback commands.' });
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
 
@@ -134,6 +165,11 @@ export default function PlaybackControls() {
   }
 
   async function handleRestart() {
+    if (playoutMode === 'schedule') {
+      setMessage({ type: 'error', text: 'Schedule mode is active. Switch to manual mode before restarting playback.' });
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
 
@@ -187,6 +223,11 @@ export default function PlaybackControls() {
   }
 
   async function handleToggleHoldScreen() {
+    if (playoutMode === 'schedule') {
+      setMessage({ type: 'error', text: 'Schedule mode uses the YAML hold asset during gaps. Switch to manual mode for manual hold screen control.' });
+      return;
+    }
+
     if (!holdScreenMuxItem && !holdScreenEnabled) {
       setMessage({ type: 'error', text: 'No hold screen configured. Set one in the library first.' });
       return;
@@ -234,6 +275,41 @@ export default function PlaybackControls() {
     }
   }
 
+  async function handleModeChange(mode: PlayoutMode) {
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/admin/playout-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setPlayoutMode(data.mode || mode);
+        setScheduleStatus(data.schedule?.status || null);
+        setActiveSlotId(data.schedule?.activeSlotId || null);
+        setNextTransitionAt(data.schedule?.nextTransitionAt || null);
+        setActiveTitle(data.schedule?.title || null);
+        setMessage({
+          type: 'success',
+          text: mode === 'schedule' ? 'Schedule mode is now active' : 'Manual mode is now active',
+        });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to change playout mode' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const scheduleLocked = playoutMode === 'schedule';
+
   return (
     <div className="twitch-card p-4 border-t-4 border-twitch-purple">
       <h3 className="text-lg font-semibold mb-3 text-twitch-text flex items-center gap-2">
@@ -250,6 +326,49 @@ export default function PlaybackControls() {
           ✓ Automatically syncs every 10 seconds<br/>
           ✓ Viewers can only control volume
         </p>
+      </div>
+
+      <div className="bg-twitch-darker border border-twitch-border rounded-lg p-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-twitch-text-alt mb-1">Playout Mode</p>
+            <p className="text-sm text-twitch-text">
+              <strong>{playoutMode}</strong>
+              {scheduleLocked && scheduleStatus ? ` · ${scheduleStatus}` : ''}
+            </p>
+            <p className="text-xs text-twitch-text-alt mt-1">
+              {scheduleLocked
+                ? `${activeTitle || activeSlotId || 'Hold screen'} · next transition ${formatTransition(nextTransitionAt)}`
+                : 'Manual queue and playback controls are active'}
+            </p>
+          </div>
+          <div className="flex rounded-lg overflow-hidden border border-twitch-border">
+            <button
+              type="button"
+              onClick={() => handleModeChange('schedule')}
+              disabled={loading || playoutMode === 'schedule'}
+              className={`px-3 py-2 text-xs font-semibold min-h-[40px] ${
+                playoutMode === 'schedule'
+                  ? 'bg-twitch-purple text-white'
+                  : 'bg-twitch-hover text-twitch-text hover:bg-twitch-gray'
+              }`}
+            >
+              Schedule
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeChange('manual')}
+              disabled={loading || playoutMode === 'manual'}
+              className={`px-3 py-2 text-xs font-semibold min-h-[40px] ${
+                playoutMode === 'manual'
+                  ? 'bg-twitch-purple text-white'
+                  : 'bg-twitch-hover text-twitch-text hover:bg-twitch-gray'
+              }`}
+            >
+              Manual
+            </button>
+          </div>
+        </div>
       </div>
 
       {message && (
@@ -332,9 +451,9 @@ export default function PlaybackControls() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button
             onClick={() => handlePlaybackControl('play')}
-            disabled={loading || playbackState === 'playing'}
+            disabled={loading || scheduleLocked || playbackState === 'playing'}
             className={`py-3 px-4 rounded font-medium text-sm transition-all min-h-[44px] ${
-              playbackState === 'playing'
+              scheduleLocked || playbackState === 'playing'
                 ? 'bg-twitch-gray text-twitch-text-alt cursor-not-allowed'
                 : 'bg-success hover:bg-green-600 text-white'
             }`}
@@ -349,9 +468,9 @@ export default function PlaybackControls() {
 
           <button
             onClick={() => handlePlaybackControl('pause')}
-            disabled={loading || playbackState === 'paused'}
+            disabled={loading || scheduleLocked || playbackState === 'paused'}
             className={`py-3 px-4 rounded font-medium text-sm transition-all min-h-[44px] ${
-              playbackState === 'paused'
+              scheduleLocked || playbackState === 'paused'
                 ? 'bg-twitch-gray text-twitch-text-alt cursor-not-allowed'
                 : 'bg-yellow-600 hover:bg-yellow-700 text-white'
             }`}
@@ -366,8 +485,12 @@ export default function PlaybackControls() {
 
           <button
             onClick={handleRestart}
-            disabled={loading}
-            className="bg-twitch-purple hover:bg-purple-700 text-white py-3 px-4 rounded font-medium text-sm transition-all min-h-[44px]"
+            disabled={loading || scheduleLocked}
+            className={`py-3 px-4 rounded font-medium text-sm transition-all min-h-[44px] ${
+              scheduleLocked
+                ? 'bg-twitch-gray text-twitch-text-alt cursor-not-allowed'
+                : 'bg-twitch-purple hover:bg-purple-700 text-white'
+            }`}
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -379,15 +502,15 @@ export default function PlaybackControls() {
 
           <button
             onClick={handleToggleHoldScreen}
-            disabled={loading || (!holdScreenMuxItem && !holdScreenEnabled)}
+            disabled={loading || scheduleLocked || (!holdScreenMuxItem && !holdScreenEnabled)}
             className={`py-3 px-4 rounded font-medium text-sm transition-all min-h-[44px] ${
-              !holdScreenMuxItem && !holdScreenEnabled
+              scheduleLocked || (!holdScreenMuxItem && !holdScreenEnabled)
                 ? 'bg-twitch-gray text-twitch-text-alt cursor-not-allowed'
                 : holdScreenEnabled
                 ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
                 : 'bg-yellow-600 hover:bg-yellow-700 text-white border-2 border-yellow-500'
             }`}
-            title={!holdScreenMuxItem && !holdScreenEnabled ? 'Set a hold screen in the library first' : holdScreenEnabled ? 'Disable hold screen' : 'Enable hold screen'}
+            title={scheduleLocked ? 'Switch to manual mode to control the hold screen' : !holdScreenMuxItem && !holdScreenEnabled ? 'Set a hold screen in the library first' : holdScreenEnabled ? 'Disable hold screen' : 'Enable hold screen'}
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -399,12 +522,12 @@ export default function PlaybackControls() {
         </div>
 
         <div className="text-xs text-twitch-text-alt bg-twitch-darker p-3 rounded border border-twitch-border">
-          <strong className="text-twitch-text">💡 Tip:</strong> Use Play/Pause to control all viewers at once. 
-          Hit Restart to begin the video from the start for everyone. Use Hold Screen to show a designated video 
-          (like intermission or technical difficulties) that loops continuously.
+          <strong className="text-twitch-text">Tip:</strong>{' '}
+          {scheduleLocked
+            ? 'Schedule mode follows showtime.yaml. Switch to manual only for a deliberate override.'
+            : 'Use Play/Pause to control all viewers at once. Hit Restart to begin the video from the start for everyone. Use Hold Screen for a looping intermission video.'}
         </div>
       </div>
     </div>
   );
 }
-
