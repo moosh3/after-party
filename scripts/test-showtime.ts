@@ -38,6 +38,7 @@ assert.ok(showtime.schedule.at(-1)!.absoluteEndMinute > showtime.schedule.at(-1)
 const before = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T13:30:00.000Z'));
 assert.equal(before.status, 'before');
 assert.equal(before.isHoldScreen, true);
+assert.equal(before.playbackPosition, 310);
 
 const nationalTreasure = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T14:30:00.000Z'));
 assert.equal(nationalTreasure.status, 'movie');
@@ -47,14 +48,17 @@ assert.equal(nationalTreasure.playbackPosition, 1800);
 const firstGap = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T16:20:00.000Z'));
 assert.equal(firstGap.status, 'gap');
 assert.equal(firstGap.isHoldScreen, true);
+assert.equal(firstGap.playbackPosition, 540);
 
 const endedEarly = resolveShowtimePlayoutFor(
   showtime,
   new Date('2026-07-04T15:50:00.000Z'),
-  'national-treasure-am'
+  'national-treasure-am',
+  '2026-07-04T15:45:00.000Z'
 );
 assert.equal(endedEarly.status, 'ended-early');
 assert.equal(endedEarly.isHoldScreen, true);
+assert.equal(endedEarly.playbackPosition, 300);
 
 const wallClockTakeover = resolveShowtimePlayoutFor(
   showtime,

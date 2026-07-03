@@ -172,7 +172,11 @@ export async function GET(request: NextRequest) {
     const playoutMode: PlayoutMode = data.playout_mode || 'schedule';
 
     if (playoutMode === 'schedule') {
-      const resolved = resolveShowtimePlayout(new Date(), data.schedule_early_ended_slot);
+      const resolved = resolveShowtimePlayout(
+        new Date(),
+        data.schedule_early_ended_slot,
+        data.schedule_early_ended_at
+      );
 
       return NextResponse.json({
         playout_mode: playoutMode,

@@ -32,6 +32,7 @@
           "playbackId": { "type": "string", "minLength": 1 },
           "assetId": { "type": "string", "minLength": 1 },
           "kind": { "enum": ["vod", "live"] },
+          "durationSeconds": { "type": "number", "exclusiveMinimum": 0 },
           "rating": { "type": "string" },
           "runtime": { "type": "string" },
           "still": { "type": "string" },

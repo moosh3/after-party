@@ -35,6 +35,7 @@ type RawAsset = {
   playbackId?: string;
   assetId?: string;
   kind?: ShowtimeAssetKind;
+  durationSeconds?: number;
   rating?: string;
   runtime?: string;
   still?: string;
@@ -176,15 +177,17 @@ export function getScheduleDisplayData(): ScheduleDisplayData {
 
 export function resolveShowtimePlayout(
   now = new Date(),
-  earlyEndedSlotId?: string | null
+  earlyEndedSlotId?: string | null,
+  earlyEndedAt?: string | null
 ): ResolvedSchedulePlayout {
-  return resolveShowtimePlayoutFor(loadShowtime(), now, earlyEndedSlotId);
+  return resolveShowtimePlayoutFor(loadShowtime(), now, earlyEndedSlotId, earlyEndedAt);
 }
 
 export function resolveShowtimePlayoutFor(
   showtime: Showtime,
   now = new Date(),
-  earlyEndedSlotId?: string | null
+  earlyEndedSlotId?: string | null,
+  earlyEndedAt?: string | null
 ): ResolvedSchedulePlayout {
   const nowMs = now.getTime();
   const holdAsset = showtime.assets[showtime.event.defaultHoldAsset];
@@ -192,11 +195,20 @@ export function resolveShowtimePlayoutFor(
   const lastSlot = showtime.schedule[showtime.schedule.length - 1] ?? null;
 
   if (!firstSlot || !lastSlot) {
-    return holdPlayout(showtime, holdAsset, now, 'after', null, null);
+    return holdPlayout(showtime, holdAsset, now, 'after', null, null, null, nowMs);
   }
 
   if (nowMs < firstSlot.startUtcMs) {
-    return holdPlayout(showtime, holdAsset, now, 'before', firstSlot.startIso, null);
+    return holdPlayout(
+      showtime,
+      holdAsset,
+      now,
+      'before',
+      firstSlot.startIso,
+      null,
+      null,
+      zonedDateTimeToUtcMs(showtime.event.date, 0, 0, showtime.event.timezone)
+    );
   }
 
   for (let index = 0; index < showtime.schedule.length; index += 1) {
@@ -212,7 +224,8 @@ export function resolveShowtimePlayoutFor(
           'ended-early',
           nextSlot?.startIso ?? slot.endIso,
           slot.id,
-          slot.asset
+          slot.asset,
+          parseTimestamp(earlyEndedAt) ?? nowMs
         );
       }
 
@@ -242,12 +255,14 @@ export function resolveShowtimePlayoutFor(
         now,
         'gap',
         nextSlot.startIso,
-        null
+        null,
+        null,
+        slot.endUtcMs
       );
     }
   }
 
-  return holdPlayout(showtime, holdAsset, now, 'after', null, null);
+  return holdPlayout(showtime, holdAsset, now, 'after', null, null, null, lastSlot.endUtcMs);
 }
 
 export function canMarkActiveSlotEnded(
@@ -330,6 +345,9 @@ function requireAssets(rawAssets?: Record<string, RawAsset>): Record<string, Sho
       }
       if (!asset.playbackId) {
         throw new Error(`assets.${key}.playbackId is required`);
+      }
+      if (asset.durationSeconds !== undefined && asset.durationSeconds <= 0) {
+        throw new Error(`assets.${key}.durationSeconds must be greater than 0`);
       }
 
       return [
@@ -425,8 +443,14 @@ function holdPlayout(
   status: Exclude<ScheduleStatus, 'movie'>,
   nextTransitionAt: string | null,
   activeSlotId: string | null,
-  activeAssetKey: string | null = null
+  activeAssetKey: string | null = null,
+  holdSinceMs: number = now.getTime()
 ): ResolvedSchedulePlayout {
+  const elapsedSeconds = (now.getTime() - holdSinceMs) / 1000;
+  const playbackPosition = holdAsset.durationSeconds
+    ? Math.floor(positiveModulo(elapsedSeconds, holdAsset.durationSeconds) + 0.001)
+    : 0;
+
   return {
     mode: 'schedule',
     status,
@@ -435,7 +459,7 @@ function holdPlayout(
     kind: holdAsset.kind,
     isHoldScreen: true,
     playbackState: 'playing',
-    playbackPosition: 0,
+    playbackPosition,
     playbackUpdatedAt: now.toISOString(),
     playbackElapsedMs: 0,
     activeSlotId,
@@ -444,6 +468,16 @@ function holdPlayout(
     eventSlug: showtime.event.slug,
     scheduleTitle: showtime.event.title,
   };
+}
+
+function parseTimestamp(value?: string | null) {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function positiveModulo(value: number, divisor: number) {
+  return ((value % divisor) + divisor) % divisor;
 }
 
 function parseClock(clock: string, label: string) {
