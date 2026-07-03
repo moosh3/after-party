@@ -26,7 +26,6 @@ interface VideoPlayerProps {
   playbackUpdatedAt?: string;
   playbackElapsedMs?: number;
   activeSlotId?: string | null;
-  captionUrl?: string | null;
 }
 
 type PlaybackStateResponse = {
@@ -50,7 +49,6 @@ export default function VideoPlayer({
   playbackUpdatedAt,
   playbackElapsedMs = 0,
   activeSlotId = null,
-  captionUrl = null,
 }: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -217,20 +215,49 @@ export default function VideoPlayer({
 
   useEffect(() => {
     const player = playerRef.current;
-    if (!player || !captionUrl) return;
+    if (!player || isHoldScreen || kind === 'live') return;
 
     let attempts = 0;
     let timeout: NodeJS.Timeout | null = null;
 
+    const getCaptionTargets = () => {
+      const internals = player as MuxPlayerElement & {
+        media?: HTMLMediaElement | null;
+        mediaController?: HTMLElement | null;
+        mediaTheme?: HTMLElement | null;
+      };
+
+      return [
+        player,
+        internals.mediaController,
+        internals.mediaTheme,
+        player.shadowRoot?.querySelector('media-controller'),
+        player.shadowRoot?.querySelector('media-theme'),
+      ].filter((target): target is HTMLElement => target instanceof HTMLElement);
+    };
+
     const requestCaptions = () => {
-      player.setAttribute('defaultsubtitles', '');
-      player.dispatchEvent(
-        new CustomEvent('mediashowsubtitlesrequest', {
+      for (const target of getCaptionTargets()) {
+        target.setAttribute('defaultsubtitles', '');
+        target.dispatchEvent(new CustomEvent('mediashowsubtitlesrequest', {
           bubbles: true,
           composed: true,
           detail: true,
-        })
-      );
+        }));
+      }
+
+      const textTracks =
+        player.textTracks ||
+        (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media?.textTracks;
+      const captionTrack = textTracks
+        ? Array.from(textTracks).find((track) =>
+            track.kind === 'subtitles' || track.kind === 'captions'
+          )
+        : null;
+
+      if (captionTrack) {
+        captionTrack.mode = 'showing';
+      }
 
       attempts += 1;
       if (attempts < 6) {
@@ -255,7 +282,7 @@ export default function VideoPlayer({
       player.removeEventListener('canplay', handleReady);
       if (timeout) clearTimeout(timeout);
     };
-  }, [playbackId, captionUrl]);
+  }, [playbackId, isHoldScreen, kind]);
 
   useEffect(() => {
     if (canBroadcastAdminControls || !playerRef.current) return;

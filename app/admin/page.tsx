@@ -28,7 +28,6 @@ interface StreamData {
   scheduleStatus?: string | null;
   nextTransitionAt?: string | null;
   scheduleTitle?: string | null;
-  captionUrl?: string | null;
 }
 
 function formatTransition(value?: string | null) {
@@ -279,7 +278,6 @@ export default function AdminDashboard() {
                   playbackUpdatedAt={streamData.playbackUpdatedAt}
                   playbackElapsedMs={streamData.playbackElapsedMs}
                   activeSlotId={streamData.activeSlotId}
-                  captionUrl={streamData.captionUrl}
                 />
               ) : (
                 <div className="aspect-video bg-twitch-darker flex items-center justify-center rounded">
