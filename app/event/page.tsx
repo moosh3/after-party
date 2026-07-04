@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, type TouchEvent, type WheelEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import VideoPlayer from '@/components/VideoPlayer';
@@ -75,8 +75,17 @@ function LoadingScreen({ message }: { message: string }) {
   );
 }
 
+function isInteractiveVideoTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest('button, input, a, [role="button"], [role="slider"]'))
+  );
+}
+
 export default function EventPage() {
   const router = useRouter();
+  const watchBelowRef = useRef<HTMLDivElement>(null);
+  const videoTouchYRef = useRef<number | null>(null);
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -329,6 +338,90 @@ export default function EventPage() {
   }, []);
 
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previous = {
+      htmlHeight: html.style.height,
+      htmlOverflow: html.style.overflow,
+      htmlOverscrollY: html.style.getPropertyValue('overscroll-behavior-y'),
+      bodyBackground: body.style.background,
+      bodyHeight: body.style.height,
+      bodyOverflow: body.style.overflow,
+      bodyOverscrollY: body.style.getPropertyValue('overscroll-behavior-y'),
+    };
+
+    window.scrollTo(0, 0);
+    html.style.height = '100%';
+    html.style.overflow = 'hidden';
+    html.style.setProperty('overscroll-behavior-y', 'none');
+    body.style.background = LL.ink;
+    body.style.height = '100%';
+    body.style.overflow = 'hidden';
+    body.style.setProperty('overscroll-behavior-y', 'none');
+
+    return () => {
+      html.style.height = previous.htmlHeight;
+      html.style.overflow = previous.htmlOverflow;
+      html.style.setProperty('overscroll-behavior-y', previous.htmlOverscrollY);
+      body.style.background = previous.bodyBackground;
+      body.style.height = previous.bodyHeight;
+      body.style.overflow = previous.bodyOverflow;
+      body.style.setProperty('overscroll-behavior-y', previous.bodyOverscrollY);
+    };
+  }, []);
+
+  const isMobileWatchLayout = useCallback(() => {
+    return window.matchMedia('(max-width: 900px)').matches;
+  }, []);
+
+  const scrollWatchBelowBy = useCallback((deltaY: number) => {
+    const below = watchBelowRef.current;
+    if (!below || !isMobileWatchLayout()) return false;
+
+    below.scrollTop += deltaY;
+    return true;
+  }, [isMobileWatchLayout]);
+
+  const handleVideoWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    if (isInteractiveVideoTarget(event.target)) return;
+
+    if (scrollWatchBelowBy(event.deltaY)) {
+      event.preventDefault();
+    }
+  }, [scrollWatchBelowBy]);
+
+  const handleVideoTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (
+      !isMobileWatchLayout() ||
+      event.touches.length !== 1 ||
+      isInteractiveVideoTarget(event.target)
+    ) {
+      videoTouchYRef.current = null;
+      return;
+    }
+
+    videoTouchYRef.current = event.touches[0].clientY;
+  }, [isMobileWatchLayout]);
+
+  const handleVideoTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (videoTouchYRef.current === null || event.touches.length !== 1) return;
+
+    const nextY = event.touches[0].clientY;
+    const deltaY = videoTouchYRef.current - nextY;
+    videoTouchYRef.current = nextY;
+
+    if (Math.abs(deltaY) < 1) return;
+
+    if (scrollWatchBelowBy(deltaY)) {
+      event.preventDefault();
+    }
+  }, [scrollWatchBelowBy]);
+
+  const handleVideoTouchEnd = useCallback(() => {
+    videoTouchYRef.current = null;
+  }, []);
+
+  useEffect(() => {
     const channel = supabase
       .channel(CHANNEL_NAMES.EASTER_EGGS)
       .on('broadcast', { event: 'trigger' }, () => {
@@ -427,7 +520,15 @@ export default function EventPage() {
       <style>{`
         /* Height lives here (not inline) so the dvh fallback chain applies:
            dvh tracks Chrome mobile's collapsing URL bar. */
-        .ll-watch-root { height: 100vh; height: 100dvh; }
+        .ll-watch-root {
+          position: fixed;
+          inset: 0;
+          width: 100%;
+          height: 100vh;
+          height: 100dvh;
+          min-height: 0;
+          overscroll-behavior: none;
+        }
 
         /* Desktop: video top-left, extras under it, chat spans the right column. */
         .ll-watch-grid {
@@ -438,7 +539,7 @@ export default function EventPage() {
           gap: 14px; padding: 14px; flex: 1; min-height: 0; overflow: hidden;
         }
         .ll-watch-below { display: contents; }
-        .ll-watch-video { grid-area: video; }
+        .ll-watch-video { grid-area: video; overscroll-behavior: contain; }
         .ll-watch-extras { grid-area: extras; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         .ll-watch-chat { grid-area: chat; min-height: 0; }
 
@@ -451,10 +552,19 @@ export default function EventPage() {
           /* Video pinned at top; one scroll region below where chat exactly
              fills the visible space and polls/extras sit past the fold. */
           .ll-watch-grid { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
-          .ll-watch-video { flex-shrink: 0; }
-          .ll-watch-below { display: block; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+          .ll-watch-video { flex-shrink: 0; touch-action: none; }
+          .ll-watch-below {
+            display: block;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            background: ${LL.ink};
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+          }
           .ll-watch-chat { display: block; height: 100%; }
-          .ll-watch-extras { margin-top: 8px; }
+          .ll-watch-extras { margin-top: 8px; overflow: visible; }
 
           .ll-nowplaying { font-size: 12px; gap: 8px; padding: 4px 10px; }
           .ll-nowplaying-avatars { display: none; }
@@ -522,6 +632,11 @@ export default function EventPage() {
       <main id="ll-watch-main" className="ll-watch-grid">
         <div
           className="ll-watch-video"
+          onWheel={handleVideoWheel}
+          onTouchStart={handleVideoTouchStart}
+          onTouchMove={handleVideoTouchMove}
+          onTouchEnd={handleVideoTouchEnd}
+          onTouchCancel={handleVideoTouchEnd}
           style={{
             position: 'relative',
             background: '#000',
@@ -573,7 +688,7 @@ export default function EventPage() {
             </ErrorBoundary>
         </div>
 
-        <div className="ll-watch-below">
+        <div className="ll-watch-below" ref={watchBelowRef}>
           <aside className="ll-watch-chat">
             <ErrorBoundary
               fallback={
