@@ -127,6 +127,8 @@ function loadYouTubeIframeApi() {
   return window.__youtubeIframeApiReady as Promise<YouTubeApi>;
 }
 
+const SIDELOADED_CAPTION_TRACK_ID = 'after-party-sideloaded-captions';
+
 function YouTubePlaylistPlayer({
   playlistId,
   title,
@@ -427,6 +429,7 @@ export default function VideoPlayer({
   const syncErrorCountRef = useRef<number>(0);
   const errorRetryRef = useRef(0);
   const playbackStateRef = useRef(playbackState);
+  const sideloadedCaptionTrackRef = useRef<TextTrack | null>(null);
   const endedSlotRef = useRef<string | null>(null);
   const manualEndedPlaybackRef = useRef<string | null>(null);
   const lastSyncedStateRef = useRef<{
@@ -652,7 +655,27 @@ export default function VideoPlayer({
     if (sourceType !== MUX_SOURCE_TYPE || !player || !captionUrl) return;
 
     let trackEl: HTMLTrackElement | null = null;
+    let watchedTracks: TextTrackList | null = null;
     let cancelled = false;
+
+    // The side-loaded VTT is the single caption source. Embedded manifest
+    // subtitles are auto-shown by native HLS on iOS (but not by hls.js on
+    // desktop), which rendered the same dialogue twice on phones — keep any
+    // track that isn't ours disabled, on both engines.
+    const suppressEmbedded = () => {
+      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
+      if (!media?.textTracks) return;
+
+      for (const t of Array.from(media.textTracks)) {
+        if (
+          (t.kind === 'subtitles' || t.kind === 'captions') &&
+          t.id !== SIDELOADED_CAPTION_TRACK_ID &&
+          t.mode !== 'disabled'
+        ) {
+          t.mode = 'disabled';
+        }
+      }
+    };
 
     const attach = () => {
       if (cancelled || trackEl) return;
@@ -660,15 +683,19 @@ export default function VideoPlayer({
       const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
       if (!media) return;
 
-      const existing = media.textTracks ? Array.from(media.textTracks) : [];
-      if (existing.some((t) => t.kind === 'subtitles' || t.kind === 'captions')) return;
-
       trackEl = document.createElement('track');
+      trackEl.id = SIDELOADED_CAPTION_TRACK_ID;
       trackEl.kind = 'subtitles';
       trackEl.label = captionLabel || 'English';
       trackEl.srclang = captionLanguage || 'en';
       trackEl.src = captionUrl;
       media.appendChild(trackEl);
+      sideloadedCaptionTrackRef.current = trackEl.track;
+
+      watchedTracks = media.textTracks;
+      watchedTracks?.addEventListener('addtrack', suppressEmbedded);
+      watchedTracks?.addEventListener('change', suppressEmbedded);
+      suppressEmbedded();
     };
 
     if (player.readyState >= 1) {
@@ -679,6 +706,9 @@ export default function VideoPlayer({
     return () => {
       cancelled = true;
       player.removeEventListener('loadedmetadata', attach);
+      watchedTracks?.removeEventListener('addtrack', suppressEmbedded);
+      watchedTracks?.removeEventListener('change', suppressEmbedded);
+      sideloadedCaptionTrackRef.current = null;
       trackEl?.remove();
     };
   }, [sourceType, playbackId, captionUrl, captionLabel, captionLanguage]);
@@ -707,25 +737,29 @@ export default function VideoPlayer({
     };
 
     const requestCaptions = () => {
-      for (const target of getCaptionTargets()) {
-        target.setAttribute('defaultsubtitles', '');
-        target.dispatchEvent(new CustomEvent('mediashowsubtitlesrequest', {
-          bubbles: true,
-          composed: true,
-          detail: true,
-        }));
+      // With a side-loaded track, manage modes directly — the broadcast
+      // "show subtitles" request would also enable the embedded manifest
+      // track on iOS native HLS, doubling the captions.
+      if (!sideloadedCaptionTrackRef.current) {
+        for (const target of getCaptionTargets()) {
+          target.setAttribute('defaultsubtitles', '');
+          target.dispatchEvent(new CustomEvent('mediashowsubtitlesrequest', {
+            bubbles: true,
+            composed: true,
+            detail: true,
+          }));
+        }
       }
 
       const textTracks =
-        player.textTracks ||
-        (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media?.textTracks;
-      const captionTrack = textTracks
-        ? Array.from(textTracks).find((track) =>
-            track.kind === 'subtitles' || track.kind === 'captions'
-          )
-        : null;
+        (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media?.textTracks ||
+        player.textTracks;
+      const tracks = textTracks ? Array.from(textTracks) : [];
+      const captionTrack =
+        tracks.find((track) => track.id === SIDELOADED_CAPTION_TRACK_ID) ||
+        tracks.find((track) => track.kind === 'subtitles' || track.kind === 'captions');
 
-      if (captionTrack) {
+      if (captionTrack && captionTrack.mode !== 'showing') {
         captionTrack.mode = 'showing';
       }
 
