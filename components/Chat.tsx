@@ -69,6 +69,9 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId, getSceneStamp 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [openSceneId, setOpenSceneId] = useState<number | null>(null);
+  // Captured at the first keystroke, not at send — people react to a scene,
+  // then spend a while typing; the moment they started typing is the scene.
+  const typingSceneStampRef = useRef<{ position: number; playbackId: string } | null>(null);
 
   // Load user name from viewer registration data
   useEffect(() => {
@@ -240,7 +243,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId, getSceneStamp 
           body: messageBody.trim(),
           userId,
           ...(() => {
-            const stamp = getSceneStamp?.() || null;
+            const stamp = typingSceneStampRef.current || getSceneStamp?.() || null;
             return stamp
               ? { playbackPosition: stamp.position, playbackId: stamp.playbackId }
               : {};
@@ -267,6 +270,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId, getSceneStamp 
           });
         }
         setMessageBody('');
+        typingSceneStampRef.current = null;
         setRateLimitSeconds(CHAT_SLOWMODE_SECONDS);
       }
     } catch (err) {
@@ -495,7 +499,15 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId, getSceneStamp 
           <input
             type="text"
             value={messageBody}
-            onChange={(e) => setMessageBody(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (next.trim() && !messageBody.trim()) {
+                typingSceneStampRef.current = getSceneStamp?.() || null;
+              } else if (!next.trim()) {
+                typingSceneStampRef.current = null;
+              }
+              setMessageBody(next);
+            }}
             placeholder="say something..."
             className="w-full text-sm"
             style={{ border: '2px solid #1a1230', borderRadius: 6, padding: '7px 10px', background: '#fff', color: '#1a1230' }}
