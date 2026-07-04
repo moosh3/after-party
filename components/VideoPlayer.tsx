@@ -147,6 +147,23 @@ function YouTubePlaylistPlayer({
   const [volume, setVolume] = useState(80);
   const [muted, setMuted] = useState(false);
   const [needsUnmute, setNeedsUnmute] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimerRef = useRef<number | null>(null);
+
+  // Mobile has no hover, so the control bar would otherwise sit over the
+  // video forever. Show it on any tap/mouse move, fade it out after 4s.
+  const pokeControls = () => {
+    setControlsVisible(true);
+    if (controlsTimerRef.current) window.clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = window.setTimeout(() => setControlsVisible(false), 4000);
+  };
+
+  useEffect(() => {
+    pokeControls();
+    return () => {
+      if (controlsTimerRef.current) window.clearTimeout(controlsTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -296,7 +313,12 @@ function YouTubePlaylistPlayer({
   }
 
   return (
-    <div ref={containerRef} className="relative aspect-video bg-black overflow-hidden max-h-screen rounded-lg">
+    <div
+      ref={containerRef}
+      className="relative aspect-video bg-black overflow-hidden max-h-screen rounded-lg"
+      onPointerDown={pokeControls}
+      onMouseMove={pokeControls}
+    >
       <div className="absolute inset-0 h-full w-full">
         <div ref={mountRef} className="h-full w-full" title={title} />
       </div>
@@ -323,7 +345,14 @@ function YouTubePlaylistPlayer({
         </button>
       )}
 
-      <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-md bg-black/75 px-3 py-2 text-white">
+      <div
+        className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-md bg-black/75 px-3 py-2 text-white"
+        style={{
+          opacity: controlsVisible ? 1 : 0,
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+          transition: 'opacity .25s ease',
+        }}
+      >
         <button
           type="button"
           onClick={() => {
@@ -346,7 +375,7 @@ function YouTubePlaylistPlayer({
             setVolume(nextVolume);
             if (nextVolume > 0 && muted) setMuted(false);
           }}
-          className="w-24"
+          className="hidden sm:block w-24"
         />
         <button
           type="button"
