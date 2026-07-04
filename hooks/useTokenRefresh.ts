@@ -102,6 +102,23 @@ export function useTokenRefresh(
   }, [checkAndRefresh]);
 
   useEffect(() => {
+    // Mobile browsers throttle timers in background tabs, so the token can
+    // expire before the interval fires again — check as soon as we're back.
+    const handleResume = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndRefresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('pageshow', handleResume);
+    return () => {
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('pageshow', handleResume);
+    };
+  }, [checkAndRefresh]);
+
+  useEffect(() => {
     return () => {
       resetBackoff();
     };

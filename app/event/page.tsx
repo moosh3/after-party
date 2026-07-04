@@ -339,6 +339,17 @@ export default function EventPage() {
     document.title = 'Watch · Da Movies';
   }, []);
 
+  // First Mux playback error is likely a stale signed token (e.g. after the
+  // phone slept) — refetch stream data so the player gets a fresh one.
+  const handlePlaybackError = useCallback(() => {
+    fetch('/api/current')
+      .then((res) => res.json())
+      .then((data) => setStreamData(data))
+      .catch((err) => {
+        console.error('Failed to refresh stream after player error:', err);
+      });
+  }, []);
+
   // Redirect to login if not registered (once poster/registration check has run)
   useEffect(() => {
     if (checkingRegistration) return;
@@ -406,18 +417,48 @@ export default function EventPage() {
   }
 
   return (
-    <div className={`dm-lobby-lounge ${LL_FONT_VARS}`} style={{ height: '100vh', background: LL.ink, color: LL.frost1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className={`dm-lobby-lounge ${LL_FONT_VARS} ll-watch-root`} style={{ background: LL.ink, color: LL.frost1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{`
-        .ll-watch-grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; padding: 14px; flex: 1; min-height: 0; }
+        /* Height lives here (not inline) so the dvh fallback chain applies:
+           dvh tracks Chrome mobile's collapsing URL bar. */
+        .ll-watch-root { height: 100vh; height: 100dvh; }
+
+        /* Desktop: video top-left, extras under it, chat spans the right column. */
+        .ll-watch-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 320px;
+          grid-template-rows: auto minmax(0, 1fr);
+          grid-template-areas: "video chat" "extras chat";
+          gap: 14px; padding: 14px; flex: 1; min-height: 0; overflow: hidden;
+        }
+        .ll-watch-below { display: contents; }
+        .ll-watch-video { grid-area: video; }
+        .ll-watch-extras { grid-area: extras; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .ll-watch-chat { grid-area: chat; min-height: 0; }
+
+        .ll-nowplaying { display: flex; gap: 14px; align-items: center; font-size: 14px; padding: 6px 16px; }
+        .ll-nowplaying-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ll-nowplaying-right { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .ll-nowplaying-avatars { display: flex; }
+
         @media (max-width: 900px) {
-          .ll-watch-grid { grid-template-columns: 1fr; overflow-y: auto; }
-          .ll-watch-grid > aside { height: 60vh; }
+          /* Video pinned at top; one scroll region below where chat exactly
+             fills the visible space and polls/extras sit past the fold. */
+          .ll-watch-grid { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+          .ll-watch-video { flex-shrink: 0; }
+          .ll-watch-below { display: block; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+          .ll-watch-chat { display: block; height: 100%; }
+          .ll-watch-extras { margin-top: 8px; }
+
+          .ll-nowplaying { font-size: 12px; gap: 8px; padding: 4px 10px; }
+          .ll-nowplaying-avatars { display: none; }
         }
       `}</style>
       <a className="skip-link" href="#ll-watch-main">
         Skip to content
       </a>
       <LLHeader
+        compact
         tagline="where we like to watch movies"
         lockText="MEMBERS ONLY · QUIET PLEASE"
         timestamp="CAGE-A-THON"
@@ -436,20 +477,16 @@ export default function EventPage() {
       )}
 
       <div
-        className="f-mono"
+        className="f-mono ll-nowplaying"
         style={{
           background: LL.deep,
           color: LL.mint,
-          padding: '6px 16px',
-          display: 'flex',
-          gap: 14,
-          alignItems: 'center',
-          fontSize: 14,
           borderBottom: `2px solid ${LL.ink}`,
         }}
       >
-        <span style={{ color: LL.lime }}>NOW PLAYING ·</span>
+        <span style={{ color: LL.lime, flexShrink: 0 }}>NOW PLAYING ·</span>
         <strong
+          className="ll-nowplaying-title"
           style={{ color: LL.frost1, cursor: 'pointer' }}
           onClick={spawnEasterEmojis}
           role="button"
@@ -459,35 +496,34 @@ export default function EventPage() {
           {streamData.title}
         </strong>
         {viewersHere.length > 0 && (
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="ll-nowplaying-right">
             <span className="now-pill">
               <span className="dot" />
               LIVE
             </span>
-            <div style={{ display: 'flex' }}>
+            <div className="ll-nowplaying-avatars">
               {viewersHere.slice(0, 8).map((v, i) => (
                 <div key={v.userId} style={{ marginLeft: i === 0 ? 0 : -8 }}>
                   <MiniAvatar avatarId={v.avatar} size={26} ring={LL.mint} />
                 </div>
               ))}
             </div>
-            <span style={{ color: LL.frost2 }}>{viewersHere.length} in the room</span>
+            <span style={{ color: LL.frost2, whiteSpace: 'nowrap' }}>{viewersHere.length} in the room</span>
           </div>
         )}
       </div>
 
-      <main id="ll-watch-main" className="ll-watch-grid" style={{ overflow: 'hidden' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, gap: 12 }}>
-          <div
-            style={{
-              background: '#000',
-              border: `3px solid ${LL.ink}`,
-              borderRadius: 6,
-              overflow: 'hidden',
-              boxShadow: '4px 4px 0 rgba(0,0,0,.5)',
-              flexShrink: 0,
-            }}
-          >
+      <main id="ll-watch-main" className="ll-watch-grid">
+        <div
+          className="ll-watch-video"
+          style={{
+            background: '#000',
+            border: `3px solid ${LL.ink}`,
+            borderRadius: 6,
+            overflow: 'hidden',
+            boxShadow: '4px 4px 0 rgba(0,0,0,.5)',
+          }}
+        >
             <ErrorBoundary
               fallback={
                 <div style={{ aspectRatio: '16/9', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -519,11 +555,30 @@ export default function EventPage() {
                 playbackUpdatedAt={streamData.playbackUpdatedAt}
                 playbackElapsedMs={streamData.playbackElapsedMs}
                 activeSlotId={streamData.activeSlotId}
+                onPlaybackError={handlePlaybackError}
               />
             </ErrorBoundary>
-          </div>
+        </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="ll-watch-below">
+          <aside className="ll-watch-chat">
+            <ErrorBoundary
+              fallback={
+                <div style={{ height: '100%', background: LL.deep, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ textAlign: 'center', padding: 16 }}>
+                    <p className="f-comic" style={{ color: LL.frost2, fontSize: 13, marginBottom: 8 }}>Chat unavailable</p>
+                    <button type="button" onClick={() => window.location.reload()} style={{ color: LL.lime, fontSize: 12, textDecoration: 'underline', background: 'none', border: 0, cursor: 'pointer' }}>
+                      Reload to fix
+                    </button>
+                  </div>
+                </div>
+              }
+            >
+              <Chat room={ROOM_NAMES.DEFAULT} userId={userId} />
+            </ErrorBoundary>
+          </aside>
+
+          <div className="ll-watch-extras">
             <div style={{ textAlign: 'center' }}>
               <a
                 href="https://www.youtube.com/playlist?list=PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh"
@@ -558,23 +613,6 @@ export default function EventPage() {
             </div>
           </div>
         </div>
-
-        <aside style={{ minHeight: 0 }}>
-          <ErrorBoundary
-            fallback={
-              <div style={{ height: '100%', background: LL.deep, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ textAlign: 'center', padding: 16 }}>
-                  <p className="f-comic" style={{ color: LL.frost2, fontSize: 13, marginBottom: 8 }}>Chat unavailable</p>
-                  <button type="button" onClick={() => window.location.reload()} style={{ color: LL.lime, fontSize: 12, textDecoration: 'underline', background: 'none', border: 0, cursor: 'pointer' }}>
-                    Reload to fix
-                  </button>
-                </div>
-              </div>
-            }
-          >
-            <Chat room={ROOM_NAMES.DEFAULT} userId={userId} />
-          </ErrorBoundary>
-        </aside>
       </main>
     </div>
   );

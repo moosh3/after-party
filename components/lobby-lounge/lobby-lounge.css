@@ -62,3 +62,28 @@
     animation: none;
   }
 }
+
+/* Compact header — opt-in via <LLHeader compact>; collapses to a single slim
+   row under 900px so the watch page keeps video + chat on screen together.
+   !important is needed only where we override LLHeader's inline styles. */
+@media (max-width: 900px) {
+  .dm-lobby-lounge .ll-header--compact {
+    padding: 6px 12px !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    min-height: 48px;
+  }
+  .dm-lobby-lounge .ll-header--compact .ll-header-left { gap: 8px !important; min-width: 0; }
+  .dm-lobby-lounge .ll-header--compact .ll-header-reel svg { width: 30px; height: 30px; }
+  .dm-lobby-lounge .ll-header--compact .ll-header-title {
+    font-size: 17px !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dm-lobby-lounge .ll-header--compact .ll-header-tagline,
+  .dm-lobby-lounge .ll-header--compact .ll-header-timestamp,
+  .dm-lobby-lounge .ll-header--compact .lock-badge { display: none; }
+  .dm-lobby-lounge .ll-header--compact .ll-header-meta {
+    display: flex !important;
+    gap: 6px; align-items: center; flex-shrink: 0;
+  }
+}

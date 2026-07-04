@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getViewerData } from '@/lib/viewer';
 import PollCard from './PollCard';
@@ -34,7 +34,6 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
@@ -112,12 +111,21 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
     };
   }, [room]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom. Scroll only the messages container —
+  // scrollIntoView also scrolls ancestor containers, which yanks the
+  // mobile video/chat layout on every incoming message.
+  const scrollToBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  }, []);
+
   useEffect(() => {
     if (autoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollToBottom();
     }
-  }, [messages, autoScroll]);
+  }, [messages, autoScroll, scrollToBottom]);
 
   // Detect manual scroll
   useEffect(() => {
@@ -296,7 +304,6 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             );
           })
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Scroll to bottom indicator */}
@@ -304,7 +311,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
         <div className="flex-shrink-0" style={{ padding: '4px 8px', borderTop: '2px solid #1a1230' }}>
           <button
             onClick={() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              scrollToBottom();
               setAutoScroll(true);
             }}
             className="w-full text-xs py-1 f-comic"
