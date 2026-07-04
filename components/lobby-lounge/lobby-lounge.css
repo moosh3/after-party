@@ -55,10 +55,17 @@
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
+.dm-lobby-lounge .ll-toast {
+  animation: ll-toast-in .25s ease-out, ll-toast-out .4s ease-in 3.6s forwards;
+}
+@keyframes ll-toast-in { from { transform: translateX(-12px); opacity: 0; } }
+@keyframes ll-toast-out { to { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .dm-lobby-lounge .marq-track,
   .dm-lobby-lounge .now-pill .dot,
-  .dm-lobby-lounge .ll-door-lock {
+  .dm-lobby-lounge .ll-door-lock,
+  .dm-lobby-lounge .ll-toast {
     animation: none;
   }
 }

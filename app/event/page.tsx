@@ -23,6 +23,7 @@ import { LLPill } from '@/components/lobby-lounge/buttons';
 import DoorsCountdown from '@/components/lobby-lounge/DoorsCountdown';
 import Reel from '@/components/lobby-lounge/Reel';
 import MiniAvatar from '@/components/lobby-lounge/MiniAvatar';
+import PresenceToasts from '@/components/lobby-lounge/PresenceToasts';
 import { useLobbyPresence } from '@/components/lobby-lounge/useLobbyPresence';
 import '@/components/lobby-lounge/lobby-lounge.css';
 
@@ -521,6 +522,7 @@ export default function EventPage() {
         <div
           className="ll-watch-video"
           style={{
+            position: 'relative',
             background: '#000',
             border: `3px solid ${LL.ink}`,
             borderRadius: 6,
@@ -564,6 +566,9 @@ export default function EventPage() {
                 captionLanguage={streamData.captionLanguage}
                 onPlaybackError={handlePlaybackError}
               />
+            </ErrorBoundary>
+            <ErrorBoundary fallback={null}>
+              <PresenceToasts viewers={viewersHere} selfId={userId} />
             </ErrorBoundary>
         </div>
 
