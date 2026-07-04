@@ -56,22 +56,22 @@ assert.equal(before.isHoldScreen, true);
 assert.equal(before.playbackPosition, 310);
 assert.equal(before.captionUrl, null);
 
-const nationalTreasure = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T14:30:00.000Z'));
+const nationalTreasure = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T15:00:00.000Z'));
 assert.equal(nationalTreasure.status, 'movie');
 assert.equal(nationalTreasure.activeSlotId, 'national-treasure-am');
 assert.equal(nationalTreasure.playbackPosition, 1800);
 assert.equal(nationalTreasure.captionUrl, '/api/captions/national-treasure-2004.vtt');
 
-const firstGap = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T16:20:00.000Z'));
+const firstGap = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T16:50:00.000Z'));
 assert.equal(firstGap.status, 'gap');
 assert.equal(firstGap.isHoldScreen, true);
 assert.equal(firstGap.playbackPosition, 540);
 
 const endedEarly = resolveShowtimePlayoutFor(
   showtime,
-  new Date('2026-07-04T15:50:00.000Z'),
+  new Date('2026-07-04T16:20:00.000Z'),
   'national-treasure-am',
-  '2026-07-04T15:45:00.000Z'
+  '2026-07-04T16:15:00.000Z'
 );
 assert.equal(endedEarly.status, 'ended-early');
 assert.equal(endedEarly.isHoldScreen, true);
@@ -79,7 +79,7 @@ assert.equal(endedEarly.playbackPosition, 300);
 
 const wallClockTakeover = resolveShowtimePlayoutFor(
   showtime,
-  new Date('2026-07-04T16:35:00.000Z'),
+  new Date('2026-07-04T17:05:00.000Z'),
   'national-treasure-am'
 );
 assert.equal(wallClockTakeover.status, 'movie');
