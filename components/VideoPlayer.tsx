@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 import type MuxPlayerElement from '@mux/mux-player';
 import { supabase } from '@/lib/supabase';
-import { useRealtimeHealth } from '@/hooks/useRealtimeHealth';
+import { useRealtimeHealth, type RealtimeHealthStatus } from '@/hooks/useRealtimeHealth';
 import {
   CHANNEL_NAMES,
   PLAYBACK_ACTIONS,
@@ -128,6 +128,7 @@ function loadYouTubeIframeApi() {
 }
 
 const SIDELOADED_CAPTION_TRACK_ID = 'after-party-sideloaded-captions';
+const REALTIME_NOTICE_DELAY_MS = 15000;
 
 function YouTubePlaylistPlayer({
   playlistId,
@@ -421,8 +422,10 @@ export default function VideoPlayer({
   const canBroadcastAdminControls = isAdmin && allowAdminBroadcast;
   const viewerLocked = !canBroadcastAdminControls;
   const realtimeHealth = useRealtimeHealth();
+  const [visibleRealtimeHealth, setVisibleRealtimeHealth] = useState<RealtimeHealthStatus>('healthy');
 
   const isSyncingRef = useRef(false);
+  const realtimeUnhealthySinceRef = useRef<number | null>(null);
   const lastRealtimeUpdateRef = useRef<number>(Date.now());
   const adminUpdateDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -442,6 +445,26 @@ export default function VideoPlayer({
   useEffect(() => {
     playbackStateRef.current = playbackState;
   }, [playbackState]);
+
+  useEffect(() => {
+    if (realtimeHealth === 'healthy') {
+      realtimeUnhealthySinceRef.current = null;
+      setVisibleRealtimeHealth('healthy');
+      return;
+    }
+
+    if (realtimeUnhealthySinceRef.current === null) {
+      realtimeUnhealthySinceRef.current = Date.now();
+    }
+
+    const elapsed = Date.now() - realtimeUnhealthySinceRef.current;
+    const remainingDelay = Math.max(0, REALTIME_NOTICE_DELAY_MS - elapsed);
+    const timer = window.setTimeout(() => {
+      setVisibleRealtimeHealth(realtimeHealth);
+    }, remainingDelay);
+
+    return () => window.clearTimeout(timer);
+  }, [realtimeHealth]);
 
   // Chrome mobile rejects unmuted play() without a user gesture. Fall back to
   // muted playback (viewers see video immediately) and surface an unmute pill.
@@ -1120,11 +1143,11 @@ export default function VideoPlayer({
         </div>
       )}
 
-      {realtimeHealth !== 'healthy' && (
+      {visibleRealtimeHealth !== 'healthy' && (
         <div className={`absolute top-4 right-4 text-casual-dark text-xs px-3 py-1 rounded-full font-medium flex items-center gap-2 z-10 backdrop-blur-sm ${
-          realtimeHealth === 'degraded' ? 'bg-casual-yellow/90' : 'bg-casual-pink/90'
+          visibleRealtimeHealth === 'degraded' ? 'bg-casual-yellow/90' : 'bg-casual-pink/90'
         }`}>
-          {realtimeHealth === 'degraded' ? 'Connection Degraded' : 'Connection Lost'}
+          {visibleRealtimeHealth === 'degraded' ? 'Sync Reconnecting' : 'Sync Delayed'}
         </div>
       )}
 
