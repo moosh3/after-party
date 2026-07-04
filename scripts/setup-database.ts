@@ -22,6 +22,7 @@ const REQUIRED_TABLES = [
   'current_stream',
   'mux_items',
   'messages',
+  'message_reactions',
   'polls',
   'poll_options',
   'poll_votes',
@@ -159,6 +160,7 @@ async function main() {
   console.log('   3. Go to Database → Replication');
   console.log('   4. Enable Realtime for these tables:');
   console.log('      - messages: INSERT, UPDATE');
+  console.log('      - message_reactions: INSERT, UPDATE, DELETE');
   console.log('      - current_stream: UPDATE');
   console.log('      - polls: INSERT, UPDATE');
   console.log('      - poll_votes: INSERT, UPDATE, DELETE');
@@ -184,4 +186,3 @@ main().catch((error) => {
   console.error('❌ Script failed:', error);
   process.exit(1);
 });
-
