@@ -3,7 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {
   try {
-    const { room = 'event', userName, body, userId } = await request.json();
+    const { room = 'event', userName, body, userId, playbackPosition, playbackId } =
+      await request.json();
 
     // Validate required fields
     if (!userId) {
@@ -62,18 +63,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Optional scene stamp — where the movie was when the message was sent
+    const numericPosition =
+      typeof playbackPosition === 'number' &&
+      Number.isFinite(playbackPosition) &&
+      playbackPosition > 0
+        ? Math.round(playbackPosition * 100) / 100
+        : null;
+    const sceneStamp =
+      numericPosition !== null &&
+      typeof playbackId === 'string' &&
+      /^[A-Za-z0-9]{10,100}$/.test(playbackId)
+        ? { playback_position: numericPosition, playback_id: playbackId }
+        : null;
+
+    const baseMessage = {
+      room,
+      user_id: userId,
+      user_name: userName,
+      kind: 'user',
+      body: sanitizedBody,
+    };
+
     // Insert message
-    const { data: message, error } = await supabaseAdmin
+    let { data: message, error } = await supabaseAdmin
       .from('messages')
-      .insert({
-        room,
-        user_id: userId,
-        user_name: userName,
-        kind: 'user',
-        body: sanitizedBody,
-      })
+      .insert(sceneStamp ? { ...baseMessage, ...sceneStamp } : baseMessage)
       .select()
       .single();
+
+    if (error && sceneStamp) {
+      // sql/017 not applied yet — send the message without the stamp rather
+      // than failing chat entirely.
+      ({ data: message, error } = await supabaseAdmin
+        .from('messages')
+        .insert(baseMessage)
+        .select()
+        .single());
+    }
 
     if (error) {
       console.error('Failed to insert message:', error);

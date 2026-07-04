@@ -346,6 +346,26 @@ export default function EventPage() {
 
   // First Mux playback error is likely a stale signed token (e.g. after the
   // phone slept) — refetch stream data so the player gets a fresh one.
+  // Where the movie is right now, read from the live player — attached to
+  // chat messages so people can see which scene a message was about.
+  const getSceneStamp = useCallback(() => {
+    if (
+      !streamData ||
+      streamData.isHoldScreen ||
+      (streamData.sourceType && streamData.sourceType !== 'mux')
+    ) {
+      return null;
+    }
+
+    const player = document.querySelector('mux-player') as { currentTime?: number } | null;
+    const position = player?.currentTime;
+    if (typeof position !== 'number' || !Number.isFinite(position) || position <= 0) {
+      return null;
+    }
+
+    return { position, playbackId: streamData.playbackId };
+  }, [streamData]);
+
   const handlePlaybackError = useCallback(() => {
     fetch('/api/current')
       .then((res) => res.json())
@@ -586,7 +606,7 @@ export default function EventPage() {
                 </div>
               }
             >
-              <Chat room={ROOM_NAMES.DEFAULT} userId={userId} />
+              <Chat room={ROOM_NAMES.DEFAULT} userId={userId} getSceneStamp={getSceneStamp} />
             </ErrorBoundary>
           </aside>
 
