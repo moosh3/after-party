@@ -573,7 +573,7 @@ export default function VideoPlayer({
 
   const loadAndSyncPlaybackState = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/playback-control');
+      const response = await fetch('/api/admin/playback-control', { cache: 'no-store' });
       if (!response.ok) return;
 
       const data = (await response.json()) as PlaybackStateResponse;

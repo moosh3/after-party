@@ -4,6 +4,15 @@ import { getSession } from '@/lib/session';
 import { moderateRateLimit } from '@/lib/rate-limit-enhanced';
 import { resolveShowtimePlayout, type PlayoutMode } from '@/lib/showtime';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+} as const;
+
 export async function POST(request: NextRequest) {
   // Apply rate limiting
   return moderateRateLimit()(request, async (req: NextRequest) => {
@@ -165,7 +174,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json(
         { error: 'Failed to fetch playback state' },
-        { status: 500 }
+        { status: 500, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -178,32 +187,38 @@ export async function GET(request: NextRequest) {
         data.schedule_early_ended_at
       );
 
-      return NextResponse.json({
-        playout_mode: playoutMode,
-        playback_state: resolved.playbackState,
-        playback_position: resolved.playbackPosition,
-        playback_updated_at: resolved.playbackUpdatedAt,
-        playback_elapsed_ms: resolved.playbackElapsedMs,
-        last_playback_command: data.last_playback_command,
-        last_command_id: data.last_command_id,
-        schedule_status: resolved.status,
-        active_slot_id: resolved.activeSlotId,
-        active_asset_key: resolved.activeAssetKey,
-        next_transition_at: resolved.nextTransitionAt,
-        title: resolved.title,
-        is_hold_screen: resolved.isHoldScreen,
-      });
+      return NextResponse.json(
+        {
+          playout_mode: playoutMode,
+          playback_state: resolved.playbackState,
+          playback_position: resolved.playbackPosition,
+          playback_updated_at: resolved.playbackUpdatedAt,
+          playback_elapsed_ms: resolved.playbackElapsedMs,
+          last_playback_command: data.last_playback_command,
+          last_command_id: data.last_command_id,
+          schedule_status: resolved.status,
+          active_slot_id: resolved.activeSlotId,
+          active_asset_key: resolved.activeAssetKey,
+          next_transition_at: resolved.nextTransitionAt,
+          title: resolved.title,
+          is_hold_screen: resolved.isHoldScreen,
+        },
+        { headers: NO_STORE_HEADERS }
+      );
     }
 
-    return NextResponse.json({
-      ...data,
-      playout_mode: playoutMode,
-    });
+    return NextResponse.json(
+      {
+        ...data,
+        playout_mode: playoutMode,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error) {
     console.error('Error fetching playback state:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }
