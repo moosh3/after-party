@@ -129,6 +129,7 @@ function loadYouTubeIframeApi() {
 
 const SIDELOADED_CAPTION_TRACK_ID = 'after-party-sideloaded-captions';
 const REALTIME_NOTICE_DELAY_MS = 15000;
+const PLAYBACK_SYNC_REQUEST_TIMEOUT_MS = 10000;
 
 function YouTubePlaylistPlayer({
   playlistId,
@@ -427,6 +428,7 @@ export default function VideoPlayer({
   const isSyncingRef = useRef(false);
   const realtimeUnhealthySinceRef = useRef<number | null>(null);
   const lastRealtimeUpdateRef = useRef<number>(Date.now());
+  const syncRequestInFlightRef = useRef(false);
   const adminUpdateDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const syncErrorCountRef = useRef<number>(0);
@@ -570,8 +572,8 @@ export default function VideoPlayer({
           console.error('Error syncing playback:', err);
           syncErrorCountRef.current += 1;
 
-          if (syncErrorCountRef.current >= 5) {
-            setError('Connection issues detected. Playback may be out of sync. Try refreshing.');
+          if (syncErrorCountRef.current === 5) {
+            console.warn('Repeated playback sync errors; keeping current playback alive while retrying.');
           }
         } finally {
           isSyncingRef.current = false;
@@ -595,9 +597,22 @@ export default function VideoPlayer({
   );
 
   const loadAndSyncPlaybackState = useCallback(async () => {
+    if (syncRequestInFlightRef.current) return;
+
+    syncRequestInFlightRef.current = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+    }, PLAYBACK_SYNC_REQUEST_TIMEOUT_MS);
+
     try {
-      const response = await fetch('/api/admin/playback-control');
-      if (!response.ok) return;
+      const response = await fetch('/api/admin/playback-control', {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(`Playback state request failed with ${response.status}`);
+      }
 
       const data = (await response.json()) as PlaybackStateResponse;
       if (
@@ -616,9 +631,12 @@ export default function VideoPlayer({
       console.error('Failed to load playback state:', err);
       syncErrorCountRef.current += 1;
 
-      if (syncErrorCountRef.current >= 5) {
-        setError('Unable to connect to playback server. Try refreshing.');
+      if (syncErrorCountRef.current === 5) {
+        console.warn('Repeated playback state fetch failures; keeping current playback alive while retrying.');
       }
+    } finally {
+      window.clearTimeout(timeout);
+      syncRequestInFlightRef.current = false;
     }
   }, [applyPlaybackState]);
 
@@ -901,15 +919,17 @@ export default function VideoPlayer({
   useEffect(() => {
     if (canBroadcastAdminControls) return;
 
-    const handleVisibilityChange = () => {
+    const handleResume = () => {
       if (document.visibilityState === 'visible' && !isSyncingRef.current) {
         loadAndSyncPlaybackState();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('pageshow', handleResume);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('pageshow', handleResume);
     };
   }, [canBroadcastAdminControls, loadAndSyncPlaybackState]);
 

@@ -110,8 +110,12 @@ export function useRealtimeHealth(options: UseRealtimeHealthOptions = {}) {
       }
     });
 
+    channelRef.current = channel;
+
     channel
       .on('presence', { event: 'sync' }, () => {
+        if (channelRef.current !== channel) return;
+
         channelJoinedRef.current = true;
         lastHeartbeatRef.current = Date.now();
         if (statusRef.current !== 'healthy') {
@@ -121,6 +125,7 @@ export function useRealtimeHealth(options: UseRealtimeHealthOptions = {}) {
         }
       })
       .subscribe((subscriptionStatus) => {
+        if (channelRef.current !== channel) return;
         if (isUnmountedRef.current) return;
 
         if (subscriptionStatus === 'SUBSCRIBED') {
@@ -137,7 +142,6 @@ export function useRealtimeHealth(options: UseRealtimeHealthOptions = {}) {
         }
       });
 
-    channelRef.current = channel;
   }, [enabled, cleanupChannel, updateStatus, markChannelInterrupted]);
 
   subscribeRef.current = subscribe;
