@@ -640,38 +640,45 @@ export default function VideoPlayer({
   }, [playbackId, activeSlotId]);
 
   // Side-load the caption file (public/assets/captions/*) as a text track on
-  // the underlying media element. Mux assets here carry no embedded subtitles,
-  // so without this there is nothing for the caption UI to show. The
+  // the underlying media element, for assets with no embedded subtitles. The
   // requestCaptions effect below flips the track to 'showing' once it exists.
+  //
+  // Timing matters: appending a <track> while hls.js is still starting up
+  // stalls its level loading in production builds (black spinner, manifests
+  // fetched but no video). Wait for loadedmetadata before touching the media
+  // children, and skip entirely when the manifest already carries subtitles.
   useEffect(() => {
     const player = playerRef.current;
     if (sourceType !== MUX_SOURCE_TYPE || !player || !captionUrl) return;
 
     let trackEl: HTMLTrackElement | null = null;
-    let timer: NodeJS.Timeout | null = null;
+    let cancelled = false;
 
     const attach = () => {
-      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
-      if (!media) {
-        timer = setTimeout(attach, 500);
-        return;
-      }
+      if (cancelled || trackEl) return;
 
-      if (media.querySelector(`track[src="${captionUrl}"]`)) return;
+      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
+      if (!media) return;
+
+      const existing = media.textTracks ? Array.from(media.textTracks) : [];
+      if (existing.some((t) => t.kind === 'subtitles' || t.kind === 'captions')) return;
 
       trackEl = document.createElement('track');
       trackEl.kind = 'subtitles';
       trackEl.label = captionLabel || 'English';
       trackEl.srclang = captionLanguage || 'en';
       trackEl.src = captionUrl;
-      trackEl.default = true;
       media.appendChild(trackEl);
     };
 
-    attach();
+    if (player.readyState >= 1) {
+      attach();
+    }
+    player.addEventListener('loadedmetadata', attach);
 
     return () => {
-      if (timer) clearTimeout(timer);
+      cancelled = true;
+      player.removeEventListener('loadedmetadata', attach);
       trackEl?.remove();
     };
   }, [sourceType, playbackId, captionUrl, captionLabel, captionLanguage]);
@@ -898,9 +905,15 @@ export default function VideoPlayer({
     // user-activation window and Chrome re-blocks the play() call.
     video.muted = false;
     if (video.paused) {
-      video.play().catch((err) => console.error('Unmute play failed:', err));
+      // Only dismiss the pill once playback actually starts; if play() is
+      // rejected the viewer still has a way back in.
+      video
+        .play()
+        .then(() => setNeedsUnmute(false))
+        .catch((err) => console.error('Unmute play failed:', err));
+    } else {
+      setNeedsUnmute(false);
     }
-    setNeedsUnmute(false);
   };
 
   const handlePlayerError = (evt: Event) => {
