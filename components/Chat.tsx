@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getViewerData } from '@/lib/viewer';
 import PollCard from './PollCard';
@@ -34,7 +34,6 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
@@ -50,43 +49,74 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
     }
   }, []);
 
-  // Load initial messages
-  useEffect(() => {
-    async function loadMessages() {
-      try {
-        const response = await fetch(`/api/chat/messages?room=${room}&limit=100`);
-        if (response.ok) {
-          const data = await response.json();
-          setMessages(data.messages || []);
-        } else {
-          // Development mode: Show a helpful system message
-          console.log('⚠️  Development mode: Chat requires Supabase configuration');
-          setMessages([{
-            id: 1,
-            user_id: 'system',
-            user_name: 'System',
-            body: '💡 Chat is ready! Configure Supabase in .env.local to enable real-time messaging.',
-            kind: 'system' as const,
-            created_at: new Date().toISOString(),
-          }]);
-        }
-      } catch (err) {
-        console.error('Failed to load messages:', err);
+  // Load (or reload) the message list. Also used to backfill anything missed
+  // while the realtime socket was dead — mobile browsers kill websockets
+  // aggressively when the tab backgrounds or the phone locks.
+  const loadMessages = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/chat/messages?room=${room}&limit=100`, {
+        cache: 'no-store',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const fetched: Message[] = data.messages || [];
+        // Keep any realtime messages that arrived while the fetch was in
+        // flight (they'd be newer than the last row the server returned).
+        setMessages((prev) => {
+          const fetchedIds = new Set(fetched.map((m) => m.id));
+          const newer = prev.filter(
+            (m) => !fetchedIds.has(m.id) && m.id > (fetched[fetched.length - 1]?.id ?? 0)
+          );
+          return [...fetched, ...newer];
+        });
+      } else {
+        // Development mode: Show a helpful system message
+        console.log('⚠️  Development mode: Chat requires Supabase configuration');
         setMessages([{
           id: 1,
           user_id: 'system',
           user_name: 'System',
-          body: '⚠️ Unable to connect to chat server. Check your network connection.',
+          body: '💡 Chat is ready! Configure Supabase in .env.local to enable real-time messaging.',
           kind: 'system' as const,
           created_at: new Date().toISOString(),
         }]);
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+      setMessages([{
+        id: 1,
+        user_id: 'system',
+        user_name: 'System',
+        body: '⚠️ Unable to connect to chat server. Check your network connection.',
+        kind: 'system' as const,
+        created_at: new Date().toISOString(),
+      }]);
+    } finally {
+      setLoading(false);
     }
-
-    loadMessages();
   }, [room]);
+
+  // Initial load
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
+
+  // Refetch when the tab becomes visible again — the realtime channel may
+  // have silently dropped messages while the phone was asleep.
+  useEffect(() => {
+    const handleResume = () => {
+      if (document.visibilityState === 'visible') {
+        loadMessages();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('pageshow', handleResume);
+    return () => {
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('pageshow', handleResume);
+    };
+  }, [loadMessages]);
 
   // Subscribe to new messages
   useEffect(() => {
@@ -105,19 +135,34 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
           setMessages((prev) => [...prev, newMessage]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Fires on initial join AND every rejoin after a reconnect — refetch
+        // so messages inserted while the socket was down aren't lost.
+        if (status === 'SUBSCRIBED') {
+          loadMessages();
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [room]);
+  }, [room, loadMessages]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom. Scroll only the messages container —
+  // scrollIntoView also scrolls ancestor containers, which yanks the
+  // mobile video/chat layout on every incoming message.
+  const scrollToBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  }, []);
+
   useEffect(() => {
     if (autoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollToBottom();
     }
-  }, [messages, autoScroll]);
+  }, [messages, autoScroll, scrollToBottom]);
 
   // Detect manual scroll
   useEffect(() => {
@@ -296,7 +341,6 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             );
           })
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Scroll to bottom indicator */}
@@ -304,7 +348,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
         <div className="flex-shrink-0" style={{ padding: '4px 8px', borderTop: '2px solid #1a1230' }}>
           <button
             onClick={() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              scrollToBottom();
               setAutoScroll(true);
             }}
             className="w-full text-xs py-1 f-comic"

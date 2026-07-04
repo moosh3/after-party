@@ -35,6 +35,10 @@ interface VideoPlayerProps {
   sourceType?: MediaSourceType | string;
   youtubePlaylistId?: string | null;
   sourceUrl?: string | null;
+  captionUrl?: string | null;
+  captionLabel?: string | null;
+  captionLanguage?: string | null;
+  onPlaybackError?: () => void;
 }
 
 type PlaybackStateResponse = {
@@ -137,16 +141,20 @@ function YouTubePlaylistPlayer({
   const playerRef = useRef<YouTubePlayer | null>(null);
   const volumeRef = useRef(80);
   const mutedRef = useRef(false);
+  const startedRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [volume, setVolume] = useState(80);
   const [muted, setMuted] = useState(false);
+  const [needsUnmute, setNeedsUnmute] = useState(false);
 
   useEffect(() => {
     let disposed = false;
+    let autoplayFallbackTimer: number | null = null;
 
     setIsReady(false);
     setLoadError(false);
+    startedRef.current = false;
 
     loadYouTubeIframeApi()
       .then((YT) => {
@@ -190,8 +198,23 @@ function YouTubePlaylistPlayer({
               });
               event.target.playVideo();
               setIsReady(true);
+
+              // Chrome mobile blocks unmuted autoplay; if playback hasn't
+              // started shortly after ready, retry muted and surface a pill.
+              autoplayFallbackTimer = window.setTimeout(() => {
+                autoplayFallbackTimer = null;
+                if (disposed || startedRef.current || mutedRef.current) return;
+                setMuted(true);
+                playerRef.current?.mute();
+                playerRef.current?.playVideo();
+                setNeedsUnmute(true);
+              }, 2000);
             },
             onStateChange: (event) => {
+              if (event.data === YT.PlayerState.PLAYING) {
+                startedRef.current = true;
+              }
+
               if (!viewerLocked) return;
 
               if (event.data === YT.PlayerState.PAUSED) {
@@ -223,6 +246,7 @@ function YouTubePlaylistPlayer({
 
     return () => {
       disposed = true;
+      if (autoplayFallbackTimer !== null) window.clearTimeout(autoplayFallbackTimer);
       playerRef.current?.destroy();
       playerRef.current = null;
     };
@@ -284,10 +308,28 @@ function YouTubePlaylistPlayer({
         </div>
       )}
 
+      {needsUnmute && (
+        <button
+          type="button"
+          onClick={() => {
+            setMuted(false);
+            setNeedsUnmute(false);
+            playerRef.current?.unMute();
+            playerRef.current?.playVideo();
+          }}
+          className="absolute bottom-16 left-1/2 z-40 -translate-x-1/2 flex items-center gap-2 rounded-full bg-pink-300 px-5 py-3 text-sm font-bold text-black shadow-lg animate-pulse"
+        >
+          🔊 TAP TO UNMUTE
+        </button>
+      )}
+
       <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-md bg-black/75 px-3 py-2 text-white">
         <button
           type="button"
-          onClick={() => setMuted((value) => !value)}
+          onClick={() => {
+            if (muted) setNeedsUnmute(false);
+            setMuted(!muted);
+          }}
           className="min-h-[32px] rounded bg-white/15 px-2 text-xs font-semibold hover:bg-white/25"
           aria-label={muted ? 'Unmute' : 'Mute'}
         >
@@ -335,10 +377,15 @@ export default function VideoPlayer({
   activeSlotId = null,
   sourceType = MUX_SOURCE_TYPE,
   youtubePlaylistId = null,
+  captionUrl = null,
+  captionLabel = null,
+  captionLanguage = null,
+  onPlaybackError,
 }: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [needsUnmute, setNeedsUnmute] = useState(false);
 
   const canBroadcastAdminControls = isAdmin && allowAdminBroadcast;
   const viewerLocked = !canBroadcastAdminControls;
@@ -349,6 +396,8 @@ export default function VideoPlayer({
   const adminUpdateDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const syncErrorCountRef = useRef<number>(0);
+  const errorRetryRef = useRef(0);
+  const playbackStateRef = useRef(playbackState);
   const endedSlotRef = useRef<string | null>(null);
   const manualEndedPlaybackRef = useRef<string | null>(null);
   const lastSyncedStateRef = useRef<{
@@ -357,6 +406,35 @@ export default function VideoPlayer({
     position: number;
     updatedAt: string;
   } | null>(null);
+
+  useEffect(() => {
+    playbackStateRef.current = playbackState;
+  }, [playbackState]);
+
+  // Chrome mobile rejects unmuted play() without a user gesture. Fall back to
+  // muted playback (viewers see video immediately) and surface an unmute pill.
+  const safePlay = useCallback(async (video: MuxPlayerElement): Promise<boolean> => {
+    try {
+      await video.play();
+      return true;
+    } catch (err) {
+      if ((err as DOMException)?.name !== 'NotAllowedError') {
+        console.error('Failed to play video:', err);
+        return false;
+      }
+
+      try {
+        video.muted = true;
+        await video.play();
+        setNeedsUnmute(true);
+        return true;
+      } catch (mutedErr) {
+        console.error('Muted autoplay also blocked:', mutedErr);
+        setNeedsUnmute(true);
+        return false;
+      }
+    }
+  }, []);
 
   const applyPlaybackState = useCallback(
     async (
@@ -415,20 +493,23 @@ export default function VideoPlayer({
             video.currentTime = Math.max(0, targetPosition);
           }
 
+          let played = true;
           if (state === 'playing' && video.paused) {
-            await video.play().catch((err) => {
-              console.error('Failed to play video:', err);
-            });
+            played = await safePlay(video);
           } else if (state === 'paused' && !video.paused) {
             video.pause();
           }
 
-          lastSyncedStateRef.current = {
-            playbackId,
-            state,
-            position: numericPosition,
-            updatedAt,
-          };
+          // Don't record a failed play attempt as synced, or the dedup guard
+          // above would swallow every retry from the poll loop.
+          if (played) {
+            lastSyncedStateRef.current = {
+              playbackId,
+              state,
+              position: numericPosition,
+              updatedAt,
+            };
+          }
           syncErrorCountRef.current = 0;
         } catch (err) {
           console.error('Error syncing playback:', err);
@@ -455,7 +536,7 @@ export default function VideoPlayer({
         syncDebounceRef.current = setTimeout(performSync, 200);
       }
     },
-    [playbackId]
+    [playbackId, safePlay]
   );
 
   const loadAndSyncPlaybackState = useCallback(async () => {
@@ -488,7 +569,33 @@ export default function VideoPlayer({
 
   useEffect(() => {
     setError(null);
+    errorRetryRef.current = 0;
   }, [playbackId, sourceType]);
+
+  // Covers the autoPlay-attribute path (no rejection callback) and hold
+  // screens, where the sync loop may never issue a play() of its own.
+  useEffect(() => {
+    const video = playerRef.current;
+    if (sourceType !== MUX_SOURCE_TYPE || !video || !viewerLocked) return;
+
+    const tryStart = () => {
+      if (
+        video.paused &&
+        (isHoldScreen || playbackStateRef.current === 'playing') &&
+        !isSyncingRef.current
+      ) {
+        void safePlay(video);
+      }
+    };
+
+    video.addEventListener('canplay', tryStart);
+    const timer = window.setTimeout(tryStart, 1500);
+
+    return () => {
+      video.removeEventListener('canplay', tryStart);
+      window.clearTimeout(timer);
+    };
+  }, [sourceType, viewerLocked, isHoldScreen, playbackId, safePlay]);
 
   useEffect(() => {
     if (sourceType === MUX_SOURCE_TYPE && playbackId === 'demo-playback-id') {
@@ -502,6 +609,43 @@ export default function VideoPlayer({
     manualEndedPlaybackRef.current = null;
     lastSyncedStateRef.current = null;
   }, [playbackId, activeSlotId]);
+
+  // Side-load the caption file (public/assets/captions/*) as a text track on
+  // the underlying media element. Mux assets here carry no embedded subtitles,
+  // so without this there is nothing for the caption UI to show. The
+  // requestCaptions effect below flips the track to 'showing' once it exists.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (sourceType !== MUX_SOURCE_TYPE || !player || !captionUrl) return;
+
+    let trackEl: HTMLTrackElement | null = null;
+    let timer: NodeJS.Timeout | null = null;
+
+    const attach = () => {
+      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
+      if (!media) {
+        timer = setTimeout(attach, 500);
+        return;
+      }
+
+      if (media.querySelector(`track[src="${captionUrl}"]`)) return;
+
+      trackEl = document.createElement('track');
+      trackEl.kind = 'subtitles';
+      trackEl.label = captionLabel || 'English';
+      trackEl.srclang = captionLanguage || 'en';
+      trackEl.src = captionUrl;
+      trackEl.default = true;
+      media.appendChild(trackEl);
+    };
+
+    attach();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      trackEl?.remove();
+    };
+  }, [sourceType, playbackId, captionUrl, captionLabel, captionLanguage]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -717,6 +861,36 @@ export default function VideoPlayer({
     await sendAdminPlaybackCommand(PLAYBACK_ACTIONS.PAUSE, playerRef.current.currentTime);
   };
 
+  const handleUnmute = () => {
+    const video = playerRef.current;
+    if (!video) return;
+
+    // Must stay synchronous — awaiting anything first loses the tap's
+    // user-activation window and Chrome re-blocks the play() call.
+    video.muted = false;
+    if (video.paused) {
+      video.play().catch((err) => console.error('Unmute play failed:', err));
+    }
+    setNeedsUnmute(false);
+  };
+
+  const handlePlayerError = (evt: Event) => {
+    console.error('Mux player error:', (evt as CustomEvent).detail);
+
+    if (errorRetryRef.current === 0) {
+      errorRetryRef.current = 1;
+      // Likely an expired signed token — ask the parent for a fresh one (the
+      // tokens prop is reactive, so playback recovers without a remount).
+      onPlaybackError?.();
+      window.setTimeout(() => {
+        if (errorRetryRef.current === 1) errorRetryRef.current = 0;
+      }, 30000);
+      return;
+    }
+
+    setError('Video playback error. Refresh to reconnect.');
+  };
+
   const correctViewerControlAttempt = () => {
     if (canBroadcastAdminControls || isSyncingRef.current || playerRef.current?.ended) return;
     window.setTimeout(loadAndSyncPlaybackState, 100);
@@ -844,13 +1018,25 @@ export default function VideoPlayer({
         className={`w-full h-full ${viewerLocked ? 'watch-party-locked' : ''}`}
         style={viewerControlStyle}
         nohotkeys={viewerLocked}
+        playsInline
         onPlay={canBroadcastAdminControls ? handlePlay : undefined}
         onPause={canBroadcastAdminControls ? handlePause : correctViewerControlAttempt}
         onSeeked={canBroadcastAdminControls ? handleSeek : correctViewerControlAttempt}
         onEnded={handleEnded}
+        onError={handlePlayerError}
         loop={isHoldScreen}
         autoPlay={isHoldScreen || playbackState === 'playing'}
       />
+
+      {needsUnmute && (
+        <button
+          type="button"
+          onClick={handleUnmute}
+          className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 flex items-center gap-2 rounded-full bg-pink-300 px-5 py-3 text-sm font-bold text-black shadow-lg animate-pulse"
+        >
+          🔊 TAP TO UNMUTE
+        </button>
+      )}
 
       {isSyncing && viewerLocked && (
         <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs px-3 py-1 rounded-full z-10">

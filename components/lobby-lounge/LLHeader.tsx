@@ -6,14 +6,17 @@ export default function LLHeader({
   timestamp = '',
   lockText = 'MEMBERS ONLY · NO RANDOS',
   actions = null,
+  compact = false,
 }: {
   tagline?: string;
   timestamp?: string;
   lockText?: string;
   actions?: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
     <header
+      className={compact ? 'll-header ll-header--compact' : 'll-header'}
       style={{
         padding: '12px 18px',
         background: LL_VELVET,
@@ -37,11 +40,13 @@ export default function LLHeader({
           background: `linear-gradient(90deg, ${LL.frost2}, ${LL.mint} 30%, ${LL.lime} 55%, ${LL.yellow} 80%, ${LL.frost2})`,
         }}
       />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <Reel size={60} mood="wave" palette={LL_REEL} />
-        <div>
+      <div className="ll-header-left" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <span className="ll-header-reel" style={{ display: 'flex' }}>
+          <Reel size={60} mood="wave" palette={LL_REEL} />
+        </span>
+        <div style={{ minWidth: 0 }}>
           <h1
-            className="f-shade"
+            className="f-shade ll-header-title"
             style={{
               margin: 0,
               fontSize: 32,
@@ -52,19 +57,19 @@ export default function LLHeader({
           >
             WATCHIN&apos; DA MOVIES
           </h1>
-          <p className="f-comic" style={{ margin: '2px 0 0', fontSize: 13, color: LL.frost2 }}>
+          <p className="f-comic ll-header-tagline" style={{ margin: '2px 0 0', fontSize: 13, color: LL.frost2 }}>
             ~ {tagline} ~
           </p>
         </div>
       </div>
-      <div style={{ display: 'grid', gap: 5, justifyItems: 'end' }}>
+      <div className="ll-header-meta" style={{ display: 'grid', gap: 5, justifyItems: 'end' }}>
         {actions && <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
         <span className="lock-badge" style={{ background: LL.mint, color: LL.ink, border: `1.5px solid ${LL.ink}` }}>
           <span aria-hidden="true">🔒</span>
           {lockText}
         </span>
         {timestamp && (
-          <span className="f-mono" style={{ fontSize: 14, color: LL.frost2 }}>
+          <span className="f-mono ll-header-timestamp" style={{ fontSize: 14, color: LL.frost2 }}>
             {timestamp}
           </span>
         )}
