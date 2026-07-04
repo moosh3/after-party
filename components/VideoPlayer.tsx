@@ -127,6 +127,8 @@ function loadYouTubeIframeApi() {
   return window.__youtubeIframeApiReady as Promise<YouTubeApi>;
 }
 
+const SIDELOADED_CAPTION_TRACK_ID = 'after-party-sideloaded-captions';
+
 function YouTubePlaylistPlayer({
   playlistId,
   title,
@@ -147,6 +149,23 @@ function YouTubePlaylistPlayer({
   const [volume, setVolume] = useState(80);
   const [muted, setMuted] = useState(false);
   const [needsUnmute, setNeedsUnmute] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimerRef = useRef<number | null>(null);
+
+  // Mobile has no hover, so the control bar would otherwise sit over the
+  // video forever. Show it on any tap/mouse move, fade it out after 4s.
+  const pokeControls = () => {
+    setControlsVisible(true);
+    if (controlsTimerRef.current) window.clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = window.setTimeout(() => setControlsVisible(false), 4000);
+  };
+
+  useEffect(() => {
+    pokeControls();
+    return () => {
+      if (controlsTimerRef.current) window.clearTimeout(controlsTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -296,7 +315,12 @@ function YouTubePlaylistPlayer({
   }
 
   return (
-    <div ref={containerRef} className="relative aspect-video bg-black overflow-hidden max-h-screen rounded-lg">
+    <div
+      ref={containerRef}
+      className="relative aspect-video bg-black overflow-hidden max-h-screen rounded-lg"
+      onPointerDown={pokeControls}
+      onMouseMove={pokeControls}
+    >
       <div className="absolute inset-0 h-full w-full">
         <div ref={mountRef} className="h-full w-full" title={title} />
       </div>
@@ -323,7 +347,14 @@ function YouTubePlaylistPlayer({
         </button>
       )}
 
-      <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-md bg-black/75 px-3 py-2 text-white">
+      <div
+        className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-md bg-black/75 px-3 py-2 text-white"
+        style={{
+          opacity: controlsVisible ? 1 : 0,
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+          transition: 'opacity .25s ease',
+        }}
+      >
         <button
           type="button"
           onClick={() => {
@@ -346,7 +377,7 @@ function YouTubePlaylistPlayer({
             setVolume(nextVolume);
             if (nextVolume > 0 && muted) setMuted(false);
           }}
-          className="w-24"
+          className="hidden sm:block w-24"
         />
         <button
           type="button"
@@ -398,6 +429,7 @@ export default function VideoPlayer({
   const syncErrorCountRef = useRef<number>(0);
   const errorRetryRef = useRef(0);
   const playbackStateRef = useRef(playbackState);
+  const sideloadedCaptionTrackRef = useRef<TextTrack | null>(null);
   const endedSlotRef = useRef<string | null>(null);
   const manualEndedPlaybackRef = useRef<string | null>(null);
   const lastSyncedStateRef = useRef<{
@@ -611,38 +643,72 @@ export default function VideoPlayer({
   }, [playbackId, activeSlotId]);
 
   // Side-load the caption file (public/assets/captions/*) as a text track on
-  // the underlying media element. Mux assets here carry no embedded subtitles,
-  // so without this there is nothing for the caption UI to show. The
+  // the underlying media element, for assets with no embedded subtitles. The
   // requestCaptions effect below flips the track to 'showing' once it exists.
+  //
+  // Timing matters: appending a <track> while hls.js is still starting up
+  // stalls its level loading in production builds (black spinner, manifests
+  // fetched but no video). Wait for loadedmetadata before touching the media
+  // children, and skip entirely when the manifest already carries subtitles.
   useEffect(() => {
     const player = playerRef.current;
     if (sourceType !== MUX_SOURCE_TYPE || !player || !captionUrl) return;
 
     let trackEl: HTMLTrackElement | null = null;
-    let timer: NodeJS.Timeout | null = null;
+    let watchedTracks: TextTrackList | null = null;
+    let cancelled = false;
+
+    // The side-loaded VTT is the single caption source. Embedded manifest
+    // subtitles are auto-shown by native HLS on iOS (but not by hls.js on
+    // desktop), which rendered the same dialogue twice on phones — keep any
+    // track that isn't ours disabled, on both engines.
+    const suppressEmbedded = () => {
+      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
+      if (!media?.textTracks) return;
+
+      for (const t of Array.from(media.textTracks)) {
+        if (
+          (t.kind === 'subtitles' || t.kind === 'captions') &&
+          t.id !== SIDELOADED_CAPTION_TRACK_ID &&
+          t.mode !== 'disabled'
+        ) {
+          t.mode = 'disabled';
+        }
+      }
+    };
 
     const attach = () => {
-      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
-      if (!media) {
-        timer = setTimeout(attach, 500);
-        return;
-      }
+      if (cancelled || trackEl) return;
 
-      if (media.querySelector(`track[src="${captionUrl}"]`)) return;
+      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
+      if (!media) return;
 
       trackEl = document.createElement('track');
+      trackEl.id = SIDELOADED_CAPTION_TRACK_ID;
       trackEl.kind = 'subtitles';
       trackEl.label = captionLabel || 'English';
       trackEl.srclang = captionLanguage || 'en';
       trackEl.src = captionUrl;
-      trackEl.default = true;
       media.appendChild(trackEl);
+      sideloadedCaptionTrackRef.current = trackEl.track;
+
+      watchedTracks = media.textTracks;
+      watchedTracks?.addEventListener('addtrack', suppressEmbedded);
+      watchedTracks?.addEventListener('change', suppressEmbedded);
+      suppressEmbedded();
     };
 
-    attach();
+    if (player.readyState >= 1) {
+      attach();
+    }
+    player.addEventListener('loadedmetadata', attach);
 
     return () => {
-      if (timer) clearTimeout(timer);
+      cancelled = true;
+      player.removeEventListener('loadedmetadata', attach);
+      watchedTracks?.removeEventListener('addtrack', suppressEmbedded);
+      watchedTracks?.removeEventListener('change', suppressEmbedded);
+      sideloadedCaptionTrackRef.current = null;
       trackEl?.remove();
     };
   }, [sourceType, playbackId, captionUrl, captionLabel, captionLanguage]);
@@ -671,25 +737,29 @@ export default function VideoPlayer({
     };
 
     const requestCaptions = () => {
-      for (const target of getCaptionTargets()) {
-        target.setAttribute('defaultsubtitles', '');
-        target.dispatchEvent(new CustomEvent('mediashowsubtitlesrequest', {
-          bubbles: true,
-          composed: true,
-          detail: true,
-        }));
+      // With a side-loaded track, manage modes directly — the broadcast
+      // "show subtitles" request would also enable the embedded manifest
+      // track on iOS native HLS, doubling the captions.
+      if (!sideloadedCaptionTrackRef.current) {
+        for (const target of getCaptionTargets()) {
+          target.setAttribute('defaultsubtitles', '');
+          target.dispatchEvent(new CustomEvent('mediashowsubtitlesrequest', {
+            bubbles: true,
+            composed: true,
+            detail: true,
+          }));
+        }
       }
 
       const textTracks =
-        player.textTracks ||
-        (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media?.textTracks;
-      const captionTrack = textTracks
-        ? Array.from(textTracks).find((track) =>
-            track.kind === 'subtitles' || track.kind === 'captions'
-          )
-        : null;
+        (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media?.textTracks ||
+        player.textTracks;
+      const tracks = textTracks ? Array.from(textTracks) : [];
+      const captionTrack =
+        tracks.find((track) => track.id === SIDELOADED_CAPTION_TRACK_ID) ||
+        tracks.find((track) => track.kind === 'subtitles' || track.kind === 'captions');
 
-      if (captionTrack) {
+      if (captionTrack && captionTrack.mode !== 'showing') {
         captionTrack.mode = 'showing';
       }
 
@@ -869,9 +939,15 @@ export default function VideoPlayer({
     // user-activation window and Chrome re-blocks the play() call.
     video.muted = false;
     if (video.paused) {
-      video.play().catch((err) => console.error('Unmute play failed:', err));
+      // Only dismiss the pill once playback actually starts; if play() is
+      // rejected the viewer still has a way back in.
+      video
+        .play()
+        .then(() => setNeedsUnmute(false))
+        .catch((err) => console.error('Unmute play failed:', err));
+    } else {
+      setNeedsUnmute(false);
     }
-    setNeedsUnmute(false);
   };
 
   const handlePlayerError = (evt: Event) => {
