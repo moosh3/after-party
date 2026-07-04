@@ -128,6 +128,27 @@ function loadYouTubeIframeApi() {
 }
 
 const SIDELOADED_CAPTION_TRACK_ID = 'after-party-sideloaded-captions';
+const SEEK_SETTLE_TIMEOUT_MS = 350;
+const SEEK_LANDED_TOLERANCE_SECONDS = 2;
+const SEEK_RETRY_DELAYS_MS = [250, 750, 1500, 3000] as const;
+
+function waitForSeekToSettle(video: MuxPlayerElement) {
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    let timeout: number | null = null;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      video.removeEventListener('seeked', finish);
+      if (timeout !== null) window.clearTimeout(timeout);
+      resolve();
+    };
+
+    video.addEventListener('seeked', finish, { once: true });
+    timeout = window.setTimeout(finish, SEEK_SETTLE_TIMEOUT_MS);
+  });
+}
 
 function YouTubePlaylistPlayer({
   playlistId,
@@ -426,6 +447,7 @@ export default function VideoPlayer({
   const lastRealtimeUpdateRef = useRef<number>(Date.now());
   const adminUpdateDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const syncRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const syncErrorCountRef = useRef<number>(0);
   const errorRetryRef = useRef(0);
   const playbackStateRef = useRef(playbackState);
@@ -486,6 +508,23 @@ export default function VideoPlayer({
         return;
       }
 
+      const calculateTargetPosition = () => {
+        const latencySeconds = SYNC_THRESHOLDS.LATENCY_ESTIMATE_MS / 1000;
+        let targetPosition = numericPosition;
+
+        if (state === 'playing') {
+          if (!Number.isNaN(numericElapsedMs) && numericElapsedMs > 0) {
+            targetPosition = numericPosition + numericElapsedMs / 1000 + latencySeconds;
+          } else {
+            const updateTimestamp = new Date(updatedAt).getTime();
+            const elapsed = Number.isNaN(updateTimestamp) ? 0 : (Date.now() - updateTimestamp) / 1000;
+            targetPosition = numericPosition + elapsed + latencySeconds;
+          }
+        }
+
+        return Math.max(0, targetPosition);
+      };
+
       const lastSynced = lastSyncedStateRef.current;
       if (
         lastSynced &&
@@ -497,23 +536,20 @@ export default function VideoPlayer({
         return;
       }
 
-      const performSync = async () => {
+      if (syncRetryTimeoutRef.current) {
+        clearTimeout(syncRetryTimeoutRef.current);
+        syncRetryTimeoutRef.current = null;
+      }
+
+      const performSync = async (attempt = 0) => {
+        const video = playerRef.current;
+        if (!video || isSyncingRef.current) return;
+
         isSyncingRef.current = true;
         setIsSyncing(true);
 
         try {
-          const latencySeconds = SYNC_THRESHOLDS.LATENCY_ESTIMATE_MS / 1000;
-          let targetPosition = numericPosition;
-
-          if (state === 'playing') {
-            if (!Number.isNaN(numericElapsedMs) && numericElapsedMs > 0) {
-              targetPosition = numericPosition + numericElapsedMs / 1000 + latencySeconds;
-            } else {
-              const updateTimestamp = new Date(updatedAt).getTime();
-              const elapsed = Number.isNaN(updateTimestamp) ? 0 : (Date.now() - updateTimestamp) / 1000;
-              targetPosition = numericPosition + elapsed + latencySeconds;
-            }
-          }
+          const targetPosition = calculateTargetPosition();
 
           const timeDiff = Math.abs(video.currentTime - targetPosition);
           const syncThreshold =
@@ -521,8 +557,10 @@ export default function VideoPlayer({
               ? SYNC_THRESHOLDS.SYNC_THRESHOLD_PLAYING
               : SYNC_THRESHOLDS.SYNC_THRESHOLD_PAUSED;
 
+          let requestedSeek = false;
           if (timeDiff > syncThreshold) {
-            video.currentTime = Math.max(0, targetPosition);
+            video.currentTime = targetPosition;
+            requestedSeek = true;
           }
 
           let played = true;
@@ -532,9 +570,37 @@ export default function VideoPlayer({
             video.pause();
           }
 
-          // Don't record a failed play attempt as synced, or the dedup guard
-          // above would swallow every retry from the poll loop.
-          if (played) {
+          if (requestedSeek) {
+            await waitForSeekToSettle(video);
+          }
+
+          const verifyTargetPosition = calculateTargetPosition();
+          const verifyTolerance = Math.max(SEEK_LANDED_TOLERANCE_SECONDS, syncThreshold);
+          const playheadSynced =
+            Number.isFinite(video.currentTime) &&
+            Math.abs(video.currentTime - verifyTargetPosition) <= verifyTolerance;
+
+          if (!playheadSynced && attempt < SEEK_RETRY_DELAYS_MS.length) {
+            const retryDelay = SEEK_RETRY_DELAYS_MS[attempt];
+            syncRetryTimeoutRef.current = setTimeout(() => {
+              syncRetryTimeoutRef.current = null;
+              void performSync(attempt + 1);
+            }, retryDelay);
+            return;
+          }
+
+          if (!playheadSynced) {
+            console.warn('Playback sync seek did not land near target', {
+              currentTime: video.currentTime,
+              targetPosition: verifyTargetPosition,
+              attempt,
+            });
+            return;
+          }
+
+          // Don't record a failed play attempt or a failed seek as synced, or
+          // the dedup guard above would swallow every retry from the poll loop.
+          if (played && playheadSynced) {
             lastSyncedStateRef.current = {
               playbackId,
               state,
@@ -640,6 +706,10 @@ export default function VideoPlayer({
     endedSlotRef.current = null;
     manualEndedPlaybackRef.current = null;
     lastSyncedStateRef.current = null;
+    if (syncRetryTimeoutRef.current) {
+      clearTimeout(syncRetryTimeoutRef.current);
+      syncRetryTimeoutRef.current = null;
+    }
   }, [playbackId, activeSlotId]);
 
   // Side-load the caption file (public/assets/captions/*) as a text track on
@@ -866,6 +936,10 @@ export default function VideoPlayer({
       if (syncDebounceRef.current) {
         clearTimeout(syncDebounceRef.current);
       }
+      if (syncRetryTimeoutRef.current) {
+        clearTimeout(syncRetryTimeoutRef.current);
+        syncRetryTimeoutRef.current = null;
+      }
     };
   }, [
     canBroadcastAdminControls,
@@ -876,17 +950,56 @@ export default function VideoPlayer({
   ]);
 
   useEffect(() => {
+    if (canBroadcastAdminControls || sourceType !== MUX_SOURCE_TYPE || !playerRef.current) return;
+
+    const player = playerRef.current;
+    let readySyncTimer: number | null = null;
+
+    const requestReadySync = () => {
+      if (readySyncTimer !== null) {
+        window.clearTimeout(readySyncTimer);
+      }
+
+      readySyncTimer = window.setTimeout(() => {
+        readySyncTimer = null;
+        if (!isSyncingRef.current) {
+          loadAndSyncPlaybackState();
+        }
+      }, 100);
+    };
+
+    player.addEventListener('loadedmetadata', requestReadySync);
+    player.addEventListener('canplay', requestReadySync);
+    player.addEventListener('playing', requestReadySync);
+    player.addEventListener('seekablechange', requestReadySync);
+
+    return () => {
+      player.removeEventListener('loadedmetadata', requestReadySync);
+      player.removeEventListener('canplay', requestReadySync);
+      player.removeEventListener('playing', requestReadySync);
+      player.removeEventListener('seekablechange', requestReadySync);
+      if (readySyncTimer !== null) {
+        window.clearTimeout(readySyncTimer);
+      }
+    };
+  }, [canBroadcastAdminControls, sourceType, playbackId, loadAndSyncPlaybackState]);
+
+  useEffect(() => {
     if (canBroadcastAdminControls) return;
 
-    const handleVisibilityChange = () => {
+    const handleResumeSync = () => {
       if (document.visibilityState === 'visible' && !isSyncingRef.current) {
         loadAndSyncPlaybackState();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleResumeSync);
+    window.addEventListener('focus', handleResumeSync);
+    window.addEventListener('pageshow', handleResumeSync);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleResumeSync);
+      window.removeEventListener('focus', handleResumeSync);
+      window.removeEventListener('pageshow', handleResumeSync);
     };
   }, [canBroadcastAdminControls, loadAndSyncPlaybackState]);
 
