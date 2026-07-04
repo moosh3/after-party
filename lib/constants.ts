@@ -26,6 +26,7 @@ export const PLAYBACK_ACTIONS = {
 export const DATABASE_TABLES = {
   CURRENT_STREAM: 'current_stream',
   MESSAGES: 'messages',
+  MESSAGE_REACTIONS: 'message_reactions',
   POLLS: 'polls',
   POLL_VOTES: 'poll_votes',
 } as const;

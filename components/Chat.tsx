@@ -11,6 +11,13 @@ import {
   CHAT_SLOWMODE_SECONDS,
   MAX_MESSAGE_LENGTH,
 } from '@/lib/constants';
+import {
+  MESSAGE_REACTIONS,
+  REACTION_GLYPH,
+  REACTION_LABEL,
+  type MessageReaction,
+  type MessageReactionSummary,
+} from '@/lib/reactions';
 
 interface Message {
   id: number;
@@ -19,6 +26,8 @@ interface Message {
   body: string;
   kind: 'user' | 'system' | 'poll';
   created_at: string;
+  reactions?: MessageReactionSummary[];
+  viewerReaction?: MessageReaction | null;
 }
 
 interface ChatProps {
@@ -34,7 +43,10 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
+  const [activeReactionMessageId, setActiveReactionMessageId] = useState<number | null>(null);
+  const [reactingMessageId, setReactingMessageId] = useState<number | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Load user name from viewer registration data
@@ -54,7 +66,12 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   // aggressively when the tab backgrounds or the phone locks.
   const loadMessages = useCallback(async () => {
     try {
-      const response = await fetch(`/api/chat/messages?room=${room}&limit=100`, {
+      const params = new URLSearchParams({
+        room,
+        limit: '100',
+        userId,
+      });
+      const response = await fetch(`/api/chat/messages?${params.toString()}`, {
         cache: 'no-store',
       });
       if (response.ok) {
@@ -94,7 +111,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
     } finally {
       setLoading(false);
     }
-  }, [room]);
+  }, [room, userId]);
 
   // Initial load
   useEffect(() => {
@@ -131,8 +148,23 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
           filter: `room=eq.${room}`,
         },
         (payload) => {
-          const newMessage = payload.new as Message;
+          const newMessage = {
+            ...(payload.new as Message),
+            reactions: [],
+            viewerReaction: null,
+          };
           setMessages((prev) => [...prev, newMessage]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: DATABASE_TABLES.MESSAGE_REACTIONS,
+        },
+        () => {
+          loadMessages();
         }
       )
       .subscribe((status) => {
@@ -147,6 +179,25 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
       supabase.removeChannel(channel);
     };
   }, [room, loadMessages]);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const startLongPress = useCallback((messageId: number) => {
+    clearLongPressTimer();
+    longPressTimerRef.current = setTimeout(() => {
+      setActiveReactionMessageId(messageId);
+      longPressTimerRef.current = null;
+    }, 500);
+  }, [clearLongPressTimer]);
+
+  useEffect(() => {
+    return () => clearLongPressTimer();
+  }, [clearLongPressTimer]);
 
   // Auto-scroll to bottom. Scroll only the messages container —
   // scrollIntoView also scrolls ancestor containers, which yanks the
@@ -234,6 +285,48 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
       setError('Network error. Please try again.');
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleReactionToggle(message: Message, reaction: MessageReaction) {
+    if (reactingMessageId) return;
+
+    setReactingMessageId(message.id);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/chat/reactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: message.id,
+          userId,
+          userName,
+          reaction,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to react');
+        return;
+      }
+
+      setMessages((prev) => prev.map((item) => (
+        item.id === message.id
+          ? {
+              ...item,
+              reactions: data.reactions || [],
+              viewerReaction: data.viewerReaction || null,
+            }
+          : item
+      )));
+      setActiveReactionMessageId(null);
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setReactingMessageId(null);
     }
   }
 
@@ -326,7 +419,26 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             // Render regular user messages (compact, inline)
             const userColor = getUsernameColor(message.user_name);
             return (
-              <div key={message.id} style={{ padding: '4px 10px' }}>
+              <div
+                key={message.id}
+                style={{
+                  padding: '4px 10px',
+                  position: 'relative',
+                  zIndex: activeReactionMessageId === message.id ? 20 : 'auto',
+                }}
+                onPointerDown={(event) => {
+                  if ((event.target as HTMLElement).closest('button')) return;
+                  startLongPress(message.id);
+                }}
+                onPointerUp={clearLongPressTimer}
+                onPointerCancel={clearLongPressTimer}
+                onPointerLeave={clearLongPressTimer}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  clearLongPressTimer();
+                  setActiveReactionMessageId(message.id);
+                }}
+              >
                 <div className="flex flex-wrap items-baseline gap-1 text-sm leading-relaxed">
                   <span
                     className="font-bold"
@@ -337,6 +449,71 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
                   <span style={{ color: '#a18ad4' }}>:</span>
                   <span className="break-words" style={{ color: '#1a1230' }}>{message.body}</span>
                 </div>
+                {message.reactions && message.reactions.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {message.reactions.map((reaction) => (
+                      <button
+                        key={reaction.reaction}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleReactionToggle(message, reaction.reaction);
+                        }}
+                        className="text-xs leading-none"
+                        style={{
+                          border: '1px solid #c6b7f4',
+                          borderRadius: 999,
+                          background: reaction.viewerReacted ? '#fbcfe8' : '#fff',
+                          color: '#1a1230',
+                          padding: '2px 6px',
+                          boxShadow: reaction.viewerReacted ? '1px 1px 0 rgba(26,18,48,.25)' : 'none',
+                        }}
+                        aria-label={`${REACTION_LABEL[reaction.reaction]} reaction, ${reaction.count}`}
+                        disabled={reactingMessageId === message.id}
+                      >
+                        {REACTION_GLYPH[reaction.reaction]} {reaction.count}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {activeReactionMessageId === message.id && (
+                  <div
+                    className="absolute left-2 bottom-full z-30 flex w-max max-w-[calc(100%-16px)] flex-wrap gap-1"
+                    role="menu"
+                    aria-label="React to message"
+                    style={{
+                      border: '2px solid #1a1230',
+                      borderRadius: 999,
+                      background: '#fff',
+                      padding: 4,
+                      boxShadow: '3px 3px 0 rgba(26,18,48,.25)',
+                      transform: 'translateY(-4px)',
+                    }}
+                  >
+                    {MESSAGE_REACTIONS.map((reaction) => (
+                      <button
+                        key={reaction}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleReactionToggle(message, reaction);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center text-base"
+                        style={{
+                          borderRadius: 999,
+                          background: message.viewerReaction === reaction ? '#fbcfe8' : 'transparent',
+                          color: '#1a1230',
+                          border: 'none',
+                        }}
+                        title={REACTION_LABEL[reaction]}
+                        aria-label={REACTION_LABEL[reaction]}
+                        disabled={reactingMessageId === message.id}
+                      >
+                        {REACTION_GLYPH[reaction]}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })
@@ -390,4 +567,3 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
     </div>
   );
 }
-
