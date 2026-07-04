@@ -67,7 +67,12 @@ export const TWEAKS_STORAGE_KEY = 'da-movies:schedule-tweaks';
 
 export const ADS: AdEntry[] = [
   { brand: 'NOT THE BEES CO.', headline: 'BEES? HANDLED.', say: 'pest removal, screamed into the void.', cta: 'CALL 1-900-NO-BEES', accent: 'yellow', imgNote: '[ cage vs. the bees ]' },
-  { brand: 'THE CAGE FAN CLUB', headline: 'A NIC A DAY', say: 'monthly box: one nic, infinite faces.', cta: 'JOIN B4 MIDNIGHT', accent: 'lime', imgNote: '[ nic, contemplating ]' },
+  { brand: 'THE CAGE FAN CLUB', headline: 'A NIC A DAY', say: 'monthly box: one nic, infinite faces.', cta: 'JOIN B4 MIDNIGHT', accent: 'lime', img: '/assets/images/ads/mood-chart.jpg' },
   { brand: 'ALPHABET INSURANCE', headline: "A! B! C! ...AAARGH", say: 'spell your feelings. we cover the rest.', cta: 'GET A QUOTE', accent: 'pink', imgNote: "[ vampire's kiss cage ]" },
   { brand: 'PUT THE BUNNY BACK', headline: 'BUNNY PROTECTION', say: 'insure the bunny. insure the box.', cta: 'DIAL 1-800-BUNNY', accent: 'frost2', imgNote: '[ con air cage + bunny ]' },
+  { brand: 'REPUBLIC PICTURES', headline: 'TIME TO KILL', say: 'an innocent man just went over the edge of reason.', cta: 'PRE-ORDER ON VHS', accent: 'mint', img: '/assets/images/ads/time-to-kill-vhs.jpg' },
+  { brand: 'BRIAN J. ROBB', headline: "HOLLYWOOD'S WILD TALENT", say: 'the unauthorized biography. now in paperback.', cta: 'READ THE LEGEND', accent: 'cream', img: '/assets/images/ads/wild-talent-book.jpg' },
+  { brand: 'INTERVIEW MAG', headline: 'NO CAGE FOR NIC CAGE', say: 'celebrating 25 years of making culture pop.', cta: 'GRAB A COPY', accent: 'pink', img: '/assets/images/ads/interview-mag.png' },
+  { brand: 'THE FACE', headline: 'WILD ONE', say: "nicholas cage on david lynch's wild at heart.", cta: 'READ THE COVER STORY', accent: 'yellow', img: '/assets/images/ads/the-face-mag.png' },
+  { brand: 'DA MOVIES', headline: 'NIC CAGE-A-THON', say: 'the most patriotic marathon in america. 9AM–2AM CT.', cta: 'SEE SCHEDULE', accent: 'lime', img: '/assets/images/ads/cage-a-thon-promo.jpg' },
 ];

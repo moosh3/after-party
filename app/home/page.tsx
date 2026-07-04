@@ -10,6 +10,7 @@ import FrostCard from '@/components/lobby-lounge/FrostCard';
 import { LLCta } from '@/components/lobby-lounge/buttons';
 import Marquee from '@/components/lobby-lounge/Marquee';
 import DailyPoll from '@/components/lobby-lounge/DailyPoll';
+import AdCard from '@/components/lobby-lounge/AdCard';
 import MiniAvatar from '@/components/lobby-lounge/MiniAvatar';
 import { useLobbyPresence } from '@/components/lobby-lounge/useLobbyPresence';
 import { getViewerData, ViewerData } from '@/lib/viewer';
@@ -152,6 +153,8 @@ export default function HomePage() {
             </LLCta>
           </div>
         </FrostCard>
+
+        <AdCard adSeconds={15} />
 
         <DailyPoll question={HOME_POLL.question} options={HOME_POLL.options} />
 
