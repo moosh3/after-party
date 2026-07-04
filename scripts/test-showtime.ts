@@ -4,8 +4,10 @@ import { loadShowtime, parseShowtimeYaml, resolveShowtimePlayoutFor } from '../l
 import {
   extractYouTubePlaylistId,
   makeYouTubePlaylistPlaybackId,
+  mapYouTubePlaylistApiItem,
   parseYouTubePlaylistPlaybackId,
 } from '../lib/youtube';
+import { fetchYouTubePlaylistItems } from '../lib/youtube-playlist';
 
 const baseYaml = `
 event:
@@ -139,4 +141,104 @@ assert.equal(parseYouTubePlaylistPlaybackId(makeYouTubePlaylistPlaybackId(playli
 assert.throws(() => extractYouTubePlaylistId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), /list/);
 assert.throws(() => extractYouTubePlaylistId('not a playlist'), /Invalid/);
 
-console.log('showtime validation passed');
+const mappedVideo = mapYouTubePlaylistApiItem(
+  {
+    snippet: {
+      title: 'Clip One',
+      position: 7,
+      thumbnails: {
+        default: { url: 'https://img.youtube.com/default.jpg' },
+        high: { url: 'https://img.youtube.com/high.jpg' },
+      },
+      resourceId: { videoId: 'abc123' },
+      publishedAt: '2026-07-04T10:00:00Z',
+    },
+    contentDetails: {
+      videoPublishedAt: '2026-07-04T11:00:00Z',
+    },
+  },
+  0
+);
+assert.deepEqual(mappedVideo, {
+  videoId: 'abc123',
+  title: 'Clip One',
+  thumbnailUrl: 'https://img.youtube.com/high.jpg',
+  position: 7,
+  publishedAt: '2026-07-04T11:00:00Z',
+});
+assert.equal(
+  mapYouTubePlaylistApiItem({ snippet: { title: 'Private video', position: 0 } }, 0),
+  null
+);
+
+async function testYouTubePlaylistFetch() {
+  const originalFetch = globalThis.fetch;
+  const originalApiKey = process.env.YOUTUBE_API_KEY;
+  const requestedUrls: string[] = [];
+
+  process.env.YOUTUBE_API_KEY = 'test-youtube-key';
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    requestedUrls.push(url);
+    const parsed = new URL(url);
+    const pageToken = parsed.searchParams.get('pageToken');
+
+    if (!pageToken) {
+      return new Response(JSON.stringify({
+        nextPageToken: 'page-2',
+        items: [
+          {
+            snippet: {
+              title: 'First Clip',
+              position: 0,
+              thumbnails: { medium: { url: 'https://img.youtube.com/first.jpg' } },
+              resourceId: { videoId: 'first-video' },
+            },
+            contentDetails: { videoPublishedAt: '2026-07-04T12:00:00Z' },
+          },
+        ],
+      }), { status: 200 });
+    }
+
+    return new Response(JSON.stringify({
+      items: [
+        {
+          snippet: {
+            title: 'Second Clip',
+            position: 1,
+            thumbnails: { maxres: { url: 'https://img.youtube.com/second.jpg' } },
+            resourceId: { videoId: 'second-video' },
+          },
+          contentDetails: { videoPublishedAt: '2026-07-04T12:05:00Z' },
+        },
+      ],
+    }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const videos = await fetchYouTubePlaylistItems('PL1234567890abcdef');
+
+    assert.equal(videos.length, 2);
+    assert.equal(videos[0].videoId, 'first-video');
+    assert.equal(videos[1].videoId, 'second-video');
+    assert.equal(requestedUrls.length, 2);
+    assert.match(requestedUrls[0], /playlistId=PL1234567890abcdef/);
+    assert.match(requestedUrls[1], /pageToken=page-2/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalApiKey === undefined) {
+      delete process.env.YOUTUBE_API_KEY;
+    } else {
+      process.env.YOUTUBE_API_KEY = originalApiKey;
+    }
+  }
+}
+
+testYouTubePlaylistFetch()
+  .then(() => {
+    console.log('showtime validation passed');
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });

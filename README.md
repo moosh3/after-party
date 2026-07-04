@@ -85,6 +85,7 @@ Update the following values in `.env.local`:
 - `MUX_TOKEN_SECRET` - Your Mux token secret
 - `MUX_SIGNING_KEY_ID` - Your Mux signing key ID
 - `MUX_SIGNING_KEY_PRIVATE` - Your Mux signing key private key
+- `YOUTUBE_API_KEY` - Server-only YouTube Data API key for the event playlist shelf
 
 **Note:** The placeholder passwords are:
 - Viewer: `viewer123`
@@ -160,6 +161,7 @@ MUX_TOKEN_ID
 MUX_TOKEN_SECRET
 MUX_SIGNING_KEY_ID
 MUX_SIGNING_KEY_PRIVATE
+YOUTUBE_API_KEY
 VIEWER_PASSWORD_HASH
 ADMIN_PASSWORD_HASH
 SESSION_SECRET
@@ -254,4 +256,3 @@ This is a private event platform. See `PRD.md` for the complete product requirem
 ## License
 
 Private - All rights reserved
-
