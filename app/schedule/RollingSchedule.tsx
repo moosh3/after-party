@@ -13,6 +13,7 @@ import {
   TWEAKS_STORAGE_KEY,
   ScheduleTweaks,
 } from './config';
+import { randomIndex } from '@/lib/shuffle';
 
 // Just the real photos — a couple of ADS entries are still placeholder-only
 // (no img supplied yet) and are skipped here rather than shown as blanks.
@@ -278,11 +279,11 @@ function RollingTrack({ scrollSpeed, children }: { scrollSpeed: number; children
 }
 
 function useAdRotation(adSeconds: number) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => randomIndex(AD_PHOTOS.length));
   useEffect(() => {
     if (AD_PHOTOS.length <= 1) return undefined;
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % AD_PHOTOS.length);
+      setIndex((i) => randomIndex(AD_PHOTOS.length, i));
     }, adSeconds * 1000);
     return () => window.clearInterval(id);
   }, [adSeconds]);

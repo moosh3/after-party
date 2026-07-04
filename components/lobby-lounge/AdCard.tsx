@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ADS } from '@/app/schedule/config';
+import { randomIndex } from '@/lib/shuffle';
 import { LL } from './tokens';
 
 // Just the real photos — a couple of ADS entries are still placeholder-only
@@ -9,10 +10,10 @@ import { LL } from './tokens';
 const AD_PHOTOS: string[] = ADS.map((ad) => ad.img).filter((src): src is string => Boolean(src));
 
 function useAdRotation(seconds: number) {
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => randomIndex(AD_PHOTOS.length));
   useEffect(() => {
     if (AD_PHOTOS.length <= 1) return undefined;
-    const id = window.setInterval(() => setIndex((i) => (i + 1) % AD_PHOTOS.length), seconds * 1000);
+    const id = window.setInterval(() => setIndex((i) => randomIndex(AD_PHOTOS.length, i)), seconds * 1000);
     return () => window.clearInterval(id);
   }, [seconds]);
   return index;
