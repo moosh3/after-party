@@ -6,7 +6,6 @@ import { Bungee, Bungee_Shade, VT323, Comic_Neue, Outfit } from 'next/font/googl
 import './schedule.css';
 import {
   ADS,
-  AdEntry,
   ScheduleEntry,
   ScheduleLayout,
   ScheduleSettings,
@@ -14,6 +13,10 @@ import {
   TWEAKS_STORAGE_KEY,
   ScheduleTweaks,
 } from './config';
+
+// Just the real photos — a couple of ADS entries are still placeholder-only
+// (no img supplied yet) and are skipped here rather than shown as blanks.
+const AD_PHOTOS: string[] = ADS.map((ad) => ad.img).filter((src): src is string => Boolean(src));
 
 const bungee = Bungee({ subsets: ['latin'], weight: '400', variable: '--f-bungee' });
 const bungeeShade = Bungee_Shade({ subsets: ['latin'], weight: '400', variable: '--f-bungee-shade' });
@@ -277,87 +280,47 @@ function RollingTrack({ scrollSpeed, children }: { scrollSpeed: number; children
 function useAdRotation(adSeconds: number) {
   const [index, setIndex] = useState(0);
   useEffect(() => {
-    if (ADS.length <= 1) return undefined;
+    if (AD_PHOTOS.length <= 1) return undefined;
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % ADS.length);
+      setIndex((i) => (i + 1) % AD_PHOTOS.length);
     }, adSeconds * 1000);
     return () => window.clearInterval(id);
   }, [adSeconds]);
   return index;
 }
 
-function AdImage({ ad }: { ad: AdEntry }) {
-  const [failed, setFailed] = useState(!ad.img);
-  if (failed || !ad.img) {
-    return (
-      <div className="ad-img ph">
-        <span className="ad-imgnote">{ad.imgNote || '[ drop nic cage here ]'}</span>
-      </div>
-    );
-  }
+function AdPhoto({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
   return (
-    <div className="ad-img">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={ad.img} alt={ad.brand} onError={() => setFailed(true)} />
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      onError={() => setFailed(true)}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    />
   );
 }
 
 function AdCard({ adSeconds }: { adSeconds: number }) {
   const index = useAdRotation(adSeconds);
-  const ad = ADS[index];
-  const accent = ad.accent ? `var(--${ad.accent})` : 'var(--mint)';
+  const src = AD_PHOTOS[index];
+  if (!src) return null;
   return (
     <div className="ad">
-      <div className="ad-head">
-        <span className="kick">◄ PAID PROGRAMMING ►</span>
-        <span className="paid">da movies · sponsored</span>
-      </div>
-      <div className="ad-body ad-fade" key={index}>
-        <AdImage ad={ad} />
-        <div className="ad-txt">
-          <span className="brand" style={{ '--accent': accent } as React.CSSProperties}>
-            {ad.brand}
-          </span>
-          <h2>{ad.headline}</h2>
-          {ad.say && <p className="say">{ad.say}</p>}
-          {ad.cta && (
-            <button type="button" className="bevel">
-              {ad.cta}
-            </button>
-          )}
-        </div>
-      </div>
+      <AdPhoto key={index} src={src} />
     </div>
   );
 }
 
 function AdStrip({ adSeconds }: { adSeconds: number }) {
   const index = useAdRotation(adSeconds);
-  const ad = ADS[index];
-  const accent = ad.accent ? `var(--${ad.accent})` : 'var(--mint)';
+  const src = AD_PHOTOS[index];
+  if (!src) return null;
   return (
     <div className="adstrip">
-      <span
-        className="brand"
-        style={{
-          fontFamily: 'var(--f-vt323), monospace',
-          fontSize: 15,
-          background: accent,
-          color: 'var(--ink)',
-          border: '1.5px solid var(--ink)',
-          padding: '2px 9px',
-          borderRadius: 5,
-          letterSpacing: '.05em',
-        }}
-      >
-        {ad.brand}
-      </span>
-      <h2>{ad.headline}</h2>
-      <span className="say">{ad.say || ''}</span>
-      <button type="button" className="bevel">
-        {ad.cta || 'CALL NOW'}
-      </button>
+      <AdPhoto key={index} src={src} />
     </div>
   );
 }

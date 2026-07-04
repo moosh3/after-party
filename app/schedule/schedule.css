@@ -156,45 +156,14 @@
 .row.past { opacity: .4; }
 .row.past .thumb img { filter: grayscale(1); }
 
-/* ---- ad card (frosted chrome) ---- */
+/* ---- ad card: just the photo, framed ---- */
 .ad {
   position: relative; overflow: hidden;
-  background: linear-gradient(160deg, var(--frost1) 0%, var(--frost2) 100%);
   border: 2px solid var(--ink); border-radius: 14px;
-  box-shadow: 4px 4px 0 rgba(26,18,48,.35); color: var(--ink);
-  display: flex; flex-direction: column;
+  box-shadow: 4px 4px 0 rgba(26,18,48,.35); background: var(--deep);
 }
-.ad-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 12px; background: var(--ink); border-bottom: 2px solid var(--ink);
-}
-.ad-head .kick { font-family: var(--f-vt323), monospace; font-size: 15px; color: var(--yellow); letter-spacing: .06em; }
-.ad-head .paid { font-family: var(--f-vt323), monospace; font-size: 13px; color: var(--frost3); }
-.ad-body { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; min-height: 0; }
-.ad-img {
-  flex: 1 1 auto; min-height: 0; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden;
-  display: flex; align-items: center; justify-content: center; position: relative;
-}
-.ad-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ad-img.ph { background: repeating-linear-gradient(135deg, rgba(26,18,48,.10) 0 9px, transparent 9px 18px), var(--frost1); border-style: dashed; }
-.ad-imgnote { font-family: var(--f-vt323), monospace; font-size: 16px; color: var(--deep); letter-spacing: .04em; opacity: .85; text-align: center; padding: 0 10px; }
-.ad-txt { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
-.ad .brand {
-  display: inline-block; align-self: flex-start; font-family: var(--f-vt323), monospace; font-size: 15px;
-  background: var(--accent, var(--mint)); color: var(--ink); border: 1.5px solid var(--ink);
-  padding: 2px 9px; border-radius: 5px; letter-spacing: .05em;
-}
-.ad h2 { margin: 0; font-family: var(--f-bungee-shade), sans-serif; font-size: clamp(22px,3.2vw,40px); color: var(--ink); line-height: 1; }
-.ad .say { margin: 0; font-family: var(--f-comic-neue), cursive; font-weight: 700; font-size: 15px; color: var(--deep); }
-.bevel {
-  align-self: flex-start; font: inherit; font-weight: 800; cursor: pointer; border: 0;
-  padding: 9px 16px; border-radius: 6px; color: var(--ink);
-  background: linear-gradient(180deg, #fff 0%, var(--yellow) 55%, #d4ba00 100%);
-  box-shadow: inset 0 2px 0 rgba(255,255,255,.9), inset 0 -3px 0 rgba(0,0,0,.25), 2px 2px 0 rgba(0,0,0,.5);
-  text-shadow: 1px 1px 0 rgba(255,255,255,.5);
-}
-.ad-fade { animation: rs-adfade .5s ease; }
-@keyframes rs-adfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ad img { animation: rs-adfade .5s ease; }
+@keyframes rs-adfade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- footer ---- */
 .rs-foot {
@@ -231,13 +200,9 @@
 
 /* ============ LAYOUT: fullroll ============ */
 .lay-fullroll .adstrip {
-  flex: 0 0 auto; display: flex; align-items: center; gap: 16px;
-  padding: 10px 20px; background: linear-gradient(160deg, var(--frost1), var(--frost2));
-  border-top: 3px solid var(--ink); color: var(--ink);
+  flex: 0 0 auto; height: 90px; overflow: hidden;
+  border-top: 3px solid var(--ink); background: var(--deep);
 }
-.lay-fullroll .adstrip .brand { white-space: nowrap; }
-.lay-fullroll .adstrip h2 { margin: 0; font-family: var(--f-bungee), sans-serif; font-size: clamp(15px,2vw,24px); flex: 1; line-height: 1; }
-.lay-fullroll .adstrip .say { margin: 0; font-family: var(--f-comic-neue), cursive; font-weight: 700; font-size: 13px; color: var(--deep); white-space: nowrap; }
 
 /* ---- Tweaks panel ---- */
 .tw {
