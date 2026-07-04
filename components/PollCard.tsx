@@ -16,6 +16,8 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [answerText, setAnswerText] = useState('');
+  const [submittingAnswer, setSubmittingAnswer] = useState(false);
 
   // Load initial poll data
   useEffect(() => {
@@ -53,6 +55,37 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
         },
         async () => {
           // Refetch poll data when votes change
+          try {
+            const response = await fetch(`/api/polls/${pollId}?userId=${userId}`);
+            if (response.ok) {
+              const data = await response.json();
+              setPoll(data.poll);
+            }
+          } catch (err) {
+            console.error('Failed to update poll:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pollId, userId]);
+
+  // Subscribe to newly submitted answers (open polls)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`poll-options:${pollId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'poll_options',
+          filter: `poll_id=eq.${pollId}`,
+        },
+        async () => {
           try {
             const response = await fetch(`/api/polls/${pollId}?userId=${userId}`);
             if (response.ok) {
@@ -138,6 +171,43 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
     }
   }
 
+  async function handleSubmitAnswer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!poll?.is_open || submittingAnswer || !answerText.trim()) return;
+
+    setSubmittingAnswer(true);
+    setError(null);
+
+    try {
+      const viewerData = getViewerData();
+      const userName = viewerData?.displayName || 'Anonymous';
+
+      const response = await fetch('/api/polls/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pollId,
+          userId,
+          userName,
+          answer: answerText.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to submit answer');
+      } else {
+        setAnswerText('');
+        // Realtime will bring in the new option; no local state update needed
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+      console.error('Submit answer error:', err);
+    } finally {
+      setSubmittingAnswer(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="twitch-card p-4">
@@ -152,7 +222,7 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
     );
   }
 
-  if (error || !poll) {
+  if (!poll) {
     return (
       <div className="twitch-card p-4">
         <p className="text-red-500 text-sm">{error || 'Poll not available'}</p>
@@ -160,7 +230,7 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
     );
   }
 
-  const maxVotes = Math.max(...poll.options.map((opt) => opt.vote_count || 0));
+  const maxVotes = poll.options.length > 0 ? Math.max(...poll.options.map((opt) => opt.vote_count || 0)) : 0;
   const winners = poll.options.filter((opt) => opt.vote_count === maxVotes);
   const isWinner = (option: PollOption) =>
     poll.total_votes > 0 && winners.some((w) => w.id === option.id);
@@ -172,7 +242,7 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className={`twitch-badge ${!poll.is_open && 'bg-casual-mint text-casual-dark'}`}>
-              {poll.is_open ? 'Vote Now' : 'Closed'}
+              {poll.is_open ? (poll.type === 'open' ? 'Add an answer or vote' : 'Vote Now') : 'Closed'}
             </span>
           </div>
           <h3 className="text-sm font-semibold text-casual-dark">{poll.question}</h3>
@@ -183,6 +253,34 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
           )}
         </div>
       </div>
+
+      {/* Submit an answer (open polls only) */}
+      {poll.type === 'open' && poll.is_open && (
+        <form onSubmit={handleSubmitAnswer} className="flex gap-2">
+          <input
+            type="text"
+            value={answerText}
+            onChange={(e) => setAnswerText(e.target.value)}
+            placeholder="type your answer..."
+            maxLength={280}
+            disabled={submittingAnswer}
+            className="twitch-input flex-1 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={submittingAnswer || !answerText.trim()}
+            className="twitch-button text-sm px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submittingAnswer ? '...' : 'Add'}
+          </button>
+        </form>
+      )}
+
+      {poll.type === 'open' && poll.options.length === 0 && (
+        <p className="text-sm text-casual-dark/60 text-center py-2">
+          No answers yet — be the first!
+        </p>
+      )}
 
       {/* Options */}
       <div className="space-y-2">
@@ -207,23 +305,28 @@ export default function PollCard({ pollId, userId }: PollCardProps) {
                 !poll.is_open && 'opacity-80'
               }`}
             >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className={`text-sm font-medium truncate ${isWinner(option) && !poll.is_open ? 'text-emerald-600 font-bold' : 'text-casual-dark'}`}>
-                    {option.label}
-                  </span>
-                  {isVoted && poll.is_open && (
-                    <span className="text-xs text-casual-dark/70">Your vote</span>
-                  )}
-                  {isWinner(option) && poll.is_open && (
-                    <span className="text-xs font-semibold text-emerald-600 flex-shrink-0">
-                      Leading
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-sm font-medium ${isWinner(option) && !poll.is_open ? 'text-emerald-600 font-bold' : 'text-casual-dark'}`}>
+                      {option.label}
                     </span>
-                  )}
-                  {isWinner(option) && !poll.is_open && (
-                    <span className="text-xs font-bold text-emerald-600 flex-shrink-0 animate-pulse">
-                      WINNER
-                    </span>
+                    {isVoted && poll.is_open && (
+                      <span className="text-xs text-casual-dark/70">Your vote</span>
+                    )}
+                    {isWinner(option) && poll.is_open && (
+                      <span className="text-xs font-semibold text-emerald-600 flex-shrink-0">
+                        Leading
+                      </span>
+                    )}
+                    {isWinner(option) && !poll.is_open && (
+                      <span className="text-xs font-bold text-emerald-600 flex-shrink-0 animate-pulse">
+                        WINNER
+                      </span>
+                    )}
+                  </div>
+                  {poll.type === 'open' && option.author_name && (
+                    <p className="text-xs text-casual-dark/50 mt-0.5">— {option.author_name}</p>
                   )}
                 </div>
                 <span className={`text-sm font-semibold flex-shrink-0 ${isWinner(option) && !poll.is_open ? 'text-emerald-600 font-bold text-base' : 'text-casual-dark'}`}>

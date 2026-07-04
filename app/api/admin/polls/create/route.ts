@@ -11,12 +11,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { room = 'event', question, options } = await request.json();
+    const { room = 'event', question, options, type = 'fixed' } = await request.json();
+
+    if (type !== 'fixed' && type !== 'open') {
+      return NextResponse.json(
+        { error: "type must be 'fixed' or 'open'" },
+        { status: 400 }
+      );
+    }
 
     // Validate inputs
-    if (!question || !options || !Array.isArray(options)) {
+    if (!question) {
       return NextResponse.json(
-        { error: 'question and options array are required' },
+        { error: 'question is required' },
         { status: 400 }
       );
     }
@@ -28,26 +35,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (options.length < 2 || options.length > 5) {
-      return NextResponse.json(
-        { error: 'Must provide between 2 and 5 options' },
-        { status: 400 }
-      );
-    }
-
-    // Validate each option
-    for (const option of options) {
-      if (typeof option !== 'string' || option.trim().length === 0) {
+    // Fixed polls need admin-authored options up front; open polls start
+    // empty and viewers submit their own answers via /api/polls/answer.
+    if (type === 'fixed') {
+      if (!options || !Array.isArray(options)) {
         return NextResponse.json(
-          { error: 'All options must be non-empty strings' },
+          { error: 'options array is required for fixed polls' },
           { status: 400 }
         );
       }
-      if (option.length > 100) {
+
+      if (options.length < 2 || options.length > 5) {
         return NextResponse.json(
-          { error: 'Option too long (max 100 characters)' },
+          { error: 'Must provide between 2 and 5 options' },
           { status: 400 }
         );
+      }
+
+      for (const option of options) {
+        if (typeof option !== 'string' || option.trim().length === 0) {
+          return NextResponse.json(
+            { error: 'All options must be non-empty strings' },
+            { status: 400 }
+          );
+        }
+        if (option.length > 280) {
+          return NextResponse.json(
+            { error: 'Option too long (max 280 characters)' },
+            { status: 400 }
+          );
+        }
       }
     }
 
@@ -57,6 +74,7 @@ export async function POST(request: NextRequest) {
       .insert({
         room,
         question: question.trim(),
+        type,
         is_open: true,
         created_by: session.userId,
       })
@@ -71,25 +89,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create poll options
-    const optionInserts = options.map((label: string, idx: number) => ({
-      poll_id: poll.id,
-      label: label.trim(),
-      idx,
-    }));
+    // Create poll options (fixed polls only — open polls start with none)
+    if (type === 'fixed') {
+      const optionInserts = options.map((label: string, idx: number) => ({
+        poll_id: poll.id,
+        label: label.trim(),
+        idx,
+      }));
 
-    const { error: optionsError } = await supabaseAdmin
-      .from('poll_options')
-      .insert(optionInserts);
+      const { error: optionsError } = await supabaseAdmin
+        .from('poll_options')
+        .insert(optionInserts);
 
-    if (optionsError) {
-      console.error('Failed to create poll options:', optionsError);
-      // Rollback: delete the poll
-      await supabaseAdmin.from('polls').delete().eq('id', poll.id);
-      return NextResponse.json(
-        { error: 'Failed to create poll options' },
-        { status: 500 }
-      );
+      if (optionsError) {
+        console.error('Failed to create poll options:', optionsError);
+        // Rollback: delete the poll
+        await supabaseAdmin.from('polls').delete().eq('id', poll.id);
+        return NextResponse.json(
+          { error: 'Failed to create poll options' },
+          { status: 500 }
+        );
+      }
     }
 
     // Create poll message in chat

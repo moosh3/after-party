@@ -9,18 +9,15 @@ import LLHeader from '@/components/lobby-lounge/LLHeader';
 import FrostCard from '@/components/lobby-lounge/FrostCard';
 import { LLCta } from '@/components/lobby-lounge/buttons';
 import Marquee from '@/components/lobby-lounge/Marquee';
-import DailyPoll from '@/components/lobby-lounge/DailyPoll';
+import PollCard from '@/components/PollCard';
 import AdCard from '@/components/lobby-lounge/AdCard';
 import MiniAvatar from '@/components/lobby-lounge/MiniAvatar';
 import { useLobbyPresence } from '@/components/lobby-lounge/useLobbyPresence';
 import { getViewerData, ViewerData } from '@/lib/viewer';
+import { PollData } from '@/lib/polls';
+import { supabase } from '@/lib/supabase';
+import { ROOM_NAMES } from '@/lib/constants';
 import '@/components/lobby-lounge/lobby-lounge.css';
-
-// Placeholder — real Nic Cage trivia/polls to come later.
-const HOME_POLL = {
-  question: "Tonight's mood: which Cage era?",
-  options: ['90s Action Cage', '2000s Treasure Cage', 'Arthouse Cage', 'Meme Cage'],
-};
 
 const HOME_TICKER = [
   'now entering da lobby lounge',
@@ -61,6 +58,7 @@ export default function HomePage() {
   const router = useRouter();
   const [viewer, setViewer] = useState<ViewerData | null>(null);
   const [nowShowingTitle, setNowShowingTitle] = useState<string | null>(null);
+  const [activePollId, setActivePollId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'Home · Da Movies';
@@ -84,6 +82,39 @@ export default function HomePage() {
       });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // Same live poll shown on the Watch page — same room, whichever is open.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadActivePoll() {
+      try {
+        const res = await fetch(`/api/polls?room=${ROOM_NAMES.DEFAULT}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const open = (data.polls || []).find((p: PollData) => p.is_open);
+        if (!cancelled) setActivePollId(open ? open.id : null);
+      } catch (err) {
+        console.error('Failed to load active poll:', err);
+      }
+    }
+
+    loadActivePoll();
+
+    const channel = supabase
+      .channel('home-polls')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'polls', filter: `room=eq.${ROOM_NAMES.DEFAULT}` },
+        loadActivePoll
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -156,7 +187,15 @@ export default function HomePage() {
 
         <AdCard adSeconds={15} />
 
-        <DailyPoll question={HOME_POLL.question} options={HOME_POLL.options} />
+        {activePollId ? (
+          <PollCard pollId={activePollId} userId={viewer.id} room={ROOM_NAMES.DEFAULT} />
+        ) : (
+          <FrostCard title="☆ Daily Poll" headBg={LL.ink} headText={LL.lime}>
+            <p className="f-comic" style={{ padding: 16, textAlign: 'center', color: LL.ink, margin: 0 }}>
+              no poll running right now — check back soon
+            </p>
+          </FrostCard>
+        )}
 
         <FrostCard title="★ FRIENDS CURRENTLY ENJOYING CINEMA" meta={`${viewersHere.length} here`} headBg={LL.ink} headText={LL.mint}>
           {viewersHere.length === 0 ? (

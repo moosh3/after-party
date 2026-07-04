@@ -28,6 +28,7 @@ interface CurrentStream {
 interface Poll {
   id: string;
   question: string;
+  type: 'fixed' | 'open';
   is_open: boolean;
   created_at: string;
   closed_at: string | null;
@@ -37,6 +38,7 @@ interface Poll {
     label: string;
     vote_count: number;
     percentage: number;
+    author_name?: string | null;
   }[];
 }
 
@@ -72,6 +74,7 @@ export default function StreamControl({
   // Poll state
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
+  const [pollType, setPollType] = useState<'fixed' | 'open'>('fixed');
   const [pollLoading, setPollLoading] = useState(false);
   
   // Poll management state
@@ -347,13 +350,13 @@ export default function StreamControl({
 
   async function handleCreatePoll() {
     const validOptions = pollOptions.filter(opt => opt.trim().length > 0);
-    
+
     if (!pollQuestion.trim()) {
       setMessage({ type: 'error', text: 'Poll question is required' });
       return;
     }
 
-    if (validOptions.length < 2) {
+    if (pollType === 'fixed' && validOptions.length < 2) {
       setMessage({ type: 'error', text: 'At least 2 options are required' });
       return;
     }
@@ -368,7 +371,8 @@ export default function StreamControl({
         body: JSON.stringify({
           room: 'event',
           question: pollQuestion,
-          options: validOptions,
+          type: pollType,
+          ...(pollType === 'fixed' ? { options: validOptions } : {}),
         }),
       });
 
@@ -378,6 +382,7 @@ export default function StreamControl({
         setMessage({ type: 'success', text: 'Poll created successfully!' });
         setPollQuestion('');
         setPollOptions(['', '']);
+        setPollType('fixed');
         await loadPolls();
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to create poll' });
@@ -444,6 +449,32 @@ export default function StreamControl({
         await loadPolls();
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to close poll' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleOpenPoll(pollId: string) {
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/admin/polls/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pollId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Poll opened successfully' });
+        await loadPolls();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to open poll' });
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Network error occurred' });
@@ -770,46 +801,85 @@ export default function StreamControl({
 
                 <div>
                   <label className="block text-sm font-medium text-twitch-text mb-2">
-                    Options (2-5)
+                    Poll Type
                   </label>
-                  <div className="space-y-2">
-                    {pollOptions.map((option, index) => (
-                      <div key={index} className="flex gap-2">
-                        <input
-                          type="text"
-                          value={option}
-                          onChange={(e) => updatePollOption(index, e.target.value)}
-                          className="twitch-input flex-1"
-                          placeholder={`Option ${index + 1}`}
-                          disabled={pollLoading}
-                          maxLength={100}
-                        />
-                        {pollOptions.length > 2 && (
-                          <button
-                            onClick={() => removePollOption(index)}
-                            disabled={pollLoading}
-                            className="px-3 py-2 bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed rounded transition-colors text-white min-h-[44px]"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {pollOptions.length < 5 && (
+                  <div className="flex gap-2">
                     <button
-                      onClick={addPollOption}
+                      type="button"
+                      onClick={() => setPollType('fixed')}
                       disabled={pollLoading}
-                      className="mt-2 text-sm text-twitch-purple hover:text-purple-400 disabled:text-twitch-text-alt"
+                      className={`flex-1 px-3 py-2 rounded border min-h-[44px] transition-colors ${
+                        pollType === 'fixed'
+                          ? 'bg-twitch-purple text-white border-twitch-purple'
+                          : 'bg-transparent text-twitch-text border-twitch-border'
+                      }`}
                     >
-                      + Add Option
+                      Fixed choices
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setPollType('open')}
+                      disabled={pollLoading}
+                      className={`flex-1 px-3 py-2 rounded border min-h-[44px] transition-colors ${
+                        pollType === 'open'
+                          ? 'bg-twitch-purple text-white border-twitch-purple'
+                          : 'bg-transparent text-twitch-text border-twitch-border'
+                      }`}
+                    >
+                      Open answers
+                    </button>
+                  </div>
+                  <p className="text-xs text-twitch-text-alt mt-1">
+                    {pollType === 'fixed'
+                      ? 'You pick the answer choices up front.'
+                      : "Viewers type their own answers, then vote on each other's — no answer choices to set up here."}
+                  </p>
                 </div>
+
+                {pollType === 'fixed' && (
+                  <div>
+                    <label className="block text-sm font-medium text-twitch-text mb-2">
+                      Options (2-5)
+                    </label>
+                    <div className="space-y-2">
+                      {pollOptions.map((option, index) => (
+                        <div key={index} className="flex gap-2">
+                          <input
+                            type="text"
+                            value={option}
+                            onChange={(e) => updatePollOption(index, e.target.value)}
+                            className="twitch-input flex-1"
+                            placeholder={`Option ${index + 1}`}
+                            disabled={pollLoading}
+                            maxLength={280}
+                          />
+                          {pollOptions.length > 2 && (
+                            <button
+                              onClick={() => removePollOption(index)}
+                              disabled={pollLoading}
+                              className="px-3 py-2 bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed rounded transition-colors text-white min-h-[44px]"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {pollOptions.length < 5 && (
+                      <button
+                        onClick={addPollOption}
+                        disabled={pollLoading}
+                        className="mt-2 text-sm text-twitch-purple hover:text-purple-400 disabled:text-twitch-text-alt"
+                      >
+                        + Add Option
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <button
                   onClick={handleCreatePoll}
-                  disabled={pollLoading || !pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2}
+                  disabled={pollLoading || !pollQuestion.trim() || (pollType === 'fixed' && pollOptions.filter(o => o.trim()).length < 2)}
                   className="w-full twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed font-medium min-h-[44px]"
                 >
                   {pollLoading ? 'Creating Poll...' : 'Create Poll in Chat'}
@@ -826,7 +896,7 @@ export default function StreamControl({
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {polls.map((poll) => {
                     const isEditing = editingPollId === poll.id;
-                    const maxVotes = Math.max(...poll.options.map(o => o.vote_count));
+                    const maxVotes = poll.options.length > 0 ? Math.max(...poll.options.map(o => o.vote_count)) : 0;
                     const winners = poll.options.filter(o => o.vote_count === maxVotes);
                     
                     return (
@@ -838,6 +908,11 @@ export default function StreamControl({
                               <span className={`text-xs font-semibold px-2 py-1 rounded ${poll.is_open ? 'bg-twitch-purple/20 text-twitch-purple' : 'bg-success/20 text-success'}`}>
                                 {poll.is_open ? 'OPEN' : 'CLOSED'}
                               </span>
+                              {poll.type === 'open' && (
+                                <span className="text-xs font-semibold px-2 py-1 rounded bg-casual-indigo/40 text-twitch-text">
+                                  OPEN ANSWERS
+                                </span>
+                              )}
                               <span className="text-xs text-twitch-text-alt">
                                 {poll.total_votes} {poll.total_votes === 1 ? 'vote' : 'votes'}
                               </span>
@@ -886,10 +961,18 @@ export default function StreamControl({
 
                         {/* Poll Options */}
                         <div className="space-y-1 mb-3">
+                          {poll.options.length === 0 && poll.type === 'open' && (
+                            <p className="text-xs text-twitch-text-alt italic">No answers submitted yet.</p>
+                          )}
                           {poll.options.map((option) => (
-                            <div key={option.id} className="flex items-center justify-between text-xs">
-                              <span className="text-twitch-text truncate">{option.label}</span>
-                              <span className="text-twitch-text-alt ml-2">
+                            <div key={option.id} className="flex items-center justify-between text-xs gap-2">
+                              <span className="text-twitch-text">
+                                {option.label}
+                                {poll.type === 'open' && option.author_name && (
+                                  <span className="text-twitch-text-alt"> — {option.author_name}</span>
+                                )}
+                              </span>
+                              <span className="text-twitch-text-alt ml-2 flex-shrink-0">
                                 {option.vote_count} ({option.percentage}%)
                               </span>
                             </div>
@@ -917,6 +1000,15 @@ export default function StreamControl({
                               className="px-3 py-2 text-xs bg-twitch-gray hover:bg-twitch-hover rounded transition-colors disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                             >
                               Close Poll
+                            </button>
+                          )}
+                          {!poll.is_open && (
+                            <button
+                              onClick={() => handleOpenPoll(poll.id)}
+                              disabled={loading}
+                              className="px-3 py-2 text-xs bg-success hover:bg-green-600 rounded transition-colors text-white disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
+                            >
+                              Open Poll
                             </button>
                           )}
                           {!poll.is_open && poll.total_votes > 0 && (

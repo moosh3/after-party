@@ -6,15 +6,20 @@ export interface PollOption {
   poll_id: string;
   label: string;
   idx: number;
+  author_user_id?: string | null; // set when a viewer submitted this option (open polls); null for admin-authored options
+  author_name?: string | null;
   vote_count?: number;
   percentage?: number;
   voters?: string[]; // Display names of voters (for admin view)
 }
 
+export type PollType = 'fixed' | 'open';
+
 export interface PollData {
   id: string;
   room: string;
   question: string;
+  type: PollType;
   is_open: boolean;
   created_by: string;
   created_at: string;
@@ -190,6 +195,76 @@ export async function getAllPolls(
     console.error('Failed to get all polls:', error);
     return [];
   }
+}
+
+const MAX_ANSWER_SUBMIT_ATTEMPTS = 5;
+
+export async function submitPollAnswer(
+  pollId: string,
+  userId: string,
+  userName: string,
+  answer: string
+): Promise<{ success: boolean; option?: PollOption; error?: string }> {
+  const trimmed = answer.trim();
+
+  if (!trimmed) {
+    return { success: false, error: 'Answer cannot be empty' };
+  }
+  if (trimmed.length > 280) {
+    return { success: false, error: 'Answer too long (max 280 characters)' };
+  }
+
+  const { data: poll, error: fetchError } = await supabaseAdmin
+    .from('polls')
+    .select('is_open, type')
+    .eq('id', pollId)
+    .single();
+
+  if (fetchError || !poll) {
+    return { success: false, error: 'Poll not found' };
+  }
+  if (!poll.is_open) {
+    return { success: false, error: 'Poll is closed' };
+  }
+  if (poll.type !== 'open') {
+    return { success: false, error: 'This poll does not accept submitted answers' };
+  }
+
+  // idx must be unique per poll; retry on collision from a concurrent submission.
+  for (let attempt = 0; attempt < MAX_ANSWER_SUBMIT_ATTEMPTS; attempt++) {
+    const { data: existing } = await supabaseAdmin
+      .from('poll_options')
+      .select('idx')
+      .eq('poll_id', pollId)
+      .order('idx', { ascending: false })
+      .limit(1);
+
+    const nextIdx = existing && existing.length > 0 ? existing[0].idx + 1 : 0;
+
+    const { data: option, error: insertError } = await supabaseAdmin
+      .from('poll_options')
+      .insert({
+        poll_id: pollId,
+        label: trimmed,
+        idx: nextIdx,
+        author_user_id: userId,
+        author_name: userName,
+      })
+      .select()
+      .single();
+
+    if (!insertError && option) {
+      return { success: true, option };
+    }
+
+    // 23505 = unique_violation (another submission took this idx first) — retry.
+    if ((insertError as { code?: string } | null)?.code !== '23505') {
+      console.error('Failed to submit poll answer:', insertError);
+      return { success: false, error: 'Failed to submit answer' };
+    }
+  }
+
+  return { success: false, error: 'Failed to submit answer, please try again' };
 }
 
 export async function updatePollQuestion(
