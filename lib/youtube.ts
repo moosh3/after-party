@@ -71,3 +71,66 @@ export function extractYouTubePlaylistId(input: string) {
     throw new Error('Invalid YouTube playlist URL');
   }
 }
+
+export interface YouTubePlaylistVideo {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  position: number;
+  publishedAt: string | null;
+}
+
+type YouTubeThumbnail = {
+  url?: string;
+};
+
+export type YouTubePlaylistApiItem = {
+  snippet?: {
+    title?: string;
+    position?: number;
+    thumbnails?: {
+      default?: YouTubeThumbnail;
+      medium?: YouTubeThumbnail;
+      high?: YouTubeThumbnail;
+      standard?: YouTubeThumbnail;
+      maxres?: YouTubeThumbnail;
+    };
+    resourceId?: {
+      videoId?: string;
+    };
+    publishedAt?: string;
+  };
+  contentDetails?: {
+    videoId?: string;
+    videoPublishedAt?: string;
+  };
+};
+
+export function mapYouTubePlaylistApiItem(
+  item: YouTubePlaylistApiItem,
+  fallbackPosition: number
+): YouTubePlaylistVideo | null {
+  const videoId = item.contentDetails?.videoId || item.snippet?.resourceId?.videoId;
+  const title = item.snippet?.title?.trim();
+
+  if (!videoId || !title || title === 'Deleted video' || title === 'Private video') {
+    return null;
+  }
+
+  const thumbnails = item.snippet?.thumbnails;
+  const thumbnailUrl =
+    thumbnails?.maxres?.url ||
+    thumbnails?.standard?.url ||
+    thumbnails?.high?.url ||
+    thumbnails?.medium?.url ||
+    thumbnails?.default?.url ||
+    null;
+
+  return {
+    videoId,
+    title,
+    thumbnailUrl,
+    position: item.snippet?.position ?? fallbackPosition,
+    publishedAt: item.contentDetails?.videoPublishedAt || item.snippet?.publishedAt || null,
+  };
+}

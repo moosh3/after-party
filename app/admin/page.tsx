@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import StreamControl from '@/components/admin/StreamControl';
 import VideoPlayer from '@/components/VideoPlayer';
 import QueueManager from '@/components/admin/QueueManager';
+import VideoPlaylistSettings from '@/components/admin/VideoPlaylistSettings';
 import { supabase } from '@/lib/supabase';
 import {
   CHANNEL_NAMES,
@@ -291,6 +292,8 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+
+            <VideoPlaylistSettings />
 
             {/* Library Controls - Below Video Preview */}
             <StreamControl showLibraryControls={true} showPlaybackControls={false} />

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import VideoPlayer from '@/components/VideoPlayer';
 import Chat from '@/components/Chat';
 import PollsTab from '@/components/PollsTab';
+import VideoPlaylistShelf from '@/components/VideoPlaylistShelf';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 import { useStreamUpdates } from '@/hooks/useStreamUpdates';
@@ -591,25 +592,9 @@ export default function EventPage() {
           </aside>
 
           <div className="ll-watch-extras">
-            <div style={{ textAlign: 'center' }}>
-              <a
-                href="https://www.youtube.com/playlist?list=PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="f-display bevel-btn"
-                style={{
-                  display: 'inline-block',
-                  padding: '5px 12px',
-                  borderRadius: 8,
-                  color: LL.ink,
-                  background: `linear-gradient(180deg, ${LL.frost1} 0%, ${LL.mint} 60%, #7eb9a0 100%)`,
-                  textDecoration: 'none',
-                  fontSize: 11,
-                }}
-              >
-                ◄ CLIP SHOW ►
-              </a>
-            </div>
+            <ErrorBoundary fallback={null}>
+              <VideoPlaylistShelf />
+            </ErrorBoundary>
 
             <div>
               <h3 className="f-display" style={{ textAlign: 'center', color: LL.lime, fontSize: 12, marginBottom: 4 }}>
