@@ -20,11 +20,12 @@ event:
 
 assets:
   easter-hold:
-    title: EASTER AFTER DARK HOLD
-    playbackId: olbSIYHIQXS6Wn7knqA9fqhZeTPaXQf83d1EfJILGlY
-    assetId: D6nsbwR5E2EfaDPPtr601NlILl3LHs3vVH1RJ00MkI01Hw
+    title: CLIP SHOW HOLD
+    playbackId: youtube:playlist:PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh
+    sourceType: youtube_playlist
+    youtubePlaylistId: PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh
+    sourceUrl: https://www.youtube.com/playlist?list=PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh
     kind: vod
-    durationSeconds: 797.1
 
   national-treasure:
     title: National Treasure (2004)

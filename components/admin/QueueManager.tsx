@@ -429,12 +429,61 @@ export default function QueueManager() {
           {holdScreenMuxItemId && (
             <div className="text-xs text-twitch-text-alt bg-twitch-dark px-2 py-1 rounded">
               <span className="font-medium text-twitch-text">Selected: </span>
-              {queueableMuxItems.find(item => item.id === holdScreenMuxItemId)?.label || 'Unknown'}
+              {muxItems.find(item => item.id === holdScreenMuxItemId)?.label || 'Unknown'}
             </div>
           )}
           {!holdScreenMuxItemId && (
             <div className="text-xs text-yellow-500">
-              ⚠️ Select a video from the library below
+              ⚠️ Select a media item from the hold screen source list
+            </div>
+          )}
+        </div>
+
+        {/* Hold Screen Source */}
+        <div className="bg-twitch-darker border border-twitch-border rounded-lg p-3 mb-4">
+          <p className="text-xs font-semibold text-twitch-text-alt uppercase tracking-wider mb-2">
+            Hold Screen Source
+          </p>
+          {muxItems.length === 0 ? (
+            <p className="text-sm text-twitch-text-alt text-center py-4">
+              No media items in library. Add one from the main controls.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {muxItems.map((item) => {
+                const isMux = (item.source_type || MUX_SOURCE_TYPE) === MUX_SOURCE_TYPE;
+
+                return (
+                  <div key={item.id} className="bg-twitch-dark border border-twitch-border rounded p-3">
+                    <div className="flex flex-col gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm text-twitch-text truncate">
+                            {item.label}
+                          </p>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-twitch-purple/20 text-twitch-purple">
+                            {isMux ? 'Mux' : 'YouTube'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-twitch-text-alt font-mono truncate">
+                          {item.playback_id}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleSetHoldScreen(item.id, item.label)}
+                        disabled={loading || holdScreenMuxItemId === item.id}
+                        className={`w-full px-3 py-2 rounded text-xs font-medium transition-colors min-h-[44px] ${
+                          holdScreenMuxItemId === item.id
+                            ? 'bg-success/20 text-success border border-success cursor-not-allowed'
+                            : 'bg-twitch-gray hover:bg-twitch-hover text-twitch-text'
+                        }`}
+                      >
+                        {holdScreenMuxItemId === item.id ? '✓ Set as Hold Screen' : 'Set as Hold Screen'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -13,6 +13,9 @@ export interface ScheduleEntry {
   playbackId?: string;
   assetId?: string;
   captions?: string;
+  sourceType?: string;
+  youtubePlaylistId?: string;
+  sourceUrl?: string;
 }
 
 export interface ScheduleSettings {

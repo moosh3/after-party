@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
           id,
           playback_id,
           label,
-          kind
+          kind,
+          source_type,
+          youtube_playlist_id,
+          source_url
         )
       `)
       .eq('id', 1)
@@ -126,9 +129,9 @@ export async function GET(request: NextRequest) {
       captionUrl = resolved.captionUrl;
       captionLabel = resolved.captionLabel;
       captionLanguage = resolved.captionLanguage;
-      sourceType = MUX_SOURCE_TYPE;
-      youtubePlaylistId = null;
-      sourceUrl = null;
+      sourceType = resolved.sourceType;
+      youtubePlaylistId = resolved.youtubePlaylistId;
+      sourceUrl = resolved.sourceUrl;
     } else {
       if (isHoldScreen && data.hold_screen_mux_item) {
         const holdScreenItem = Array.isArray(data.hold_screen_mux_item)
@@ -139,9 +142,10 @@ export async function GET(request: NextRequest) {
           playbackId = holdScreenItem.playback_id;
           title = holdScreenItem.label;
           kind = holdScreenItem.kind || 'vod';
-          sourceType = MUX_SOURCE_TYPE;
-          youtubePlaylistId = null;
-          sourceUrl = null;
+          sourceType = holdScreenItem.source_type || MUX_SOURCE_TYPE;
+          youtubePlaylistId =
+            holdScreenItem.youtube_playlist_id || parseYouTubePlaylistPlaybackId(holdScreenItem.playback_id);
+          sourceUrl = holdScreenItem.source_url || null;
         } else {
           isHoldScreen = false;
         }

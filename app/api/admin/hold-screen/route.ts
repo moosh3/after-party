@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
-import { MUX_SOURCE_TYPE } from '@/lib/youtube';
+import { MUX_SOURCE_TYPE, YOUTUBE_PLAYLIST_SOURCE_TYPE } from '@/lib/youtube';
 
 // GET - Fetch current hold screen configuration
 export async function GET(request: NextRequest) {
@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
           label,
           kind,
           duration_seconds,
-          source_type
+          source_type,
+          youtube_playlist_id,
+          source_url
         )
       `)
       .eq('id', 1)
@@ -80,20 +82,29 @@ export async function POST(request: NextRequest) {
 
       const { data: muxItem, error: muxError } = await supabaseAdmin
         .from('mux_items')
-        .select('id, playback_id, label, source_type')
+        .select('id, playback_id, label, source_type, youtube_playlist_id, source_url')
         .eq('id', muxItemId)
         .single();
 
       if (muxError || !muxItem) {
         return NextResponse.json(
-          { error: 'Mux item not found' },
+          { error: 'Media item not found' },
           { status: 404 }
         );
       }
 
-      if ((muxItem.source_type || MUX_SOURCE_TYPE) !== MUX_SOURCE_TYPE) {
+      const sourceType = muxItem.source_type || MUX_SOURCE_TYPE;
+
+      if (sourceType !== MUX_SOURCE_TYPE && sourceType !== YOUTUBE_PLAYLIST_SOURCE_TYPE) {
         return NextResponse.json(
-          { error: 'Only Mux items can be used as the hold screen' },
+          { error: 'Unsupported media source type for hold screen' },
+          { status: 400 }
+        );
+      }
+
+      if (sourceType === YOUTUBE_PLAYLIST_SOURCE_TYPE && !muxItem.youtube_playlist_id) {
+        return NextResponse.json(
+          { error: 'YouTube playlist hold screen is missing its playlist ID' },
           { status: 400 }
         );
       }
@@ -124,6 +135,9 @@ export async function POST(request: NextRequest) {
           mux_item_id: muxItemId,
           label: muxItem.label,
           playback_id: muxItem.playback_id,
+          source_type: sourceType,
+          youtube_playlist_id: muxItem.youtube_playlist_id,
+          source_url: muxItem.source_url,
         },
       });
 

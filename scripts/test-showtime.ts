@@ -39,6 +39,8 @@ assert.equal(showtime.event.slug, 'cage-a-thon-2026');
 assert.equal(showtime.assets['national-treasure'].assetId, 'lYOIuSPBfwair3597nD8P5JTlLX5VsArV3A8KDK8kow');
 assert.equal(showtime.assets['national-treasure'].playbackId, '5K0001THGMsHg02oRgspFcKcR1sEqtr00ZpcvM8AUdOtO1A');
 assert.equal(showtime.assets['national-treasure'].captions, 'national-treasure-2004.srt');
+assert.equal(showtime.assets['easter-hold'].sourceType, 'youtube_playlist');
+assert.equal(showtime.assets['easter-hold'].youtubePlaylistId, 'PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh');
 assert.equal(showtime.schedule.at(-1)?.id, 'national-treasure-encore');
 assert.ok(showtime.schedule.at(-1)!.absoluteEndMinute > showtime.schedule.at(-1)!.absoluteStartMinute);
 
@@ -53,7 +55,9 @@ assert.match(convertedCaptions, /00:00:01\.250 --> 00:00:03\.000/);
 const before = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T13:30:00.000Z'));
 assert.equal(before.status, 'before');
 assert.equal(before.isHoldScreen, true);
-assert.equal(before.playbackPosition, 310);
+assert.equal(before.playbackPosition, 0);
+assert.equal(before.sourceType, 'youtube_playlist');
+assert.equal(before.youtubePlaylistId, 'PLsTN7jx6BmIkqKbcU_HeUo3YRbEn9OGZh');
 assert.equal(before.captionUrl, null);
 
 const nationalTreasure = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T15:00:00.000Z'));
@@ -65,7 +69,7 @@ assert.equal(nationalTreasure.captionUrl, '/api/captions/national-treasure-2004.
 const firstGap = resolveShowtimePlayoutFor(showtime, new Date('2026-07-04T16:50:00.000Z'));
 assert.equal(firstGap.status, 'gap');
 assert.equal(firstGap.isHoldScreen, true);
-assert.equal(firstGap.playbackPosition, 540);
+assert.equal(firstGap.playbackPosition, 0);
 
 const endedEarly = resolveShowtimePlayoutFor(
   showtime,
@@ -75,7 +79,7 @@ const endedEarly = resolveShowtimePlayoutFor(
 );
 assert.equal(endedEarly.status, 'ended-early');
 assert.equal(endedEarly.isHoldScreen, true);
-assert.equal(endedEarly.playbackPosition, 300);
+assert.equal(endedEarly.playbackPosition, 0);
 
 const wallClockTakeover = resolveShowtimePlayoutFor(
   showtime,

@@ -8,6 +8,12 @@ import {
   normalizeCaptionFilename,
   type CaptionTrackFields,
 } from '@/lib/captions';
+import {
+  MUX_SOURCE_TYPE,
+  YOUTUBE_PLAYLIST_SOURCE_TYPE,
+  parseYouTubePlaylistPlaybackId,
+  type MediaSourceType,
+} from '@/lib/youtube';
 
 export type PlayoutMode = 'manual' | 'schedule';
 export type ShowtimeAssetKind = 'vod' | 'live';
@@ -41,6 +47,9 @@ type RawAsset = {
   playbackId?: string;
   assetId?: string;
   kind?: ShowtimeAssetKind;
+  sourceType?: MediaSourceType;
+  youtubePlaylistId?: string;
+  sourceUrl?: string;
   durationSeconds?: number;
   rating?: string;
   runtime?: string;
@@ -69,6 +78,9 @@ export type ShowtimeAsset = Required<Pick<RawAsset, 'title' | 'playbackId'>> &
   RawAsset & {
     key: string;
     kind: ShowtimeAssetKind;
+    sourceType: MediaSourceType;
+    youtubePlaylistId?: string;
+    sourceUrl?: string;
   };
 
 export type ShowtimeSlot = Required<Pick<RawSlot, 'start' | 'end' | 'asset'>> &
@@ -113,6 +125,9 @@ export type ResolvedSchedulePlayout = {
   nextTransitionAt: string | null;
   eventSlug: string;
   scheduleTitle: string;
+  sourceType: MediaSourceType;
+  youtubePlaylistId: string | null;
+  sourceUrl: string | null;
 } & CaptionTrackFields;
 
 let cachedShowtime: Showtime | null = null;
@@ -177,6 +192,9 @@ export function getScheduleDisplayData(): ScheduleDisplayData {
       playbackId: slot.assetDetails.playbackId,
       assetId: slot.assetDetails.assetId,
       captions: slot.assetDetails.captions,
+      sourceType: slot.assetDetails.sourceType,
+      youtubePlaylistId: slot.assetDetails.youtubePlaylistId,
+      sourceUrl: slot.assetDetails.sourceUrl,
     })),
   };
 }
@@ -257,6 +275,9 @@ export function resolveShowtimePlayoutFor(
         playbackId: slot.assetDetails.playbackId,
         title: slot.title || slot.assetDetails.title,
         kind: slot.assetDetails.kind,
+        sourceType: slot.assetDetails.sourceType,
+        youtubePlaylistId: slot.assetDetails.youtubePlaylistId || null,
+        sourceUrl: slot.assetDetails.sourceUrl || null,
         isHoldScreen: false,
         playbackState: 'playing',
         playbackPosition: Math.max(0, Math.floor((nowMs - slot.startUtcMs) / 1000)),
@@ -372,6 +393,16 @@ function requireAssets(rawAssets?: Record<string, RawAsset>): Record<string, Sho
       if (asset.durationSeconds !== undefined && asset.durationSeconds <= 0) {
         throw new Error(`assets.${key}.durationSeconds must be greater than 0`);
       }
+      const sourceType = normalizeAssetSourceType(asset, key);
+      const youtubePlaylistId =
+        sourceType === YOUTUBE_PLAYLIST_SOURCE_TYPE
+          ? asset.youtubePlaylistId || parseYouTubePlaylistPlaybackId(asset.playbackId) || undefined
+          : undefined;
+
+      if (sourceType === YOUTUBE_PLAYLIST_SOURCE_TYPE && !youtubePlaylistId) {
+        throw new Error(`assets.${key}.youtubePlaylistId is required for YouTube playlist assets`);
+      }
+
       const captions = asset.captions ? normalizeCaptionFilename(asset.captions) : undefined;
 
       return [
@@ -383,10 +414,25 @@ function requireAssets(rawAssets?: Record<string, RawAsset>): Record<string, Sho
           playbackId: asset.playbackId,
           captions,
           kind: asset.kind || 'vod',
+          sourceType,
+          youtubePlaylistId,
         },
       ];
     })
   );
+}
+
+function normalizeAssetSourceType(asset: RawAsset, key: string): MediaSourceType {
+  const inferredSourceType = parseYouTubePlaylistPlaybackId(asset.playbackId)
+    ? YOUTUBE_PLAYLIST_SOURCE_TYPE
+    : MUX_SOURCE_TYPE;
+  const sourceType = asset.sourceType || inferredSourceType;
+
+  if (sourceType !== MUX_SOURCE_TYPE && sourceType !== YOUTUBE_PLAYLIST_SOURCE_TYPE) {
+    throw new Error(`assets.${key}.sourceType must be mux or youtube_playlist`);
+  }
+
+  return sourceType;
 }
 
 function requireSchedule(
@@ -482,6 +528,9 @@ function holdPlayout(
     playbackId: holdAsset.playbackId,
     title: holdAsset.title,
     kind: holdAsset.kind,
+    sourceType: holdAsset.sourceType,
+    youtubePlaylistId: holdAsset.youtubePlaylistId || null,
+    sourceUrl: holdAsset.sourceUrl || null,
     isHoldScreen: true,
     playbackState: 'playing',
     playbackPosition,

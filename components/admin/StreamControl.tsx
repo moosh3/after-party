@@ -570,7 +570,7 @@ export default function StreamControl({
                   const isMux = sourceType === MUX_SOURCE_TYPE;
 
                   return (
-                    <div key={item.id} className={`twitch-card p-4 ${isMux && holdScreenMuxItemId === item.id ? 'border-l-4 border-yellow-500' : ''}`}>
+                    <div key={item.id} className={`twitch-card p-4 ${holdScreenMuxItemId === item.id ? 'border-l-4 border-yellow-500' : ''}`}>
                       <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -578,7 +578,7 @@ export default function StreamControl({
                             <span className="text-xs font-semibold px-2 py-1 rounded bg-twitch-purple/20 text-twitch-purple">
                               {isMux ? 'Mux' : 'YouTube Playlist'}
                             </span>
-                            {isMux && holdScreenMuxItemId === item.id && (
+                            {holdScreenMuxItemId === item.id && (
                               <span className="text-xs font-semibold px-2 py-1 rounded bg-yellow-500/20 text-yellow-500 flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -616,20 +616,18 @@ export default function StreamControl({
                           >
                             {currentStream?.playback_id === item.playback_id ? 'Current' : 'Make Current'}
                           </button>
-                          {isMux && (
-                            <button
-                              onClick={() => handleSetHoldScreen(item.id, item.label)}
-                              disabled={loading || holdScreenMuxItemId === item.id}
-                              className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
-                                holdScreenMuxItemId === item.id
-                                  ? 'bg-yellow-500/20 text-yellow-500 cursor-not-allowed border border-yellow-500'
-                                  : 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                              }`}
-                              title="Set this as the hold screen video"
-                            >
-                              {holdScreenMuxItemId === item.id ? '★ Hold Screen' : 'Set Hold Screen'}
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleSetHoldScreen(item.id, item.label)}
+                            disabled={loading || holdScreenMuxItemId === item.id}
+                            className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
+                              holdScreenMuxItemId === item.id
+                                ? 'bg-yellow-500/20 text-yellow-500 cursor-not-allowed border border-yellow-500'
+                                : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                            }`}
+                            title="Set this as the hold screen video"
+                          >
+                            {holdScreenMuxItemId === item.id ? '★ Hold Screen' : 'Set Hold Screen'}
+                          </button>
                           <button
                             onClick={() => handleDeleteMuxItem(item.id, item.label)}
                             disabled={loading}

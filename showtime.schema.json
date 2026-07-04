@@ -25,13 +25,16 @@
       "minProperties": 1,
       "additionalProperties": {
         "type": "object",
-        "required": ["title", "playbackId", "assetId", "kind"],
+        "required": ["title", "playbackId", "kind"],
         "additionalProperties": true,
         "properties": {
           "title": { "type": "string", "minLength": 1 },
           "playbackId": { "type": "string", "minLength": 1 },
           "assetId": { "type": "string", "minLength": 1 },
           "kind": { "enum": ["vod", "live"] },
+          "sourceType": { "enum": ["mux", "youtube_playlist"] },
+          "youtubePlaylistId": { "type": "string", "minLength": 1 },
+          "sourceUrl": { "type": "string", "minLength": 1 },
           "durationSeconds": { "type": "number", "exclusiveMinimum": 0 },
           "rating": { "type": "string" },
           "runtime": { "type": "string" },
