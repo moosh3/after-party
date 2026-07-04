@@ -2,12 +2,26 @@ import Mux from '@mux/mux-node';
 import { SignJWT, importPKCS8 } from 'jose';
 import { isDevelopment } from './config';
 
-const mux = new Mux({
-  tokenId: process.env.MUX_TOKEN_ID,
-  tokenSecret: process.env.MUX_TOKEN_SECRET,
-});
+let muxClient: Mux | null = null;
 
-export default mux;
+export function hasMuxApiCredentials(): boolean {
+  return Boolean(process.env.MUX_TOKEN_ID && process.env.MUX_TOKEN_SECRET);
+}
+
+export function getMuxClient(): Mux {
+  if (!hasMuxApiCredentials()) {
+    throw new Error('Mux API credentials are not configured');
+  }
+
+  if (!muxClient) {
+    muxClient = new Mux({
+      tokenId: process.env.MUX_TOKEN_ID,
+      tokenSecret: process.env.MUX_TOKEN_SECRET,
+    });
+  }
+
+  return muxClient;
+}
 
 export interface PlaybackTokenOptions {
   type?: 'video' | 'thumbnail' | 'storyboard';
@@ -68,12 +82,12 @@ export async function generatePlaybackToken(
 }
 
 export async function getMuxAsset(assetId: string) {
-  const asset = await mux.video.assets.retrieve(assetId);
+  const asset = await getMuxClient().video.assets.retrieve(assetId);
   return asset;
 }
 
 export async function listMuxAssets() {
-  const assets = await mux.video.assets.list({ limit: 100 });
+  const assets = await getMuxClient().video.assets.list({ limit: 100 });
   return assets;
 }
 
@@ -113,7 +127,7 @@ export async function addSubtitleTrack(
   } = options;
 
   try {
-    const track = await mux.video.assets.createTrack(assetId, {
+    const track = await getMuxClient().video.assets.createTrack(assetId, {
       url,
       type: 'text',
       text_type: 'subtitles',
@@ -138,7 +152,7 @@ export async function addSubtitleTrack(
  */
 export async function deleteSubtitleTrack(assetId: string, trackId: string) {
   try {
-    await mux.video.assets.deleteTrack(assetId, trackId);
+    await getMuxClient().video.assets.deleteTrack(assetId, trackId);
     console.log(`✅ Deleted subtitle track ${trackId} from asset ${assetId}`);
   } catch (error) {
     console.error(`❌ Failed to delete subtitle track ${trackId}:`, error);
@@ -154,11 +168,10 @@ export async function deleteSubtitleTrack(assetId: string, trackId: string) {
  */
 export async function listAssetTracks(assetId: string) {
   try {
-    const asset = await mux.video.assets.retrieve(assetId);
+    const asset = await getMuxClient().video.assets.retrieve(assetId);
     return asset.tracks || [];
   } catch (error) {
     console.error(`❌ Failed to list tracks for asset ${assetId}:`, error);
     throw error;
   }
 }
-

@@ -311,22 +311,10 @@ export default function PlaybackControls() {
   const scheduleLocked = playoutMode === 'schedule';
 
   return (
-    <div className="twitch-card p-4 border-t-4 border-twitch-purple">
-      <h3 className="text-lg font-semibold mb-3 text-twitch-text flex items-center gap-2">
-        <div className="w-2 h-2 bg-twitch-purple rounded-full animate-pulse"></div>
-        Synchronized Playback Control
+    <div className="twitch-card p-4 border border-twitch-purple/50">
+      <h3 className="text-lg font-semibold mb-3 text-twitch-text">
+        Playback
       </h3>
-      
-      <div className="bg-twitch-hover/50 border border-twitch-border rounded-lg p-3 mb-4">
-        <p className="text-xs text-twitch-text-alt mb-2">
-          <strong>Watch Party Mode:</strong> All viewers watch together in real-time
-        </p>
-        <p className="text-xs text-twitch-text-alt">
-          ✓ Everyone sees the same moment<br/>
-          ✓ Automatically syncs every 10 seconds<br/>
-          ✓ Viewers can only control volume
-        </p>
-      </div>
 
       <div className="bg-twitch-darker border border-twitch-border rounded-lg p-3 mb-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

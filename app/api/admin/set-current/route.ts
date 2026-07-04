@@ -4,9 +4,13 @@ import { getSession } from '@/lib/session';
 import {
   MUX_SOURCE_TYPE,
   YOUTUBE_PLAYLIST_SOURCE_TYPE,
+  YOUTUBE_VIDEO_SOURCE_TYPE,
   extractYouTubePlaylistId,
+  extractYouTubeVideoId,
   makeYouTubePlaylistPlaybackId,
+  makeYouTubeVideoPlaybackId,
   parseYouTubePlaylistPlaybackId,
+  parseYouTubeVideoPlaybackId,
   type MediaSourceType,
 } from '@/lib/youtube';
 
@@ -27,6 +31,8 @@ export async function POST(request: NextRequest) {
       source_type: rawSourceTypeSnake,
       youtubePlaylistId,
       youtube_playlist_id: youtubePlaylistIdSnake,
+      youtubeVideoId,
+      youtube_video_id: youtubeVideoIdSnake,
       sourceUrl,
       source_url: sourceUrlSnake,
     } = await request.json();
@@ -36,6 +42,7 @@ export async function POST(request: NextRequest) {
     let nextKind = kind;
     let nextSourceType: MediaSourceType = MUX_SOURCE_TYPE;
     let nextYoutubePlaylistId: string | null = null;
+    let nextYoutubeVideoId: string | null = null;
     let nextSourceUrl: string | null = null;
 
     if (!title) {
@@ -64,6 +71,25 @@ export async function POST(request: NextRequest) {
       nextSourceType = YOUTUBE_PLAYLIST_SOURCE_TYPE;
       nextSourceUrl =
         sourceUrl || sourceUrlSnake || `https://www.youtube.com/playlist?list=${nextYoutubePlaylistId}`;
+    } else if (sourceType === YOUTUBE_VIDEO_SOURCE_TYPE) {
+      const playbackVideoId = parseYouTubeVideoPlaybackId(playbackId);
+      const videoInput =
+        youtubeVideoId || youtubeVideoIdSnake || playbackVideoId || sourceUrl || sourceUrlSnake || playbackId;
+
+      try {
+        nextYoutubeVideoId = extractYouTubeVideoId(videoInput || '');
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid YouTube video URL' },
+          { status: 400 }
+        );
+      }
+
+      nextPlaybackId = makeYouTubeVideoPlaybackId(nextYoutubeVideoId);
+      nextKind = 'vod';
+      nextSourceType = YOUTUBE_VIDEO_SOURCE_TYPE;
+      nextSourceUrl =
+        sourceUrl || sourceUrlSnake || `https://www.youtube.com/watch?v=${nextYoutubeVideoId}`;
     } else if (sourceType === MUX_SOURCE_TYPE) {
       if (!playbackId) {
         return NextResponse.json(
@@ -130,6 +156,7 @@ export async function POST(request: NextRequest) {
         kind: nextKind,
         source_type: nextSourceType,
         youtube_playlist_id: nextYoutubePlaylistId,
+        youtube_video_id: nextYoutubeVideoId,
         source_url: nextSourceUrl,
       },
     });

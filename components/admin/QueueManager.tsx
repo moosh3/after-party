@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MUX_SOURCE_TYPE } from '@/lib/youtube';
+import { MUX_SOURCE_TYPE, YOUTUBE_PLAYLIST_SOURCE_TYPE, YOUTUBE_VIDEO_SOURCE_TYPE } from '@/lib/youtube';
 
 interface QueueItem {
   id: string;
@@ -25,6 +25,17 @@ interface MediaItem {
   kind: string;
   duration_seconds?: number;
   source_type?: string;
+}
+
+function getSourceLabel(sourceType?: string | null) {
+  switch (sourceType || MUX_SOURCE_TYPE) {
+    case YOUTUBE_PLAYLIST_SOURCE_TYPE:
+      return 'YouTube Playlist';
+    case YOUTUBE_VIDEO_SOURCE_TYPE:
+      return 'YouTube Video';
+    default:
+      return 'Mux';
+  }
 }
 
 export default function QueueManager() {
@@ -355,7 +366,7 @@ export default function QueueManager() {
 
   return (
     <div className="space-y-4">
-      <div className="twitch-card p-4 border-t-4 border-twitch-purple">
+      <div className="twitch-card p-4 border border-twitch-purple/50">
         <h3 className="text-lg font-semibold mb-3 text-twitch-text flex items-center justify-between">
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-twitch-purple" fill="currentColor" viewBox="0 0 20 20">
@@ -451,8 +462,6 @@ export default function QueueManager() {
           ) : (
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {muxItems.map((item) => {
-                const isMux = (item.source_type || MUX_SOURCE_TYPE) === MUX_SOURCE_TYPE;
-
                 return (
                   <div key={item.id} className="bg-twitch-dark border border-twitch-border rounded p-3">
                     <div className="flex flex-col gap-3">
@@ -461,9 +470,9 @@ export default function QueueManager() {
                           <p className="font-medium text-sm text-twitch-text truncate">
                             {item.label}
                           </p>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-twitch-purple/20 text-twitch-purple">
-                            {isMux ? 'Mux' : 'YouTube'}
-                          </span>
+	                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-twitch-purple/20 text-twitch-purple">
+	                            {getSourceLabel(item.source_type)}
+	                          </span>
                         </div>
                         <p className="text-xs text-twitch-text-alt font-mono truncate">
                           {item.playback_id}

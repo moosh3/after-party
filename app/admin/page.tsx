@@ -31,8 +31,18 @@ interface StreamData {
   scheduleTitle?: string | null;
   sourceType?: string;
   youtubePlaylistId?: string | null;
+  youtubeVideoId?: string | null;
   sourceUrl?: string | null;
 }
+
+type AdminSection = 'run' | 'media' | 'audience' | 'settings';
+
+const ADMIN_SECTIONS: { id: AdminSection; label: string; description: string }[] = [
+  { id: 'run', label: 'Run Show', description: 'Live controls, preview, and queue' },
+  { id: 'media', label: 'Media', description: 'Library, imports, and event extras' },
+  { id: 'audience', label: 'Audience', description: 'Polls and participation' },
+  { id: 'settings', label: 'Settings', description: 'Entry screen and admin options' },
+];
 
 function formatTransition(value?: string | null) {
   if (!value) return 'None scheduled';
@@ -50,6 +60,7 @@ export default function AdminDashboard() {
   const [streamData, setStreamData] = useState<StreamData | null>(null);
   const [posterMode, setPosterMode] = useState(false);
   const [posterLoading, setPosterLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState<AdminSection>('run');
 
   useEffect(() => {
     // Check admin authentication and load stream
@@ -168,7 +179,9 @@ export default function AdminDashboard() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-twitch-purple">Admin Dashboard</h1>
-              <p className="text-xs sm:text-sm text-twitch-text-alt">Manage your stream</p>
+              <p className="text-xs sm:text-sm text-twitch-text-alt">
+                {ADMIN_SECTIONS.find((section) => section.id === activeSection)?.description}
+              </p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <a 
@@ -188,44 +201,28 @@ export default function AdminDashboard() {
               </button>
             </div>
           </div>
-          
-          {/* Entry Screen Mode Toggle */}
-          <div className="mt-4 pt-4 border-t border-twitch-border">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-twitch-text mb-1">Entry Screen Mode</h3>
-                <p className="text-xs text-twitch-text-alt">
-                  {posterMode 
-                    ? 'Visitors see the event poster with countdown'
-                    : 'Visitors see the registration form'
-                  }
-                </p>
-              </div>
+
+          <div
+            role="tablist"
+            aria-label="Admin sections"
+            className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2 rounded-2xl bg-white/40 p-1 border border-white/50"
+          >
+            {ADMIN_SECTIONS.map((section) => (
               <button
-                onClick={handleTogglePoster}
-                disabled={posterLoading}
-                className={`w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] ${
-                  posterMode
-                    ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white'
-                    : 'bg-gradient-to-r from-success to-green-600 hover:from-green-500 hover:to-success text-white'
+                key={section.id}
+                type="button"
+                role="tab"
+                aria-selected={activeSection === section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`px-3 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
+                  activeSection === section.id
+                    ? 'bg-casual-pink text-casual-dark shadow-glow-pink'
+                    : 'text-twitch-text-alt hover:bg-white/50'
                 }`}
               >
-                {posterLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="animate-spin">⟳</span>
-                    <span className="hidden sm:inline">Switching...</span>
-                  </span>
-                ) : posterMode ? (
-                  <span className="flex items-center justify-center gap-2">
-                    🎬 <span className="hidden xs:inline">POSTER MODE</span><span className="xs:hidden">Poster</span>
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    📝 <span className="hidden xs:inline">REGISTRATION MODE</span><span className="xs:hidden">Registration</span>
-                  </span>
-                )}
+                {section.label}
               </button>
-            </div>
+            ))}
           </div>
         </div>
       </header>
@@ -257,54 +254,107 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Left Column - Video Preview and Library Controls */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Video Preview */}
-            <div className="twitch-card p-4">
-              <h2 className="text-lg font-semibold mb-3 text-twitch-text">Video Preview</h2>
-              <p className="text-xs text-twitch-text-alt mb-4">
-                Read-only preview. Use the explicit controls in manual mode to change viewer playback.
-              </p>
-              {streamData ? (
-                <VideoPlayer
-                  key={`${streamData.sourceType || 'mux'}:${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
-                  playbackId={streamData.playbackId}
-                  token={streamData.token}
-                  title={streamData.title}
-                  kind={streamData.kind}
-                  sourceType={streamData.sourceType}
-                  youtubePlaylistId={streamData.youtubePlaylistId}
-                  sourceUrl={streamData.sourceUrl}
-                  isAdmin={true}
-                  allowAdminBroadcast={false}
-                  isHoldScreen={streamData.isHoldScreen}
-                  playoutMode={streamData.playoutMode}
-                  playbackState={streamData.playbackState}
-                  playbackPosition={streamData.playbackPosition}
-                  playbackUpdatedAt={streamData.playbackUpdatedAt}
-                  playbackElapsedMs={streamData.playbackElapsedMs}
-                  activeSlotId={streamData.activeSlotId}
-                />
-              ) : (
-                <div className="aspect-video bg-twitch-darker flex items-center justify-center rounded">
-                  <p className="text-twitch-text-alt">No stream configured. Add a video below.</p>
-                </div>
-              )}
+        {activeSection === 'run' && (
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.85fr)] gap-4 sm:gap-6 items-start">
+            <div className="space-y-6">
+              <div className="twitch-card p-4">
+                <h2 className="text-lg font-semibold mb-3 text-twitch-text">Preview</h2>
+                <p className="text-xs text-twitch-text-alt mb-4">
+                  Read-only preview. Use manual controls to change viewer playback.
+                </p>
+                {streamData ? (
+                  <VideoPlayer
+                    key={`${streamData.sourceType || 'mux'}:${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
+                    playbackId={streamData.playbackId}
+                    token={streamData.token}
+                    title={streamData.title}
+                    kind={streamData.kind}
+                    sourceType={streamData.sourceType}
+                    youtubePlaylistId={streamData.youtubePlaylistId}
+                    youtubeVideoId={streamData.youtubeVideoId}
+                    sourceUrl={streamData.sourceUrl}
+                    isAdmin={true}
+                    allowAdminBroadcast={false}
+                    isHoldScreen={streamData.isHoldScreen}
+                    playoutMode={streamData.playoutMode}
+                    playbackState={streamData.playbackState}
+                    playbackPosition={streamData.playbackPosition}
+                    playbackUpdatedAt={streamData.playbackUpdatedAt}
+                    playbackElapsedMs={streamData.playbackElapsedMs}
+                    activeSlotId={streamData.activeSlotId}
+                  />
+                ) : (
+                  <div className="aspect-video bg-twitch-darker flex items-center justify-center rounded">
+                    <p className="text-twitch-text-alt">No stream configured. Add media from the Media tab.</p>
+                  </div>
+                )}
+              </div>
+
+              <QueueManager />
             </div>
 
-            <VideoPlaylistSettings />
-
-            {/* Library Controls - Below Video Preview */}
-            <StreamControl showLibraryControls={true} showPlaybackControls={false} />
+            <div className="xl:sticky xl:top-6">
+              <StreamControl
+                showLibraryControls={false}
+                showPlaybackControls={true}
+                showPollControls={false}
+              />
+            </div>
           </div>
+        )}
 
-          {/* Right Column - Playback Controls and Queue */}
-          <div className="lg:col-span-1 space-y-6">
-            <StreamControl showLibraryControls={false} showPlaybackControls={true} />
-            <QueueManager />
+        {activeSection === 'media' && (
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+            <div className="xl:col-span-2">
+              <StreamControl
+                showLibraryControls={true}
+                showPlaybackControls={false}
+                showPollControls={false}
+              />
+            </div>
+            <div>
+              <VideoPlaylistSettings />
+            </div>
           </div>
-        </div>
+        )}
+
+        {activeSection === 'audience' && (
+          <div className="max-w-4xl">
+            <StreamControl
+              showLibraryControls={false}
+              showPlaybackControls={false}
+              showPollControls={true}
+            />
+          </div>
+        )}
+
+        {activeSection === 'settings' && (
+          <div className="max-w-3xl space-y-6">
+            <div className="twitch-card p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-twitch-text">Entry Screen</h2>
+                  <p className="text-sm text-twitch-text-alt mt-1">
+                    {posterMode
+                      ? 'Visitors see the event poster with countdown.'
+                      : 'Visitors see the registration form.'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleTogglePoster}
+                  disabled={posterLoading}
+                  className={`w-full sm:w-auto px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] ${
+                    posterMode
+                      ? 'bg-error/80 hover:bg-error text-white'
+                      : 'bg-success hover:bg-green-500 text-casual-dark'
+                  }`}
+                >
+                  {posterLoading ? 'Switching...' : posterMode ? 'Show Registration' : 'Show Poster'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

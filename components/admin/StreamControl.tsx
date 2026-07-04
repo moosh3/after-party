@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import PlaybackControls from './PlaybackControls';
-import { MUX_SOURCE_TYPE, YOUTUBE_PLAYLIST_SOURCE_TYPE } from '@/lib/youtube';
+import { MUX_SOURCE_TYPE, YOUTUBE_PLAYLIST_SOURCE_TYPE, YOUTUBE_VIDEO_SOURCE_TYPE } from '@/lib/youtube';
 
 interface MediaItem {
   id: string;
@@ -52,18 +53,90 @@ interface DetailedVoteResult {
 interface StreamControlProps {
   showLibraryControls?: boolean;
   showPlaybackControls?: boolean;
+  showPollControls?: boolean;
+}
+
+interface MuxLibraryAsset {
+  assetId: string;
+  playbackId: string | null;
+  playbackPolicy: string | null;
+  status: string;
+  durationSeconds: number | null;
+  aspectRatio: string | null;
+  createdAt: string | null;
+  defaultTitle: string;
+  thumbnailUrl: string | null;
+  thumbnailStatus: 'available' | 'placeholder';
+  canImport: boolean;
+  disabledReason: string | null;
+}
+
+interface MuxAssetsPagination {
+  page: number;
+  limit: number;
+  hasNextPage: boolean;
+  nextPage: number | null;
+}
+
+function formatDuration(seconds?: number | null) {
+  if (!seconds) return 'Duration unavailable';
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+
+  return `${remainingSeconds}s`;
+}
+
+function formatAssetDate(value?: string | null) {
+  if (!value) return 'Created date unavailable';
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+function getSourceLabel(sourceType?: string | null) {
+  switch (sourceType || MUX_SOURCE_TYPE) {
+    case YOUTUBE_PLAYLIST_SOURCE_TYPE:
+      return 'YouTube Playlist';
+    case YOUTUBE_VIDEO_SOURCE_TYPE:
+      return 'YouTube Video';
+    default:
+      return 'Mux';
+  }
 }
 
 export default function StreamControl({ 
   showLibraryControls = true, 
-  showPlaybackControls = true 
+  showPlaybackControls = true,
+  showPollControls = showLibraryControls,
 }: StreamControlProps) {
   const [muxItems, setMuxItems] = useState<MediaItem[]>([]);
   const [currentStream, setCurrentStream] = useState<CurrentStream | null>(null);
-  const [customPlaybackId, setCustomPlaybackId] = useState('');
-  const [customTitle, setCustomTitle] = useState('');
   const [youtubePlaylistUrl, setYoutubePlaylistUrl] = useState('');
   const [youtubePlaylistTitle, setYoutubePlaylistTitle] = useState('');
+  const [youtubeSourceType, setYoutubeSourceType] = useState<
+    typeof YOUTUBE_PLAYLIST_SOURCE_TYPE | typeof YOUTUBE_VIDEO_SOURCE_TYPE
+  >(YOUTUBE_PLAYLIST_SOURCE_TYPE);
+  const [addMediaTab, setAddMediaTab] = useState<'mux' | 'youtube'>('mux');
+  const [muxLibraryAssets, setMuxLibraryAssets] = useState<MuxLibraryAsset[]>([]);
+  const [muxLibraryPagination, setMuxLibraryPagination] = useState<MuxAssetsPagination | null>(null);
+  const [muxLibraryQuery, setMuxLibraryQuery] = useState('');
+  const [muxLibraryTitles, setMuxLibraryTitles] = useState<Record<string, string>>({});
+  const [muxLibraryLoading, setMuxLibraryLoading] = useState(false);
+  const [muxLibraryError, setMuxLibraryError] = useState<string | null>(null);
+  const [importingMuxAssetId, setImportingMuxAssetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
@@ -89,6 +162,9 @@ export default function StreamControl({
 
   useEffect(() => {
     loadMuxItems();
+    if (showLibraryControls) {
+      loadMuxLibraryAssets(true);
+    }
     loadCurrentStream();
     loadPolls();
     loadHoldScreenConfig();
@@ -101,6 +177,8 @@ export default function StreamControl({
     }, 5000); // Check every 5 seconds
     
     return () => clearInterval(interval);
+    // This dashboard bootstrap effect should run once; periodic refresh handles updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadMuxItems() {
@@ -108,10 +186,59 @@ export default function StreamControl({
       const response = await fetch('/api/admin/mux-items');
       if (response.ok) {
         const data = await response.json();
-        setMuxItems(data.items);
+        const items = data.items || [];
+        setMuxItems(items);
+        return items as MediaItem[];
       }
     } catch (error) {
       console.error('Failed to load Mux items:', error);
+    }
+
+    return [] as MediaItem[];
+  }
+
+  async function loadMuxLibraryAssets(reset = false) {
+    const page = reset ? 1 : muxLibraryPagination?.nextPage;
+
+    if (!page) return;
+
+    setMuxLibraryLoading(true);
+    setMuxLibraryError(null);
+
+    try {
+      const response = await fetch(`/api/admin/mux-assets?page=${page}&limit=20`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMuxLibraryError(data.error || 'Failed to load Mux library');
+        return;
+      }
+
+      const nextAssets: MuxLibraryAsset[] = data.assets || [];
+      setMuxLibraryAssets((currentAssets) => {
+        if (reset) return nextAssets;
+
+        const existingAssetIds = new Set(currentAssets.map((asset) => asset.assetId));
+        const uniqueNextAssets = nextAssets.filter((asset) => !existingAssetIds.has(asset.assetId));
+        return [...currentAssets, ...uniqueNextAssets];
+      });
+      setMuxLibraryPagination(data.pagination || null);
+      setMuxLibraryTitles((currentTitles) => {
+        const nextTitles = { ...currentTitles };
+
+        nextAssets.forEach((asset) => {
+          if (nextTitles[asset.assetId] === undefined) {
+            nextTitles[asset.assetId] = asset.defaultTitle;
+          }
+        });
+
+        return nextTitles;
+      });
+    } catch (error) {
+      console.error('Failed to load Mux library:', error);
+      setMuxLibraryError('Network error occurred');
+    } finally {
+      setMuxLibraryLoading(false);
     }
   }
 
@@ -182,8 +309,6 @@ export default function StreamControl({
       if (response.ok) {
         setMessage({ type: 'success', text: `Stream updated to: ${title}` });
         setCurrentStream(data.stream);
-        setCustomPlaybackId('');
-        setCustomTitle('');
         setYoutubePlaylistUrl('');
         setYoutubePlaylistTitle('');
       } else {
@@ -196,42 +321,101 @@ export default function StreamControl({
     }
   }
 
-  async function handleAddMuxItem() {
-    if (!customPlaybackId || !customTitle) {
-      setMessage({ type: 'error', text: 'Playback ID and title are required' });
-      return;
+  function findImportedMuxItem(playbackId: string | null, items: MediaItem[] = muxItems) {
+    if (!playbackId) return null;
+
+    return items.find(
+      (item) =>
+        item.playback_id === playbackId &&
+        (item.source_type || MUX_SOURCE_TYPE) === MUX_SOURCE_TYPE
+    ) || null;
+  }
+
+  async function importMuxAsset(asset: MuxLibraryAsset) {
+    if (!asset.canImport || !asset.playbackId) {
+      setMessage({ type: 'error', text: asset.disabledReason || 'This Mux asset cannot be imported' });
+      return null;
     }
 
-    setLoading(true);
-    try {
-      const response = await fetch('/api/admin/mux-items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playbackId: customPlaybackId,
-          label: customTitle,
-          kind: 'vod',
-          sourceType: MUX_SOURCE_TYPE,
-        }),
-      });
+    const existingItem = findImportedMuxItem(asset.playbackId);
+    if (existingItem) {
+      return existingItem;
+    }
 
-      if (response.ok) {
-        await loadMuxItems();
-        setMessage({ type: 'success', text: 'Mux item added successfully' });
+    const title = (muxLibraryTitles[asset.assetId] || asset.defaultTitle || asset.playbackId).trim();
+
+    if (!title) {
+      setMessage({ type: 'error', text: 'Title is required' });
+      return null;
+    }
+
+    const response = await fetch('/api/admin/mux-items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playbackId: asset.playbackId,
+        label: title,
+        kind: 'vod',
+        durationSeconds: asset.durationSeconds,
+        sourceType: MUX_SOURCE_TYPE,
+      }),
+    });
+    const data = await response.json();
+
+    if (response.ok) {
+      const items = await loadMuxItems();
+      return (data.item as MediaItem) || findImportedMuxItem(asset.playbackId, items);
+    }
+
+    if (response.status === 409) {
+      const items = await loadMuxItems();
+      const duplicateItem = findImportedMuxItem(asset.playbackId, items);
+
+      if (duplicateItem) {
+        return duplicateItem;
+      }
+    }
+
+    setMessage({ type: 'error', text: data.error || 'Failed to add Mux asset' });
+    return null;
+  }
+
+  async function handleImportMuxAsset(asset: MuxLibraryAsset, makeCurrent = false) {
+    setLoading(true);
+    setMessage(null);
+    setImportingMuxAssetId(asset.assetId);
+
+    try {
+      const importedItem = await importMuxAsset(asset);
+
+      if (!importedItem) return;
+
+      if (makeCurrent) {
+        await handleSetStream(
+          importedItem.playback_id,
+          importedItem.label,
+          importedItem.kind,
+          importedItem.source_type || MUX_SOURCE_TYPE,
+          importedItem.youtube_playlist_id,
+          importedItem.source_url
+        );
       } else {
-        const data = await response.json();
-        setMessage({ type: 'error', text: data.error || 'Failed to add item' });
+        setMessage({ type: 'success', text: `"${importedItem.label}" added to library` });
       }
     } catch (error) {
+      console.error('Failed to import Mux asset:', error);
       setMessage({ type: 'error', text: 'Network error occurred' });
     } finally {
+      setImportingMuxAssetId(null);
       setLoading(false);
     }
   }
 
-  async function handleAddYouTubePlaylist(makeCurrent = false) {
+  async function handleAddYouTubeMedia(makeCurrent = false) {
+    const youtubeMediaLabel = youtubeSourceType === YOUTUBE_VIDEO_SOURCE_TYPE ? 'video' : 'playlist';
+
     if (!youtubePlaylistUrl) {
-      setMessage({ type: 'error', text: 'YouTube playlist URL is required' });
+      setMessage({ type: 'error', text: `YouTube ${youtubeMediaLabel} URL is required` });
       return;
     }
 
@@ -243,7 +427,7 @@ export default function StreamControl({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sourceType: YOUTUBE_PLAYLIST_SOURCE_TYPE,
+          sourceType: youtubeSourceType,
           sourceUrl: youtubePlaylistUrl,
           label: youtubePlaylistTitle || undefined,
         }),
@@ -252,7 +436,7 @@ export default function StreamControl({
 
       if (response.ok) {
         await loadMuxItems();
-        setMessage({ type: 'success', text: 'YouTube playlist added successfully' });
+        setMessage({ type: 'success', text: `YouTube ${youtubeMediaLabel} added successfully` });
         setYoutubePlaylistUrl('');
         setYoutubePlaylistTitle('');
 
@@ -267,7 +451,7 @@ export default function StreamControl({
           );
         }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to add YouTube playlist' });
+        setMessage({ type: 'error', text: data.error || `Failed to add YouTube ${youtubeMediaLabel}` });
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Network error occurred' });
@@ -547,43 +731,50 @@ export default function StreamControl({
     }
   }
 
+  const importedMuxItemsByPlaybackId = new Map(
+    muxItems
+      .filter((item) => (item.source_type || MUX_SOURCE_TYPE) === MUX_SOURCE_TYPE)
+      .map((item) => [item.playback_id, item])
+  );
+  const normalizedMuxLibraryQuery = muxLibraryQuery.trim().toLowerCase();
+  const filteredMuxLibraryAssets = muxLibraryAssets.filter((asset) => {
+    if (!normalizedMuxLibraryQuery) return true;
+
+    const importedItem = asset.playbackId ? importedMuxItemsByPlaybackId.get(asset.playbackId) : null;
+    const searchText = [
+      asset.defaultTitle,
+      muxLibraryTitles[asset.assetId],
+      importedItem?.label,
+      asset.assetId,
+      asset.playbackId,
+      asset.status,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return searchText.includes(normalizedMuxLibraryQuery);
+  });
+
   return (
     <div className="space-y-6">
       {/* Playback Controls Section */}
       {showPlaybackControls && (
         <div>
-          <h2 className="text-2xl font-bold mb-4 text-twitch-text">Stream Control</h2>
+          <h2 className="text-xl font-bold mb-4 text-twitch-text">Controls</h2>
           
           {/* Synchronized Playback Controls */}
           <PlaybackControls />
-          
-          {currentStream && (
-            <div className="twitch-card p-4 mb-6 border-l-4 border-twitch-purple mt-4">
-              <p className="text-xs text-twitch-text-alt uppercase tracking-wider mb-1">Currently Streaming</p>
-              <p className="font-semibold text-lg text-twitch-text">{currentStream.title}</p>
-              <p className="text-xs text-twitch-text-alt mt-2 font-mono">
-                {currentStream.playback_id} • {currentStream.kind} • {currentStream.source_type || MUX_SOURCE_TYPE}
-              </p>
-              {currentStream.source_url && (
-                <p className="text-xs text-twitch-text-alt mt-1 break-all">
-                  {currentStream.source_url}
-                </p>
-              )}
-              <p className="text-xs text-twitch-text-alt mt-1">
-                Last updated: {new Date(currentStream.updated_at).toLocaleString()}
-              </p>
-            </div>
-          )}
+        </div>
+      )}
 
-          {message && (
-            <div className={`rounded p-4 mb-4 ${
-              message.type === 'success' 
-                ? 'bg-success/10 border border-success text-success' 
-                : 'bg-error/10 border border-error text-error'
-            }`}>
-              {message.text}
-            </div>
-          )}
+      {message && (
+        <div className={`rounded p-4 ${
+          message.type === 'success'
+            ? 'bg-success/10 border border-success text-success'
+            : 'bg-error/10 border border-error text-error'
+        }`}>
+          {message.text}
         </div>
       )}
 
@@ -598,17 +789,16 @@ export default function StreamControl({
               <div className="space-y-2">
                 {muxItems.map(item => {
                   const sourceType = item.source_type || MUX_SOURCE_TYPE;
-                  const isMux = sourceType === MUX_SOURCE_TYPE;
 
                   return (
-                    <div key={item.id} className={`twitch-card p-4 ${holdScreenMuxItemId === item.id ? 'border-l-4 border-yellow-500' : ''}`}>
+                    <div key={item.id} className={`twitch-card p-4 ${holdScreenMuxItemId === item.id ? 'border-yellow-500 bg-yellow-500/10' : ''}`}>
                       <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <p className="font-medium text-twitch-text">{item.label}</p>
-                            <span className="text-xs font-semibold px-2 py-1 rounded bg-twitch-purple/20 text-twitch-purple">
-                              {isMux ? 'Mux' : 'YouTube Playlist'}
-                            </span>
+	                            <p className="font-medium text-twitch-text">{item.label}</p>
+	                            <span className="text-xs font-semibold px-2 py-1 rounded bg-twitch-purple/20 text-twitch-purple">
+	                              {getSourceLabel(sourceType)}
+	                            </span>
                             {holdScreenMuxItemId === item.id && (
                               <span className="text-xs font-semibold px-2 py-1 rounded bg-yellow-500/20 text-yellow-500 flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -677,70 +867,298 @@ export default function StreamControl({
           </div>
 
           <div className="twitch-card p-4">
-            <h3 className="text-lg font-semibold mb-3 text-twitch-text">Add New Mux Item</h3>
-            <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div>
-                <label className="block text-sm font-medium text-twitch-text mb-2">
-                  Playback ID
-                </label>
-                <input
-                  type="text"
-                  value={customPlaybackId}
-                  onChange={(e) => setCustomPlaybackId(e.target.value)}
-                  className="twitch-input w-full"
-                  placeholder="e.g., abc123xyz456"
-                  disabled={loading}
-                />
+                <h3 className="text-lg font-semibold text-twitch-text">Add Media</h3>
+                <p className="text-xs text-twitch-text-alt mt-1">
+                  Choose a Mux asset or add YouTube media.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-twitch-text mb-2">
-                  Title/Label
-                </label>
-                <input
-                  type="text"
-                  value={customTitle}
-                  onChange={(e) => setCustomTitle(e.target.value)}
-                  className="twitch-input w-full"
-                  placeholder="e.g., Opening Segment"
-                  disabled={loading}
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+              {addMediaTab === 'mux' && (
                 <button
-                  onClick={handleAddMuxItem}
-                  disabled={loading || !customPlaybackId || !customTitle}
-                  className="twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
+                  type="button"
+                  onClick={() => loadMuxLibraryAssets(true)}
+                  disabled={muxLibraryLoading}
+                  className="w-full sm:w-auto twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                 >
-                  Add to Library
+                  {muxLibraryLoading ? 'Refreshing...' : 'Refresh'}
                 </button>
-                <button
-                  onClick={() => {
-                    if (customPlaybackId && customTitle) {
-                      handleSetStream(customPlaybackId, customTitle);
-                    }
-                  }}
-                  disabled={loading || !customPlaybackId || !customTitle}
-                  className="twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
-                >
-                  Add & Make Current
-                </button>
-              </div>
+              )}
             </div>
-          </div>
 
-          <div className="twitch-card p-4">
-            <h3 className="text-lg font-semibold mb-3 text-twitch-text">Add YouTube Playlist</h3>
+            <div
+              role="tablist"
+              aria-label="Add media source"
+              className="grid grid-cols-2 gap-2 mb-4 rounded-xl bg-white/40 p-1 border border-white/50"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={addMediaTab === 'mux'}
+                onClick={() => setAddMediaTab('mux')}
+                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors min-h-[44px] ${
+                  addMediaTab === 'mux'
+                    ? 'bg-casual-pink text-casual-dark shadow-glow-pink'
+                    : 'text-twitch-text-alt hover:bg-white/50'
+                }`}
+              >
+                Mux
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={addMediaTab === 'youtube'}
+                onClick={() => setAddMediaTab('youtube')}
+                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors min-h-[44px] ${
+                  addMediaTab === 'youtube'
+                    ? 'bg-casual-pink text-casual-dark shadow-glow-pink'
+                    : 'text-twitch-text-alt hover:bg-white/50'
+                }`}
+              >
+                YouTube
+              </button>
+            </div>
+
+            {addMediaTab === 'mux' ? (
+              <>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-twitch-text mb-2">
+                Search Mux assets
+              </label>
+              <input
+                type="search"
+                value={muxLibraryQuery}
+                onChange={(e) => setMuxLibraryQuery(e.target.value)}
+                className="twitch-input w-full"
+                placeholder="Search title, asset ID, or playback ID"
+                disabled={muxLibraryLoading && muxLibraryAssets.length === 0}
+              />
+            </div>
+
+            {muxLibraryError && (
+              <div className="rounded p-4 mb-4 bg-error/10 border border-error text-error">
+                {muxLibraryError}
+              </div>
+            )}
+
+            {muxLibraryLoading && muxLibraryAssets.length === 0 ? (
+              <div className="text-sm text-twitch-text-alt text-center py-8">
+                Loading Mux assets...
+              </div>
+            ) : muxLibraryAssets.length === 0 && !muxLibraryError ? (
+              <div className="text-sm text-twitch-text-alt text-center py-8">
+                No Mux assets found.
+              </div>
+            ) : filteredMuxLibraryAssets.length === 0 ? (
+              <div className="text-sm text-twitch-text-alt text-center py-8">
+                No assets match your search.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[680px] overflow-y-auto pr-1">
+                {filteredMuxLibraryAssets.map((asset) => {
+                  const importedItem = asset.playbackId
+                    ? importedMuxItemsByPlaybackId.get(asset.playbackId)
+                    : null;
+                  const isImported = Boolean(importedItem);
+                  const isCurrent = Boolean(importedItem && currentStream?.playback_id === importedItem.playback_id);
+                  const isImporting = importingMuxAssetId === asset.assetId;
+                  const titleValue = importedItem?.label || muxLibraryTitles[asset.assetId] || asset.defaultTitle;
+
+                  return (
+                    <div
+                      key={asset.assetId}
+                      className={`bg-white/50 border border-twitch-border rounded-xl p-3 ${
+                        asset.canImport ? '' : 'opacity-75'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="h-28 w-full sm:w-44 flex-shrink-0 overflow-hidden rounded-lg border border-white/60 bg-twitch-gray">
+                          {asset.thumbnailUrl ? (
+                            <Image
+                              src={asset.thumbnailUrl}
+                              alt={`${asset.defaultTitle} thumbnail`}
+                              width={320}
+                              height={180}
+                              className="h-full w-full object-cover"
+                              sizes="(min-width: 640px) 176px, 100vw"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center px-3 text-center text-xs text-twitch-text-alt">
+                              Thumbnail unavailable
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0 space-y-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <span
+                                className={`text-xs font-semibold px-2 py-1 rounded ${
+                                  asset.status === 'ready'
+                                    ? 'bg-success/30 text-green-700'
+                                    : asset.status === 'errored'
+                                      ? 'bg-error/30 text-red-700'
+                                      : 'bg-yellow-500/20 text-yellow-700'
+                                }`}
+                              >
+                                {asset.status}
+                              </span>
+                              <span className="text-xs font-semibold px-2 py-1 rounded bg-twitch-purple/20 text-twitch-purple">
+                                {asset.playbackPolicy ? `${asset.playbackPolicy} playback` : 'No playback ID'}
+                              </span>
+                              {isImported && (
+                                <span className="text-xs font-semibold px-2 py-1 rounded bg-success/30 text-green-700">
+                                  In Library
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-twitch-text-alt font-mono break-all">
+                              Asset: {asset.assetId}
+                            </p>
+                            <p className="text-xs text-twitch-text-alt font-mono break-all">
+                              Playback: {asset.playbackId || 'None'}
+                            </p>
+                            <p className="text-xs text-twitch-text-alt mt-1">
+                              {formatDuration(asset.durationSeconds)} • {formatAssetDate(asset.createdAt)}
+                              {asset.aspectRatio ? ` • ${asset.aspectRatio}` : ''}
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-twitch-text mb-2">
+                              Title/Label
+                            </label>
+                            <input
+                              type="text"
+                              value={titleValue}
+                              onChange={(e) =>
+                                setMuxLibraryTitles((currentTitles) => ({
+                                  ...currentTitles,
+                                  [asset.assetId]: e.target.value,
+                                }))
+                              }
+                              className="twitch-input w-full"
+                              disabled={loading || isImported || !asset.canImport}
+                            />
+                          </div>
+
+                          {asset.disabledReason && (
+                            <p className="text-sm text-twitch-text-alt">
+                              {asset.disabledReason}
+                            </p>
+                          )}
+
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            {importedItem ? (
+                              <button
+                                onClick={() => handleSetStream(
+                                  importedItem.playback_id,
+                                  importedItem.label,
+                                  importedItem.kind,
+                                  importedItem.source_type || MUX_SOURCE_TYPE,
+                                  importedItem.youtube_playlist_id,
+                                  importedItem.source_url
+                                )}
+                                disabled={loading || isCurrent}
+                                className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
+                                  isCurrent
+                                    ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
+                                    : 'twitch-button'
+                                }`}
+                              >
+                                {isCurrent ? 'Current' : 'Make Current'}
+                              </button>
+                            ) : asset.canImport ? (
+                              <>
+                                <button
+                                  onClick={() => handleImportMuxAsset(asset, false)}
+                                  disabled={loading || isImporting || !titleValue.trim()}
+                                  className="twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
+                                >
+                                  {isImporting ? 'Adding...' : 'Add to Library'}
+                                </button>
+                                <button
+                                  onClick={() => handleImportMuxAsset(asset, true)}
+                                  disabled={loading || isImporting || !titleValue.trim()}
+                                  className="twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
+                                >
+                                  {isImporting ? 'Adding...' : 'Add & Make Current'}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                disabled
+                                className="px-4 py-2 rounded text-sm min-h-[44px] bg-twitch-gray text-twitch-text-alt cursor-not-allowed"
+                              >
+                                Unavailable
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {muxLibraryPagination?.hasNextPage && (
+              <button
+                type="button"
+                onClick={() => loadMuxLibraryAssets(false)}
+                disabled={muxLibraryLoading}
+                className="w-full mt-4 twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
+              >
+                {muxLibraryLoading ? 'Loading...' : 'Load more'}
+              </button>
+            )}
+              </>
+            ) : (
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-twitch-text mb-2">
-                  Playlist URL
+                  Type
+                </label>
+                <div className="inline-flex rounded-lg border border-twitch-border bg-white/50 p-1" role="group" aria-label="YouTube media type">
+                  <button
+                    type="button"
+                    onClick={() => setYoutubeSourceType(YOUTUBE_PLAYLIST_SOURCE_TYPE)}
+                    className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors min-h-[40px] ${
+                      youtubeSourceType === YOUTUBE_PLAYLIST_SOURCE_TYPE
+                        ? 'bg-casual-pink text-casual-dark shadow-glow-pink'
+                        : 'text-twitch-text-alt hover:bg-white/60'
+                    }`}
+                  >
+                    Playlist
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setYoutubeSourceType(YOUTUBE_VIDEO_SOURCE_TYPE)}
+                    className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors min-h-[40px] ${
+                      youtubeSourceType === YOUTUBE_VIDEO_SOURCE_TYPE
+                        ? 'bg-casual-pink text-casual-dark shadow-glow-pink'
+                        : 'text-twitch-text-alt hover:bg-white/60'
+                    }`}
+                  >
+                    Video
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-twitch-text mb-2">
+                  {youtubeSourceType === YOUTUBE_VIDEO_SOURCE_TYPE ? 'Video URL or ID' : 'Playlist URL or ID'}
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={youtubePlaylistUrl}
                   onChange={(e) => setYoutubePlaylistUrl(e.target.value)}
                   className="twitch-input w-full"
-                  placeholder="https://www.youtube.com/playlist?list=..."
+                  placeholder={
+                    youtubeSourceType === YOUTUBE_VIDEO_SOURCE_TYPE
+                      ? 'https://www.youtube.com/watch?v=...'
+                      : 'https://www.youtube.com/playlist?list=...'
+                  }
                   disabled={loading}
                 />
               </div>
@@ -753,20 +1171,20 @@ export default function StreamControl({
                   value={youtubePlaylistTitle}
                   onChange={(e) => setYoutubePlaylistTitle(e.target.value)}
                   className="twitch-input w-full"
-                  placeholder="e.g., Late Night Clips"
+                  placeholder={youtubeSourceType === YOUTUBE_VIDEO_SOURCE_TYPE ? 'e.g., Opening Segment' : 'e.g., Late Night Clips'}
                   disabled={loading}
                 />
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  onClick={() => handleAddYouTubePlaylist(false)}
+                  onClick={() => handleAddYouTubeMedia(false)}
                   disabled={loading || !youtubePlaylistUrl}
                   className="twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                 >
                   Add to Library
                 </button>
                 <button
-                  onClick={() => handleAddYouTubePlaylist(true)}
+                  onClick={() => handleAddYouTubeMedia(true)}
                   disabled={loading || !youtubePlaylistUrl}
                   className="twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                 >
@@ -774,8 +1192,12 @@ export default function StreamControl({
                 </button>
               </div>
             </div>
+            )}
           </div>
+        </>
+      )}
 
+      {showPollControls && (
           <div className="twitch-card p-4 border-t border-twitch-purple">
             <h3 className="text-lg font-semibold mb-3 text-twitch-text">Poll Management</h3>
             
@@ -900,7 +1322,7 @@ export default function StreamControl({
                     const winners = poll.options.filter(o => o.vote_count === maxVotes);
                     
                     return (
-                      <div key={poll.id} className={`twitch-card p-4 ${poll.is_open ? 'border-l-4 border-twitch-purple' : 'border-l-4 border-success opacity-75'}`}>
+                      <div key={poll.id} className={`twitch-card p-4 ${poll.is_open ? 'border border-twitch-purple/60' : 'border border-success/70 opacity-75'}`}>
                         {/* Poll Header */}
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex-1">
@@ -1037,7 +1459,7 @@ export default function StreamControl({
                             </h5>
                             <div className="space-y-3">
                               {voterDetails[poll.id].map((result) => (
-                                <div key={result.option_id} className="border-l-2 border-twitch-purple pl-2">
+                                <div key={result.option_id} className="border border-twitch-purple/40 rounded p-2">
                                   <div className="text-xs font-medium text-twitch-text mb-1">
                                     {result.option_label} ({result.vote_count} {result.vote_count === 1 ? 'vote' : 'votes'})
                                   </div>
@@ -1067,7 +1489,6 @@ export default function StreamControl({
               )}
             </div>
           </div>
-        </>
       )}
     </div>
   );

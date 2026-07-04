@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ClientLayout from '@/components/ClientLayout'
 
@@ -22,6 +22,14 @@ export const metadata: Metadata = {
     description: "Alec and Mary Kate's Movie Marathon",
     images: ['/assets/images/title-card.jpeg'],
   },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
+  themeColor: '#1a1230',
 }
 
 export default function RootLayout({

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
-import { MUX_SOURCE_TYPE, YOUTUBE_PLAYLIST_SOURCE_TYPE } from '@/lib/youtube';
+import {
+  MUX_SOURCE_TYPE,
+  YOUTUBE_PLAYLIST_SOURCE_TYPE,
+  YOUTUBE_VIDEO_SOURCE_TYPE,
+  parseYouTubeVideoPlaybackId,
+} from '@/lib/youtube';
 
 // GET - Fetch current hold screen configuration
 export async function GET(request: NextRequest) {
@@ -95,7 +100,11 @@ export async function POST(request: NextRequest) {
 
       const sourceType = muxItem.source_type || MUX_SOURCE_TYPE;
 
-      if (sourceType !== MUX_SOURCE_TYPE && sourceType !== YOUTUBE_PLAYLIST_SOURCE_TYPE) {
+      if (
+        sourceType !== MUX_SOURCE_TYPE &&
+        sourceType !== YOUTUBE_PLAYLIST_SOURCE_TYPE &&
+        sourceType !== YOUTUBE_VIDEO_SOURCE_TYPE
+      ) {
         return NextResponse.json(
           { error: 'Unsupported media source type for hold screen' },
           { status: 400 }
@@ -105,6 +114,18 @@ export async function POST(request: NextRequest) {
       if (sourceType === YOUTUBE_PLAYLIST_SOURCE_TYPE && !muxItem.youtube_playlist_id) {
         return NextResponse.json(
           { error: 'YouTube playlist hold screen is missing its playlist ID' },
+          { status: 400 }
+        );
+      }
+
+      const youtubeVideoId =
+        sourceType === YOUTUBE_VIDEO_SOURCE_TYPE
+          ? parseYouTubeVideoPlaybackId(muxItem.playback_id)
+          : null;
+
+      if (sourceType === YOUTUBE_VIDEO_SOURCE_TYPE && !youtubeVideoId) {
+        return NextResponse.json(
+          { error: 'YouTube video hold screen is missing its video ID' },
           { status: 400 }
         );
       }
@@ -137,6 +158,7 @@ export async function POST(request: NextRequest) {
           playback_id: muxItem.playback_id,
           source_type: sourceType,
           youtube_playlist_id: muxItem.youtube_playlist_id,
+          youtube_video_id: youtubeVideoId,
           source_url: muxItem.source_url,
         },
       });

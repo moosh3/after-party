@@ -4,9 +4,13 @@ import { getSession } from '@/lib/session';
 import {
   MUX_SOURCE_TYPE,
   YOUTUBE_PLAYLIST_SOURCE_TYPE,
+  YOUTUBE_VIDEO_SOURCE_TYPE,
   extractYouTubePlaylistId,
+  extractYouTubeVideoId,
   makeYouTubePlaylistPlaybackId,
+  makeYouTubeVideoPlaybackId,
   parseYouTubePlaylistPlaybackId,
+  parseYouTubeVideoPlaybackId,
   type MediaSourceType,
 } from '@/lib/youtube';
 
@@ -59,6 +63,8 @@ export async function POST(request: NextRequest) {
       source_url: sourceUrlSnake,
       youtubePlaylistId,
       youtube_playlist_id: youtubePlaylistIdSnake,
+      youtubeVideoId,
+      youtube_video_id: youtubeVideoIdSnake,
     } = await request.json();
     const sourceType: MediaSourceType =
       rawSourceType || rawSourceTypeSnake || MUX_SOURCE_TYPE;
@@ -103,6 +109,54 @@ export async function POST(request: NextRequest) {
         console.error('Failed to add YouTube playlist:', error);
         return NextResponse.json(
           { error: 'Failed to add YouTube playlist' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ success: true, item: data }, { status: 201 });
+    }
+
+    if (sourceType === YOUTUBE_VIDEO_SOURCE_TYPE) {
+      const playbackVideoId = parseYouTubeVideoPlaybackId(playbackId);
+      const videoInput =
+        sourceUrl || sourceUrlSnake || youtubeVideoId || youtubeVideoIdSnake || playbackVideoId || playbackId;
+      let videoId: string;
+
+      try {
+        videoId = extractYouTubeVideoId(videoInput || '');
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid YouTube video URL' },
+          { status: 400 }
+        );
+      }
+
+      const videoPlaybackId = makeYouTubeVideoPlaybackId(videoId);
+      const { data, error } = await supabaseAdmin
+        .from('mux_items')
+        .insert({
+          playback_id: videoPlaybackId,
+          label: label || `YouTube Video ${videoId}`,
+          kind: 'vod',
+          duration_seconds: null,
+          source_type: YOUTUBE_VIDEO_SOURCE_TYPE,
+          youtube_playlist_id: null,
+          source_url: sourceUrl || sourceUrlSnake || `https://www.youtube.com/watch?v=${videoId}`,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          return NextResponse.json(
+            { error: 'This YouTube video already exists' },
+            { status: 409 }
+          );
+        }
+
+        console.error('Failed to add YouTube video:', error);
+        return NextResponse.json(
+          { error: 'Failed to add YouTube video' },
           { status: 500 }
         );
       }

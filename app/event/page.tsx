@@ -46,6 +46,7 @@ interface StreamData {
   nextTransitionAt?: string | null;
   sourceType?: string;
   youtubePlaylistId?: string | null;
+  youtubeVideoId?: string | null;
   sourceUrl?: string | null;
   captionUrl?: string | null;
   captionLabel?: string | null;
@@ -86,6 +87,7 @@ export default function EventPage() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
   const [showPoster, setShowPoster] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   // Token refresh hook
   const tokenRefreshError = useTokenRefresh(streamData, setStreamData);
@@ -345,6 +347,88 @@ export default function EventPage() {
     document.title = 'Watch · Da Movies';
   }, []);
 
+  useEffect(() => {
+    let animationFrame = 0;
+    let focusOutTimeout = 0;
+    const root = document.documentElement;
+
+    const updateViewportMetrics = () => {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        const visualViewport = window.visualViewport;
+        const viewportHeight = Math.max(
+          240,
+          Math.round(visualViewport?.height ?? window.innerHeight)
+        );
+        const viewportOffsetTop = Math.max(0, Math.round(visualViewport?.offsetTop ?? 0));
+        const keyboardInset = Math.max(
+          0,
+          window.innerHeight - viewportHeight - viewportOffsetTop
+        );
+        const activeElement = document.activeElement;
+        const isTextField =
+          activeElement instanceof HTMLInputElement ||
+          activeElement instanceof HTMLTextAreaElement ||
+          (activeElement instanceof HTMLElement && activeElement.isContentEditable);
+        const isCoarsePointer = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+        const screenHeight = window.screen?.height || window.innerHeight;
+        const viewportLoss = Math.max(0, screenHeight - viewportHeight);
+
+        root.style.setProperty('--ll-watch-viewport-height', `${viewportHeight}px`);
+        setKeyboardOpen(isTextField && isCoarsePointer && (keyboardInset > 80 || viewportLoss > 180));
+      });
+    };
+
+    const handleFocusOut = () => {
+      if (focusOutTimeout) {
+        window.clearTimeout(focusOutTimeout);
+      }
+      focusOutTimeout = window.setTimeout(updateViewportMetrics, 120);
+    };
+
+    updateViewportMetrics();
+
+    window.visualViewport?.addEventListener('resize', updateViewportMetrics);
+    window.visualViewport?.addEventListener('scroll', updateViewportMetrics);
+    window.addEventListener('resize', updateViewportMetrics);
+    document.addEventListener('focusin', updateViewportMetrics);
+    document.addEventListener('focusout', handleFocusOut);
+
+    return () => {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      if (focusOutTimeout) {
+        window.clearTimeout(focusOutTimeout);
+      }
+      window.visualViewport?.removeEventListener('resize', updateViewportMetrics);
+      window.visualViewport?.removeEventListener('scroll', updateViewportMetrics);
+      window.removeEventListener('resize', updateViewportMetrics);
+      document.removeEventListener('focusin', updateViewportMetrics);
+      document.removeEventListener('focusout', handleFocusOut);
+      root.style.removeProperty('--ll-watch-viewport-height');
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!keyboardOpen) return;
+
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [keyboardOpen]);
+
   // First Mux playback error is likely a stale signed token (e.g. after the
   // phone slept) — refetch stream data so the player gets a fresh one.
   const handlePlaybackError = useCallback(() => {
@@ -422,12 +506,25 @@ export default function EventPage() {
     );
   }
 
+  const chatNowPlayingTitle = streamData.isHoldScreen ? null : streamData.title;
+  const chatNowPlayingKey = chatNowPlayingTitle
+    ? [
+        streamData.playoutMode || 'manual',
+        streamData.activeSlotId || streamData.playbackId,
+        chatNowPlayingTitle,
+      ].join(':')
+    : null;
+
   return (
-    <div className={`dm-lobby-lounge ${LL_FONT_VARS} ll-watch-root`} style={{ background: LL.ink, color: LL.frost1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className={`dm-lobby-lounge ${LL_FONT_VARS} ll-watch-root${keyboardOpen ? ' ll-watch-keyboard-open' : ''}`} style={{ background: LL.ink, color: LL.frost1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{`
         /* Height lives here (not inline) so the dvh fallback chain applies:
            dvh tracks Chrome mobile's collapsing URL bar. */
-        .ll-watch-root { height: 100vh; height: 100dvh; }
+        .ll-watch-root {
+          height: 100vh;
+          height: 100dvh;
+          height: var(--ll-watch-viewport-height, 100dvh);
+        }
 
         /* Desktop: video top-left, extras under it, chat spans the right column. */
         .ll-watch-grid {
@@ -458,6 +555,37 @@ export default function EventPage() {
 
           .ll-nowplaying { font-size: 12px; gap: 8px; padding: 4px 10px; }
           .ll-nowplaying-avatars { display: none; }
+
+          .ll-watch-root.ll-watch-keyboard-open {
+            height: var(--ll-watch-viewport-height, 100dvh);
+            min-height: var(--ll-watch-viewport-height, 100dvh);
+          }
+
+          .ll-watch-root.ll-watch-keyboard-open .ll-header--compact,
+          .ll-watch-root.ll-watch-keyboard-open .ll-nowplaying,
+          .ll-watch-root.ll-watch-keyboard-open .ll-watch-video,
+          .ll-watch-root.ll-watch-keyboard-open .ll-watch-extras {
+            display: none;
+          }
+
+          .ll-watch-root.ll-watch-keyboard-open .ll-watch-grid {
+            flex: 1;
+            gap: 0;
+            min-height: 0;
+            padding: 8px;
+            overflow: hidden;
+          }
+
+          .ll-watch-root.ll-watch-keyboard-open .ll-watch-below {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          .ll-watch-root.ll-watch-keyboard-open .ll-watch-chat {
+            height: 100%;
+            min-height: 0;
+          }
         }
       `}</style>
       <a className="skip-link" href="#ll-watch-main">
@@ -554,6 +682,7 @@ export default function EventPage() {
                 kind={streamData.kind}
                 sourceType={streamData.sourceType}
                 youtubePlaylistId={streamData.youtubePlaylistId}
+                youtubeVideoId={streamData.youtubeVideoId}
                 sourceUrl={streamData.sourceUrl}
                 isHoldScreen={streamData.isHoldScreen}
                 playoutMode={streamData.playoutMode}
@@ -587,7 +716,12 @@ export default function EventPage() {
                 </div>
               }
             >
-              <Chat room={ROOM_NAMES.DEFAULT} userId={userId} />
+              <Chat
+                room={ROOM_NAMES.DEFAULT}
+                userId={userId}
+                nowPlayingTitle={chatNowPlayingTitle}
+                nowPlayingKey={chatNowPlayingKey}
+              />
             </ErrorBoundary>
           </aside>
 

@@ -1,12 +1,16 @@
 export const YOUTUBE_PLAYLIST_SOURCE_TYPE = 'youtube_playlist' as const;
+export const YOUTUBE_VIDEO_SOURCE_TYPE = 'youtube_video' as const;
 export const MUX_SOURCE_TYPE = 'mux' as const;
 
 export type MediaSourceType =
   | typeof MUX_SOURCE_TYPE
-  | typeof YOUTUBE_PLAYLIST_SOURCE_TYPE;
+  | typeof YOUTUBE_PLAYLIST_SOURCE_TYPE
+  | typeof YOUTUBE_VIDEO_SOURCE_TYPE;
 
 const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{10,}$/;
+const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const YOUTUBE_PLAYLIST_PREFIX = 'youtube:playlist:';
+const YOUTUBE_VIDEO_PREFIX = 'youtube:video:';
 
 function isYouTubeHost(hostname: string) {
   const normalized = hostname.toLowerCase();
@@ -29,6 +33,16 @@ export function parseYouTubePlaylistPlaybackId(playbackId?: string | null) {
   return PLAYLIST_ID_PATTERN.test(playlistId) ? playlistId : null;
 }
 
+export function makeYouTubeVideoPlaybackId(videoId: string) {
+  return `${YOUTUBE_VIDEO_PREFIX}${videoId}`;
+}
+
+export function parseYouTubeVideoPlaybackId(playbackId?: string | null) {
+  if (!playbackId?.startsWith(YOUTUBE_VIDEO_PREFIX)) return null;
+  const videoId = playbackId.slice(YOUTUBE_VIDEO_PREFIX.length);
+  return VIDEO_ID_PATTERN.test(videoId) ? videoId : null;
+}
+
 export function normalizeYouTubePlaylistId(value: string) {
   const playlistId = value.trim();
 
@@ -37,6 +51,16 @@ export function normalizeYouTubePlaylistId(value: string) {
   }
 
   return playlistId;
+}
+
+export function normalizeYouTubeVideoId(value: string) {
+  const videoId = value.trim();
+
+  if (!VIDEO_ID_PATTERN.test(videoId)) {
+    throw new Error('Invalid YouTube video ID');
+  }
+
+  return videoId;
 }
 
 export function extractYouTubePlaylistId(input: string) {
@@ -69,6 +93,47 @@ export function extractYouTubePlaylistId(input: string) {
     }
 
     throw new Error('Invalid YouTube playlist URL');
+  }
+}
+
+export function extractYouTubeVideoId(input: string) {
+  const value = input.trim();
+
+  if (!value) {
+    throw new Error('YouTube video URL is required');
+  }
+
+  try {
+    const url = new URL(value);
+
+    if (!isYouTubeHost(url.hostname)) {
+      throw new Error('YouTube video URL must be a YouTube link');
+    }
+
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const videoId =
+      url.searchParams.get('v') ||
+      (url.hostname.toLowerCase() === 'youtu.be' ? pathParts[0] : null) ||
+      (['embed', 'shorts', 'live', 'v'].includes(pathParts[0]) ? pathParts[1] : null);
+
+    if (!videoId) {
+      throw new Error('YouTube video URL must include a video ID');
+    }
+
+    return normalizeYouTubeVideoId(videoId);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith('YouTube video') || error.message.startsWith('Invalid YouTube video'))
+    ) {
+      throw error;
+    }
+
+    if (VIDEO_ID_PATTERN.test(value)) {
+      return value;
+    }
+
+    throw new Error('Invalid YouTube video URL or ID');
   }
 }
 

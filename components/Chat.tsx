@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getViewerData } from '@/lib/viewer';
 import PollCard from './PollCard';
@@ -30,13 +30,57 @@ interface Message {
   viewerReaction?: MessageReaction | null;
 }
 
+interface NowPlayingAnnouncement {
+  id: string;
+  title: string;
+  created_at: string;
+}
+
+type ChatFeedItem =
+  | {
+      type: 'message';
+      id: string;
+      sortTime: number;
+      message: Message;
+    }
+  | {
+      type: 'now-playing';
+      id: string;
+      sortTime: number;
+      announcement: NowPlayingAnnouncement;
+    };
+
 interface ChatProps {
   room?: string;
   userId: string;
+  nowPlayingTitle?: string | null;
+  nowPlayingKey?: string | null;
 }
 
-export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
+function NowPlayingChatCard({ title }: { title: string }) {
+  return (
+    <div
+      className="ll-chat-nowplaying-card"
+      role="status"
+      aria-live="polite"
+      aria-label={`Now playing: ${title}`}
+    >
+      <p className="ll-chat-nowplaying-copy">
+        <span className="ll-chat-nowplaying-label f-display">Now playing:</span>
+        <strong className="ll-chat-nowplaying-title">&quot;{title}&quot;</strong>
+      </p>
+    </div>
+  );
+}
+
+export default function Chat({
+  room = ROOM_NAMES.DEFAULT,
+  userId,
+  nowPlayingTitle = null,
+  nowPlayingKey = null,
+}: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [nowPlayingAnnouncements, setNowPlayingAnnouncements] = useState<NowPlayingAnnouncement[]>([]);
   const [messageBody, setMessageBody] = useState('');
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -47,6 +91,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   const [reactingMessageId, setReactingMessageId] = useState<number | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNowPlayingKeyRef = useRef<string | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Load user name from viewer registration data
@@ -60,6 +105,28 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
       setUserName(randomName);
     }
   }, []);
+
+  useEffect(() => {
+    const title = nowPlayingTitle?.trim();
+    const sourceKey = nowPlayingKey || title || null;
+
+    if (!title || !sourceKey) {
+      lastNowPlayingKeyRef.current = null;
+      return;
+    }
+
+    if (lastNowPlayingKeyRef.current === sourceKey) return;
+
+    lastNowPlayingKeyRef.current = sourceKey;
+    setNowPlayingAnnouncements((prev) => [
+      ...prev,
+      {
+        id: `${sourceKey}:${Date.now()}`,
+        title,
+        created_at: new Date().toISOString(),
+      },
+    ].slice(-6));
+  }, [nowPlayingKey, nowPlayingTitle]);
 
   // Load (or reload) the message list. Also used to backfill anything missed
   // while the realtime socket was dead — mobile browsers kill websockets
@@ -202,18 +269,38 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   // Auto-scroll to bottom. Scroll only the messages container —
   // scrollIntoView also scrolls ancestor containers, which yanks the
   // mobile video/chat layout on every incoming message.
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const container = messagesContainerRef.current;
     if (container) {
-      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      container.scrollTo({ top: container.scrollHeight, behavior });
     }
   }, []);
+
+  const keepChatBottomVisible = useCallback(() => {
+    setAutoScroll(true);
+    scrollToBottom('auto');
+    window.setTimeout(() => scrollToBottom('auto'), 180);
+    window.setTimeout(() => scrollToBottom('auto'), 360);
+  }, [scrollToBottom]);
 
   useEffect(() => {
     if (autoScroll) {
       scrollToBottom();
     }
-  }, [messages, autoScroll, scrollToBottom]);
+  }, [messages, nowPlayingAnnouncements, autoScroll, scrollToBottom]);
+
+  useEffect(() => {
+    if (!autoScroll) return;
+
+    const handleViewportResize = () => {
+      window.setTimeout(() => scrollToBottom('auto'), 60);
+    };
+
+    window.visualViewport?.addEventListener('resize', handleViewportResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    };
+  }, [autoScroll, scrollToBottom]);
 
   // Detect manual scroll
   useEffect(() => {
@@ -240,6 +327,24 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
 
     return () => clearInterval(interval);
   }, [rateLimitSeconds]);
+
+  const chatFeedItems = useMemo<ChatFeedItem[]>(() => {
+    const messageItems: ChatFeedItem[] = messages.map((message) => ({
+      type: 'message',
+      id: `message-${message.id}`,
+      sortTime: Date.parse(message.created_at) || 0,
+      message,
+    }));
+
+    const nowPlayingItems: ChatFeedItem[] = nowPlayingAnnouncements.map((announcement) => ({
+      type: 'now-playing',
+      id: `now-playing-${announcement.id}`,
+      sortTime: Date.parse(announcement.created_at) || 0,
+      announcement,
+    }));
+
+    return [...messageItems, ...nowPlayingItems].sort((a, b) => a.sortTime - b.sortTime);
+  }, [messages, nowPlayingAnnouncements]);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -370,9 +475,100 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
 
   return (
     <div
-      className="flex flex-col h-full"
-      style={{ fontFamily: 'var(--ll-f-outfit), system-ui, sans-serif', background: '#f5fbff', border: '2px solid #1a1230', borderRadius: 14, boxShadow: '4px 4px 0 rgba(26,18,48,.35)', overflow: 'hidden' }}
+      className="ll-chat-panel flex flex-col h-full"
+      style={{ fontFamily: 'var(--ll-f-outfit), system-ui, sans-serif', background: '#f5fbff', border: '2px solid #1a1230', borderRadius: 'var(--ll-chat-radius, 14px)', boxShadow: 'var(--ll-chat-shadow, 4px 4px 0 rgba(26,18,48,.35))', overflow: 'hidden' }}
     >
+      <style>{`
+        .ll-chat-panel {
+          min-height: 0;
+        }
+
+        .ll-chat-messages {
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .ll-chat-nowplaying-card {
+          position: relative;
+          margin: 8px 10px 10px;
+          padding: 17px 12px 12px;
+          border: 2px solid oklch(20% 0.06 300);
+          border-radius: 8px;
+          background:
+            linear-gradient(180deg, oklch(35% 0.12 18) 0 18px, oklch(27% 0.08 300) 18px 100%);
+          color: oklch(97% 0.015 255);
+          box-shadow: 3px 3px 0 oklch(16% 0.04 300 / 0.5);
+          overflow: hidden;
+        }
+
+        .ll-chat-nowplaying-card::before {
+          content: "";
+          position: absolute;
+          left: 8px;
+          right: 8px;
+          top: 6px;
+          height: 6px;
+          background: radial-gradient(circle, oklch(93% 0.18 94) 0 2px, transparent 2.7px) left center / 16px 6px repeat-x;
+          opacity: 0.95;
+        }
+
+        .ll-chat-nowplaying-card::after {
+          content: "";
+          position: absolute;
+          left: 8px;
+          right: 8px;
+          top: 18px;
+          height: 1px;
+          background: oklch(84% 0.09 79 / 0.45);
+        }
+
+        .ll-chat-nowplaying-copy {
+          position: relative;
+          z-index: 1;
+          margin: 0;
+          display: grid;
+          gap: 5px;
+        }
+
+        .ll-chat-nowplaying-label {
+          color: oklch(88% 0.16 94);
+          font-size: 10px;
+          letter-spacing: 0.03em;
+          line-height: 1;
+        }
+
+        .ll-chat-nowplaying-title {
+          color: oklch(98% 0.012 255);
+          font-size: 15px;
+          font-weight: 850;
+          line-height: 1.2;
+          overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 900px) {
+          .ll-chat-nowplaying-card {
+            margin: 7px 8px 9px;
+            padding: 16px 10px 11px;
+          }
+
+          .ll-chat-nowplaying-title {
+            font-size: 14px;
+          }
+
+          .ll-watch-keyboard-open .ll-chat-panel {
+            --ll-chat-radius: 10px;
+            --ll-chat-shadow: none;
+          }
+
+          .ll-watch-keyboard-open .ll-chat-messages {
+            scroll-padding-bottom: 12px;
+          }
+
+          .ll-watch-keyboard-open .ll-chat-composer {
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+          }
+        }
+      `}</style>
       {/* Header */}
       <div className="flex-shrink-0" style={{ padding: '7px 12px', background: '#1a1230', borderBottom: '2px solid #1a1230' }}>
         <h2 className="f-display" style={{ margin: 0, fontSize: 13, letterSpacing: '.04em', color: '#c9ff2d' }}>💬 CHAT</h2>
@@ -381,21 +577,32 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto min-h-0"
+        className="ll-chat-messages flex-1 overflow-y-auto min-h-0"
         style={{ padding: '4px 0' }}
       >
-        {messages.length === 0 ? (
+        {chatFeedItems.length === 0 ? (
           <div className="p-4 text-center">
             <p className="f-comic text-sm" style={{ color: '#2a1a55' }}>
               Welcome to the chat!
             </p>
           </div>
         ) : (
-          messages.map((message) => {
+          chatFeedItems.map((item) => {
+            if (item.type === 'now-playing') {
+              return (
+                <NowPlayingChatCard
+                  key={item.id}
+                  title={item.announcement.title}
+                />
+              );
+            }
+
+            const message = item.message;
+
             // Render poll messages differently
             if (message.kind === 'poll') {
               return (
-                <div key={message.id} className="p-2">
+                <div key={item.id} className="p-2">
                   <PollCard 
                     pollId={message.body} 
                     userId={userId} 
@@ -408,7 +615,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             // Render system messages differently
             if (message.kind === 'system') {
               return (
-                <div key={message.id} style={{ padding: '4px 10px' }}>
+                <div key={item.id} style={{ padding: '4px 10px' }}>
                   <div className="f-comic text-xs italic" style={{ color: '#a18ad4' }}>
                     {message.body}
                   </div>
@@ -420,7 +627,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             const userColor = getUsernameColor(message.user_name);
             return (
               <div
-                key={message.id}
+                key={item.id}
                 style={{
                   padding: '4px 10px',
                   position: 'relative',
@@ -537,7 +744,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
       )}
 
       {/* Input */}
-      <div className="flex-shrink-0" style={{ padding: 8, borderTop: '2px solid #1a1230', background: '#f0e6cf' }}>
+      <div className="ll-chat-composer flex-shrink-0" style={{ padding: 8, borderTop: '2px solid #1a1230', background: '#f0e6cf' }}>
         {error && (
           <div className="text-xs mb-1" style={{ color: '#a31616' }}>{error}</div>
         )}
@@ -556,11 +763,14 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
             type="text"
             value={messageBody}
             onChange={(e) => setMessageBody(e.target.value)}
+            onFocus={keepChatBottomVisible}
             placeholder="say something..."
-            className="w-full text-sm"
+            className="ll-chat-input w-full text-sm"
             style={{ border: '2px solid #1a1230', borderRadius: 6, padding: '7px 10px', background: '#fff', color: '#1a1230' }}
             disabled={sending || rateLimitSeconds > 0}
             maxLength={MAX_MESSAGE_LENGTH}
+            enterKeyHint="send"
+            autoComplete="off"
           />
         </form>
       </div>

@@ -14,7 +14,9 @@ import {
 import {
   MUX_SOURCE_TYPE,
   YOUTUBE_PLAYLIST_SOURCE_TYPE,
+  YOUTUBE_VIDEO_SOURCE_TYPE,
   parseYouTubePlaylistPlaybackId,
+  parseYouTubeVideoPlaybackId,
   type MediaSourceType,
 } from '@/lib/youtube';
 
@@ -34,6 +36,7 @@ interface VideoPlayerProps {
   activeSlotId?: string | null;
   sourceType?: MediaSourceType | string;
   youtubePlaylistId?: string | null;
+  youtubeVideoId?: string | null;
   sourceUrl?: string | null;
   captionUrl?: string | null;
   captionLabel?: string | null;
@@ -61,6 +64,10 @@ type YouTubePlayer = {
     index?: number;
     startSeconds?: number;
   }) => void;
+  loadVideoById: (options: {
+    videoId: string;
+    startSeconds?: number;
+  }) => void;
   playVideo: () => void;
   pauseVideo: () => void;
   mute: () => void;
@@ -78,6 +85,7 @@ type YouTubeApi = {
     options: {
       width: string;
       height: string;
+      videoId?: string;
       playerVars: Record<string, string | number>;
       events: {
         onReady: (event: YouTubePlayerEvent) => void;
@@ -129,12 +137,16 @@ function loadYouTubeIframeApi() {
 
 const SIDELOADED_CAPTION_TRACK_ID = 'after-party-sideloaded-captions';
 
-function YouTubePlaylistPlayer({
+function YouTubeMediaPlayer({
+  mediaType,
   playlistId,
+  videoId,
   title,
   viewerLocked,
 }: {
-  playlistId: string;
+  mediaType: 'playlist' | 'video';
+  playlistId?: string;
+  videoId?: string;
   title: string;
   viewerLocked: boolean;
 }) {
@@ -179,42 +191,57 @@ function YouTubePlaylistPlayer({
       .then((YT) => {
         if (disposed || !mountRef.current) return;
 
+        const playerVars: Record<string, string | number> = {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+          cc_load_policy: 1,
+          cc_lang_pref: 'en',
+          iv_load_policy: 3,
+          rel: 0,
+          origin: window.location.origin,
+        };
+
+        if (mediaType === 'playlist') {
+          playerVars.listType = 'playlist';
+          playerVars.list = playlistId || '';
+          playerVars.loop = 1;
+        }
+
         const player = new YT.Player(mountRef.current, {
           width: '100%',
           height: '100%',
-          playerVars: {
-            listType: 'playlist',
-            list: playlistId,
-            loop: 1,
-            autoplay: 1,
-            controls: 0,
-            disablekb: 1,
-            playsinline: 1,
-            enablejsapi: 1,
-            cc_load_policy: 1,
-            cc_lang_pref: 'en',
-            iv_load_policy: 3,
-            rel: 0,
-            origin: window.location.origin,
-          },
+          videoId: mediaType === 'video' ? videoId : undefined,
+          playerVars,
           events: {
             onReady: (event) => {
               if (disposed) return;
 
               playerRef.current = event.target;
-              event.target.setLoop?.(true);
+              if (mediaType === 'playlist') {
+                event.target.setLoop?.(true);
+              }
               event.target.setVolume(volumeRef.current);
               if (mutedRef.current) {
                 event.target.mute();
               } else {
                 event.target.unMute();
               }
-              event.target.loadPlaylist({
-                listType: 'playlist',
-                list: playlistId,
-                index: 0,
-                startSeconds: 0,
-              });
+              if (mediaType === 'playlist' && playlistId) {
+                event.target.loadPlaylist({
+                  listType: 'playlist',
+                  list: playlistId,
+                  index: 0,
+                  startSeconds: 0,
+                });
+              } else if (mediaType === 'video' && videoId) {
+                event.target.loadVideoById({
+                  videoId,
+                  startSeconds: 0,
+                });
+              }
               event.target.playVideo();
               setIsReady(true);
 
@@ -241,6 +268,12 @@ function YouTubePlaylistPlayer({
               }
 
               if (event.data === YT.PlayerState.ENDED) {
+                if (mediaType === 'video' && videoId) {
+                  event.target.loadVideoById({ videoId, startSeconds: 0 });
+                  event.target.playVideo();
+                  return;
+                }
+
                 const playlist = event.target.getPlaylist?.() || [];
                 const index = event.target.getPlaylistIndex?.() ?? 0;
 
@@ -269,7 +302,7 @@ function YouTubePlaylistPlayer({
       playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [playlistId, viewerLocked]);
+  }, [mediaType, playlistId, videoId, viewerLocked]);
 
   useEffect(() => {
     volumeRef.current = volume;
@@ -302,7 +335,9 @@ function YouTubePlaylistPlayer({
     return (
       <div className="aspect-video bg-black flex items-center justify-center rounded-lg">
         <div className="text-center p-6 twitch-card">
-          <p className="text-red-500 mb-4">Unable to load YouTube playlist.</p>
+            <p className="text-red-500 mb-4">
+              Unable to load YouTube {mediaType === 'playlist' ? 'playlist' : 'video'}.
+            </p>
           <button
             onClick={() => window.location.reload()}
             className="twitch-button"
@@ -328,7 +363,7 @@ function YouTubePlaylistPlayer({
 
       {!isReady && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black text-white text-sm">
-          Loading playlist
+          Loading {mediaType === 'playlist' ? 'playlist' : 'video'}
         </div>
       )}
 
@@ -408,6 +443,7 @@ export default function VideoPlayer({
   activeSlotId = null,
   sourceType = MUX_SOURCE_TYPE,
   youtubePlaylistId = null,
+  youtubeVideoId = null,
   captionUrl = null,
   captionLabel = null,
   captionLanguage = null,
@@ -1036,8 +1072,32 @@ export default function VideoPlayer({
     }
 
     return (
-      <YouTubePlaylistPlayer
+      <YouTubeMediaPlayer
+        mediaType="playlist"
         playlistId={playlistId}
+        title={title}
+        viewerLocked={viewerLocked}
+      />
+    );
+  }
+
+  if (sourceType === YOUTUBE_VIDEO_SOURCE_TYPE) {
+    const videoId = youtubeVideoId || parseYouTubeVideoPlaybackId(playbackId);
+
+    if (!videoId) {
+      return (
+        <div className="aspect-video bg-black flex items-center justify-center rounded-lg">
+          <div className="text-center p-6 twitch-card">
+            <p className="text-red-500">Invalid YouTube video source.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <YouTubeMediaPlayer
+        mediaType="video"
+        videoId={videoId}
         title={title}
         viewerLocked={viewerLocked}
       />

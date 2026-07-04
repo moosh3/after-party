@@ -9,7 +9,9 @@ import {
 } from '@/lib/showtime';
 import {
   MUX_SOURCE_TYPE,
+  YOUTUBE_VIDEO_SOURCE_TYPE,
   parseYouTubePlaylistPlaybackId,
+  parseYouTubeVideoPlaybackId,
   type MediaSourceType,
 } from '@/lib/youtube';
 
@@ -63,6 +65,7 @@ export async function GET(request: NextRequest) {
           playbackElapsedMs: 0,
           sourceType: MUX_SOURCE_TYPE,
           youtubePlaylistId: null,
+          youtubeVideoId: null,
           sourceUrl: null,
           captionFilename: null,
           captionUrl: null,
@@ -103,6 +106,8 @@ export async function GET(request: NextRequest) {
     let sourceType: MediaSourceType = data.source_type || MUX_SOURCE_TYPE;
     let youtubePlaylistId: string | null =
       data.youtube_playlist_id || parseYouTubePlaylistPlaybackId(playbackId);
+    let youtubeVideoId: string | null =
+      sourceType === YOUTUBE_VIDEO_SOURCE_TYPE ? parseYouTubeVideoPlaybackId(playbackId) : null;
     let sourceUrl: string | null = data.source_url || null;
 
     if (playoutMode === 'schedule') {
@@ -131,6 +136,8 @@ export async function GET(request: NextRequest) {
       captionLanguage = resolved.captionLanguage;
       sourceType = resolved.sourceType;
       youtubePlaylistId = resolved.youtubePlaylistId;
+      youtubeVideoId =
+        sourceType === YOUTUBE_VIDEO_SOURCE_TYPE ? parseYouTubeVideoPlaybackId(playbackId) : null;
       sourceUrl = resolved.sourceUrl;
     } else {
       if (isHoldScreen && data.hold_screen_mux_item) {
@@ -145,6 +152,8 @@ export async function GET(request: NextRequest) {
           sourceType = holdScreenItem.source_type || MUX_SOURCE_TYPE;
           youtubePlaylistId =
             holdScreenItem.youtube_playlist_id || parseYouTubePlaylistPlaybackId(holdScreenItem.playback_id);
+          youtubeVideoId =
+            sourceType === YOUTUBE_VIDEO_SOURCE_TYPE ? parseYouTubeVideoPlaybackId(holdScreenItem.playback_id) : null;
           sourceUrl = holdScreenItem.source_url || null;
         } else {
           isHoldScreen = false;
@@ -180,6 +189,7 @@ export async function GET(request: NextRequest) {
       isHoldScreen: isHoldScreen || false,
       sourceType,
       youtubePlaylistId,
+      youtubeVideoId,
       sourceUrl,
       playoutMode,
       playbackState,
