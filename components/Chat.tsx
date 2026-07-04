@@ -19,14 +19,46 @@ interface Message {
   body: string;
   kind: 'user' | 'system' | 'poll';
   created_at: string;
+  playback_position?: number | string | null;
+  playback_id?: string | null;
 }
 
 interface ChatProps {
   room?: string;
   userId: string;
+  getSceneStamp?: () => { position: number; playbackId: string } | null;
 }
 
-export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
+const SCENE_CLIP_SECONDS = 10;
+
+function formatMovieTime(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+  return `${h > 0 ? `${h}:` : ''}${mm}:${String(sec).padStart(2, '0')}`;
+}
+
+// Animated clip of the ~10s leading up to the stamp — people react to a
+// moment, then spend a while typing, so the scene is just before send time.
+function sceneClipUrl(playbackId: string, position: number): string {
+  const end = Math.max(1, Math.round(position));
+  const start = Math.max(0, end - SCENE_CLIP_SECONDS);
+  return `https://image.mux.com/${playbackId}/animated.webp?start=${start}&end=${end}&width=320`;
+}
+
+function parseSceneStamp(message: Message): { position: number; playbackId: string } | null {
+  if (!message.playback_id) return null;
+  const position =
+    typeof message.playback_position === 'string'
+      ? parseFloat(message.playback_position)
+      : message.playback_position;
+  if (typeof position !== 'number' || !Number.isFinite(position) || position <= 0) return null;
+  return { position, playbackId: message.playback_id };
+}
+
+export default function Chat({ room = ROOM_NAMES.DEFAULT, userId, getSceneStamp }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageBody, setMessageBody] = useState('');
   const [userName, setUserName] = useState('');
@@ -36,6 +68,7 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [openSceneId, setOpenSceneId] = useState<number | null>(null);
 
   // Load user name from viewer registration data
   useEffect(() => {
@@ -206,6 +239,12 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
           userName,
           body: messageBody.trim(),
           userId,
+          ...(() => {
+            const stamp = getSceneStamp?.() || null;
+            return stamp
+              ? { playbackPosition: stamp.position, playbackId: stamp.playbackId }
+              : {};
+          })(),
         }),
       });
 
@@ -325,6 +364,8 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
 
             // Render regular user messages (compact, inline)
             const userColor = getUsernameColor(message.user_name);
+            const sceneStamp = parseSceneStamp(message);
+            const sceneOpen = sceneStamp !== null && openSceneId === message.id;
             return (
               <div key={message.id} style={{ padding: '4px 10px' }}>
                 <div className="flex flex-wrap items-baseline gap-1 text-sm leading-relaxed">
@@ -336,7 +377,83 @@ export default function Chat({ room = ROOM_NAMES.DEFAULT, userId }: ChatProps) {
                   </span>
                   <span style={{ color: '#a18ad4' }}>:</span>
                   <span className="break-words" style={{ color: '#1a1230' }}>{message.body}</span>
+                  {sceneStamp && (
+                    <button
+                      type="button"
+                      onClick={() => setOpenSceneId(sceneOpen ? null : message.id)}
+                      aria-label={`Show the scene at ${formatMovieTime(sceneStamp.position)}`}
+                      aria-expanded={sceneOpen}
+                      style={{
+                        border: 'none',
+                        background: sceneOpen ? '#cfe3f7' : '#e4eefa',
+                        color: sceneOpen ? '#185fa5' : '#6a7ba6',
+                        fontFamily: 'var(--ll-f-vt323), monospace',
+                        fontSize: 12,
+                        lineHeight: 1.4,
+                        padding: '0 7px',
+                        borderRadius: 999,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {formatMovieTime(sceneStamp.position)}
+                    </button>
+                  )}
                 </div>
+                {sceneOpen && sceneStamp && (
+                  <div
+                    style={{
+                      margin: '4px 0 2px',
+                      border: '1.5px solid #1a1230',
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      background: '#101018',
+                    }}
+                  >
+                    <div style={{ position: 'relative', aspectRatio: '16/9' }}>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#a18ad4',
+                          fontSize: 12,
+                        }}
+                      >
+                        loading scene…
+                      </span>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={sceneClipUrl(sceneStamp.playbackId, sceneStamp.position)}
+                        alt={`The ${SCENE_CLIP_SECONDS} seconds of the movie before ${formatMovieTime(sceneStamp.position)}`}
+                        style={{ position: 'relative', display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '3px 8px',
+                        background: '#1a1230',
+                      }}
+                    >
+                      <span style={{ color: '#cbb6ff', fontSize: 11 }}>
+                        the {SCENE_CLIP_SECONDS}s before {formatMovieTime(sceneStamp.position)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setOpenSceneId(null)}
+                        aria-label="Close scene preview"
+                        style={{ border: 'none', background: 'none', color: '#cbb6ff', fontSize: 12, cursor: 'pointer', padding: 0 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })
