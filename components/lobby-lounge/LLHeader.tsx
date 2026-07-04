@@ -49,10 +49,11 @@ export default function LLHeader({
             className="f-shade ll-header-title"
             style={{
               margin: 0,
-              fontSize: 32,
+              fontSize: 'clamp(14px, 5vw, 32px)',
               color: LL.lime,
               textShadow: `2px 2px 0 ${LL.ink}`,
               letterSpacing: '.01em',
+              whiteSpace: 'nowrap',
             }}
           >
             WATCHIN&apos; DA MOVIES
