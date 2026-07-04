@@ -927,7 +927,7 @@ export default function VideoPlayer({
 
     const syncInterval = setInterval(
       loadAndSyncPlaybackState,
-      realtimeHealth === 'healthy' ? 30000 : 5000
+      realtimeHealth === 'healthy' ? 10000 : 5000
     );
 
     return () => {
