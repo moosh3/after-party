@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
+import { MUX_SOURCE_TYPE } from '@/lib/youtube';
 
 // GET - Fetch current hold screen configuration
 export async function GET(request: NextRequest) {
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest) {
           playback_id,
           label,
           kind,
-          duration_seconds
+          duration_seconds,
+          source_type
         )
       `)
       .eq('id', 1)
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
 
       const { data: muxItem, error: muxError } = await supabaseAdmin
         .from('mux_items')
-        .select('id, playback_id, label')
+        .select('id, playback_id, label, source_type')
         .eq('id', muxItemId)
         .single();
 
@@ -86,6 +88,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Mux item not found' },
           { status: 404 }
+        );
+      }
+
+      if ((muxItem.source_type || MUX_SOURCE_TYPE) !== MUX_SOURCE_TYPE) {
+        return NextResponse.json(
+          { error: 'Only Mux items can be used as the hold screen' },
+          { status: 400 }
         );
       }
 

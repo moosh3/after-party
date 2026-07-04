@@ -7,6 +7,11 @@ import {
   resolveShowtimePlayout,
   type PlayoutMode,
 } from '@/lib/showtime';
+import {
+  MUX_SOURCE_TYPE,
+  parseYouTubePlaylistPlaybackId,
+  type MediaSourceType,
+} from '@/lib/youtube';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -53,6 +58,9 @@ export async function GET(request: NextRequest) {
           playbackPosition: 0,
           playbackUpdatedAt: new Date().toISOString(),
           playbackElapsedMs: 0,
+          sourceType: MUX_SOURCE_TYPE,
+          youtubePlaylistId: null,
+          sourceUrl: null,
           captionFilename: null,
           captionUrl: null,
           captionLabel: null,
@@ -89,6 +97,10 @@ export async function GET(request: NextRequest) {
     let captionUrl: string | null = null;
     let captionLabel: string | null = null;
     let captionLanguage: string | null = null;
+    let sourceType: MediaSourceType = data.source_type || MUX_SOURCE_TYPE;
+    let youtubePlaylistId: string | null =
+      data.youtube_playlist_id || parseYouTubePlaylistPlaybackId(playbackId);
+    let sourceUrl: string | null = data.source_url || null;
 
     if (playoutMode === 'schedule') {
       const resolved = resolveShowtimePlayout(
@@ -114,6 +126,9 @@ export async function GET(request: NextRequest) {
       captionUrl = resolved.captionUrl;
       captionLabel = resolved.captionLabel;
       captionLanguage = resolved.captionLanguage;
+      sourceType = MUX_SOURCE_TYPE;
+      youtubePlaylistId = null;
+      sourceUrl = null;
     } else {
       if (isHoldScreen && data.hold_screen_mux_item) {
         const holdScreenItem = Array.isArray(data.hold_screen_mux_item)
@@ -124,6 +139,9 @@ export async function GET(request: NextRequest) {
           playbackId = holdScreenItem.playback_id;
           title = holdScreenItem.label;
           kind = holdScreenItem.kind || 'vod';
+          sourceType = MUX_SOURCE_TYPE;
+          youtubePlaylistId = null;
+          sourceUrl = null;
         } else {
           isHoldScreen = false;
         }
@@ -131,15 +149,19 @@ export async function GET(request: NextRequest) {
         isHoldScreen = false;
       }
 
-      const captions = getCaptionTrackForPlaybackId(playbackId);
-      captionFilename = captions.captionFilename;
-      captionUrl = captions.captionUrl;
-      captionLabel = captions.captionLabel;
-      captionLanguage = captions.captionLanguage;
+      if (sourceType === MUX_SOURCE_TYPE) {
+        const captions = getCaptionTrackForPlaybackId(playbackId);
+        captionFilename = captions.captionFilename;
+        captionUrl = captions.captionUrl;
+        captionLabel = captions.captionLabel;
+        captionLanguage = captions.captionLanguage;
+      }
     }
 
     // Generate playback token (or use unsigned if credentials not configured)
-    const token = await generatePlaybackToken(playbackId);
+    const token = sourceType === MUX_SOURCE_TYPE
+      ? await generatePlaybackToken(playbackId)
+      : 'unsigned';
 
     // Calculate expiry time (1 hour from now)
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -152,6 +174,9 @@ export async function GET(request: NextRequest) {
       expiresAt,
       showPoster: data.show_poster || false,
       isHoldScreen: isHoldScreen || false,
+      sourceType,
+      youtubePlaylistId,
+      sourceUrl,
       playoutMode,
       playbackState,
       playbackPosition,

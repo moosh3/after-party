@@ -11,6 +11,12 @@ import {
   DATABASE_TABLES,
   SYNC_THRESHOLDS,
 } from '@/lib/constants';
+import {
+  MUX_SOURCE_TYPE,
+  YOUTUBE_PLAYLIST_SOURCE_TYPE,
+  parseYouTubePlaylistPlaybackId,
+  type MediaSourceType,
+} from '@/lib/youtube';
 
 interface VideoPlayerProps {
   playbackId: string;
@@ -26,6 +32,9 @@ interface VideoPlayerProps {
   playbackUpdatedAt?: string;
   playbackElapsedMs?: number;
   activeSlotId?: string | null;
+  sourceType?: MediaSourceType | string;
+  youtubePlaylistId?: string | null;
+  sourceUrl?: string | null;
 }
 
 type PlaybackStateResponse = {
@@ -34,6 +43,281 @@ type PlaybackStateResponse = {
   playback_updated_at?: string;
   playback_elapsed_ms?: number | string;
 };
+
+type YouTubePlayerEvent = {
+  target: YouTubePlayer;
+  data?: number;
+};
+
+type YouTubePlayer = {
+  destroy: () => void;
+  loadPlaylist: (options: {
+    listType: 'playlist';
+    list: string;
+    index?: number;
+    startSeconds?: number;
+  }) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+  mute: () => void;
+  unMute: () => void;
+  setVolume: (volume: number) => void;
+  setLoop?: (loopPlaylists: boolean) => void;
+  getPlaylist?: () => string[];
+  getPlaylistIndex?: () => number;
+  playVideoAt?: (index: number) => void;
+};
+
+type YouTubeApi = {
+  Player: new (
+    element: HTMLElement,
+    options: {
+      width: string;
+      height: string;
+      playerVars: Record<string, string | number>;
+      events: {
+        onReady: (event: YouTubePlayerEvent) => void;
+        onStateChange: (event: YouTubePlayerEvent) => void;
+        onError: () => void;
+      };
+    }
+  ) => YouTubePlayer;
+  PlayerState: {
+    ENDED: number;
+    PLAYING: number;
+    PAUSED: number;
+  };
+};
+
+declare global {
+  interface Window {
+    YT?: YouTubeApi;
+    onYouTubeIframeAPIReady?: () => void;
+    __youtubeIframeApiReady?: Promise<YouTubeApi>;
+  }
+}
+
+function loadYouTubeIframeApi() {
+  if (window.YT?.Player) {
+    return Promise.resolve(window.YT);
+  }
+
+  if (!window.__youtubeIframeApiReady) {
+    window.__youtubeIframeApiReady = new Promise((resolve) => {
+      const previousCallback = window.onYouTubeIframeAPIReady;
+
+      window.onYouTubeIframeAPIReady = () => {
+        previousCallback?.();
+        resolve(window.YT as YouTubeApi);
+      };
+
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://www.youtube.com/iframe_api';
+        script.async = true;
+        document.head.appendChild(script);
+      }
+    });
+  }
+
+  return window.__youtubeIframeApiReady as Promise<YouTubeApi>;
+}
+
+function YouTubePlaylistPlayer({
+  playlistId,
+  title,
+  viewerLocked,
+}: {
+  playlistId: string;
+  title: string;
+  viewerLocked: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mountRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
+  const volumeRef = useRef(80);
+  const mutedRef = useRef(false);
+  const [isReady, setIsReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [volume, setVolume] = useState(80);
+  const [muted, setMuted] = useState(false);
+
+  useEffect(() => {
+    let disposed = false;
+
+    setIsReady(false);
+    setLoadError(false);
+
+    loadYouTubeIframeApi()
+      .then((YT) => {
+        if (disposed || !mountRef.current) return;
+
+        const player = new YT.Player(mountRef.current, {
+          width: '100%',
+          height: '100%',
+          playerVars: {
+            listType: 'playlist',
+            list: playlistId,
+            loop: 1,
+            autoplay: 1,
+            controls: 0,
+            disablekb: 1,
+            playsinline: 1,
+            enablejsapi: 1,
+            cc_load_policy: 1,
+            cc_lang_pref: 'en',
+            iv_load_policy: 3,
+            rel: 0,
+            origin: window.location.origin,
+          },
+          events: {
+            onReady: (event) => {
+              if (disposed) return;
+
+              playerRef.current = event.target;
+              event.target.setLoop?.(true);
+              event.target.setVolume(volumeRef.current);
+              if (mutedRef.current) {
+                event.target.mute();
+              } else {
+                event.target.unMute();
+              }
+              event.target.loadPlaylist({
+                listType: 'playlist',
+                list: playlistId,
+                index: 0,
+                startSeconds: 0,
+              });
+              event.target.playVideo();
+              setIsReady(true);
+            },
+            onStateChange: (event) => {
+              if (!viewerLocked) return;
+
+              if (event.data === YT.PlayerState.PAUSED) {
+                window.setTimeout(() => event.target.playVideo(), 100);
+              }
+
+              if (event.data === YT.PlayerState.ENDED) {
+                const playlist = event.target.getPlaylist?.() || [];
+                const index = event.target.getPlaylistIndex?.() ?? 0;
+
+                if (playlist.length > 0 && index >= playlist.length - 1) {
+                  event.target.playVideoAt?.(0);
+                } else {
+                  event.target.playVideo();
+                }
+              }
+            },
+            onError: () => {
+              if (!disposed) setLoadError(true);
+            },
+          },
+        });
+
+        playerRef.current = player;
+      })
+      .catch(() => {
+        if (!disposed) setLoadError(true);
+      });
+
+    return () => {
+      disposed = true;
+      playerRef.current?.destroy();
+      playerRef.current = null;
+    };
+  }, [playlistId, viewerLocked]);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+    playerRef.current?.setVolume(volume);
+  }, [volume]);
+
+  useEffect(() => {
+    mutedRef.current = muted;
+    if (!playerRef.current) return;
+
+    if (muted) {
+      playerRef.current.mute();
+    } else {
+      playerRef.current.unMute();
+    }
+  }, [muted]);
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+
+    await containerRef.current.requestFullscreen().catch(() => undefined);
+  };
+
+  if (loadError) {
+    return (
+      <div className="aspect-video bg-black flex items-center justify-center rounded-lg">
+        <div className="text-center p-6 twitch-card">
+          <p className="text-red-500 mb-4">Unable to load YouTube playlist.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="twitch-button"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative aspect-video bg-black overflow-hidden max-h-screen rounded-lg">
+      <div className="absolute inset-0 h-full w-full">
+        <div ref={mountRef} className="h-full w-full" title={title} />
+      </div>
+      {viewerLocked && <div className="absolute inset-0 z-10" aria-hidden="true" />}
+
+      {!isReady && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black text-white text-sm">
+          Loading playlist
+        </div>
+      )}
+
+      <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-md bg-black/75 px-3 py-2 text-white">
+        <button
+          type="button"
+          onClick={() => setMuted((value) => !value)}
+          className="min-h-[32px] rounded bg-white/15 px-2 text-xs font-semibold hover:bg-white/25"
+          aria-label={muted ? 'Unmute' : 'Mute'}
+        >
+          {muted ? 'UNMUTE' : 'MUTE'}
+        </button>
+        <input
+          aria-label="Volume"
+          type="range"
+          min="0"
+          max="100"
+          value={volume}
+          onChange={(event) => {
+            const nextVolume = Number(event.target.value);
+            setVolume(nextVolume);
+            if (nextVolume > 0 && muted) setMuted(false);
+          }}
+          className="w-24"
+        />
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="min-h-[32px] rounded bg-white/15 px-2 text-xs font-semibold hover:bg-white/25"
+          aria-label="Fullscreen"
+        >
+          FULL
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function VideoPlayer({
   playbackId,
@@ -49,6 +333,8 @@ export default function VideoPlayer({
   playbackUpdatedAt,
   playbackElapsedMs = 0,
   activeSlotId = null,
+  sourceType = MUX_SOURCE_TYPE,
+  youtubePlaylistId = null,
 }: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -201,11 +487,15 @@ export default function VideoPlayer({
   }, [applyPlaybackState]);
 
   useEffect(() => {
-    if (playbackId === 'demo-playback-id') {
+    setError(null);
+  }, [playbackId, sourceType]);
+
+  useEffect(() => {
+    if (sourceType === MUX_SOURCE_TYPE && playbackId === 'demo-playback-id') {
       console.log('Development mode: Mock video player (configure Mux for real playback)');
       setError('Configure Mux credentials in .env.local to enable video playback');
     }
-  }, [playbackId]);
+  }, [playbackId, sourceType]);
 
   useEffect(() => {
     endedSlotRef.current = null;
@@ -215,7 +505,7 @@ export default function VideoPlayer({
 
   useEffect(() => {
     const player = playerRef.current;
-    if (!player || isHoldScreen || kind === 'live') return;
+    if (sourceType !== MUX_SOURCE_TYPE || !player || isHoldScreen || kind === 'live') return;
 
     let attempts = 0;
     let timeout: NodeJS.Timeout | null = null;
@@ -282,7 +572,7 @@ export default function VideoPlayer({
       player.removeEventListener('canplay', handleReady);
       if (timeout) clearTimeout(timeout);
     };
-  }, [playbackId, isHoldScreen, kind]);
+  }, [playbackId, isHoldScreen, kind, sourceType]);
 
   useEffect(() => {
     if (canBroadcastAdminControls || !playerRef.current) return;
@@ -479,6 +769,28 @@ export default function VideoPlayer({
           </button>
         </div>
       </div>
+    );
+  }
+
+  if (sourceType === YOUTUBE_PLAYLIST_SOURCE_TYPE) {
+    const playlistId = youtubePlaylistId || parseYouTubePlaylistPlaybackId(playbackId);
+
+    if (!playlistId) {
+      return (
+        <div className="aspect-video bg-black flex items-center justify-center rounded-lg">
+          <div className="text-center p-6 twitch-card">
+            <p className="text-red-500">Invalid YouTube playlist source.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <YouTubePlaylistPlayer
+        playlistId={playlistId}
+        title={title}
+        viewerLocked={viewerLocked}
+      />
     );
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
+import { MUX_SOURCE_TYPE } from '@/lib/youtube';
 
 // GET - Fetch entire queue with video details
 export async function GET(request: NextRequest) {
@@ -23,7 +24,8 @@ export async function GET(request: NextRequest) {
           playback_id,
           label,
           kind,
-          duration_seconds
+          duration_seconds,
+          source_type
         )
       `)
       .order('position', { ascending: true });
@@ -60,6 +62,26 @@ export async function POST(request: NextRequest) {
     if (!muxItemId) {
       return NextResponse.json(
         { error: 'muxItemId is required' },
+        { status: 400 }
+      );
+    }
+
+    const { data: muxItem, error: muxItemError } = await supabaseAdmin
+      .from('mux_items')
+      .select('source_type')
+      .eq('id', muxItemId)
+      .single();
+
+    if (muxItemError || !muxItem) {
+      return NextResponse.json(
+        { error: 'Mux item not found' },
+        { status: 404 }
+      );
+    }
+
+    if ((muxItem.source_type || MUX_SOURCE_TYPE) !== MUX_SOURCE_TYPE) {
+      return NextResponse.json(
+        { error: 'Only Mux items can be queued' },
         { status: 400 }
       );
     }

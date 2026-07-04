@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import PlaybackControls from './PlaybackControls';
+import { MUX_SOURCE_TYPE, YOUTUBE_PLAYLIST_SOURCE_TYPE } from '@/lib/youtube';
 
-interface MuxItem {
+interface MediaItem {
   id: string;
   playback_id: string;
   label: string;
   kind: string;
   duration_seconds?: number;
+  source_type?: string;
+  youtube_playlist_id?: string | null;
+  source_url?: string | null;
 }
 
 interface CurrentStream {
@@ -16,6 +20,9 @@ interface CurrentStream {
   title: string;
   kind: string;
   updated_at: string;
+  source_type?: string;
+  youtube_playlist_id?: string | null;
+  source_url?: string | null;
 }
 
 interface Poll {
@@ -49,11 +56,12 @@ export default function StreamControl({
   showLibraryControls = true, 
   showPlaybackControls = true 
 }: StreamControlProps) {
-  const [muxItems, setMuxItems] = useState<MuxItem[]>([]);
+  const [muxItems, setMuxItems] = useState<MediaItem[]>([]);
   const [currentStream, setCurrentStream] = useState<CurrentStream | null>(null);
-  const [selectedItem, setSelectedItem] = useState<string>('');
   const [customPlaybackId, setCustomPlaybackId] = useState('');
   const [customTitle, setCustomTitle] = useState('');
+  const [youtubePlaylistUrl, setYoutubePlaylistUrl] = useState('');
+  const [youtubePlaylistTitle, setYoutubePlaylistTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
@@ -141,7 +149,14 @@ export default function StreamControl({
     }
   }
 
-  async function handleSetStream(playbackId: string, title: string, kind: string = 'vod') {
+  async function handleSetStream(
+    playbackId: string,
+    title: string,
+    kind: string = 'vod',
+    sourceType: string = MUX_SOURCE_TYPE,
+    youtubePlaylistId?: string | null,
+    sourceUrl?: string | null
+  ) {
     setLoading(true);
     setMessage(null);
 
@@ -149,7 +164,14 @@ export default function StreamControl({
       const response = await fetch('/api/admin/set-current', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playbackId, title, kind }),
+        body: JSON.stringify({
+          playbackId,
+          title,
+          kind,
+          sourceType,
+          youtubePlaylistId,
+          sourceUrl,
+        }),
       });
 
       const data = await response.json();
@@ -159,6 +181,8 @@ export default function StreamControl({
         setCurrentStream(data.stream);
         setCustomPlaybackId('');
         setCustomTitle('');
+        setYoutubePlaylistUrl('');
+        setYoutubePlaylistTitle('');
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update stream' });
       }
@@ -184,6 +208,7 @@ export default function StreamControl({
           playbackId: customPlaybackId,
           label: customTitle,
           kind: 'vod',
+          sourceType: MUX_SOURCE_TYPE,
         }),
       });
 
@@ -193,6 +218,53 @@ export default function StreamControl({
       } else {
         const data = await response.json();
         setMessage({ type: 'error', text: data.error || 'Failed to add item' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error occurred' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddYouTubePlaylist(makeCurrent = false) {
+    if (!youtubePlaylistUrl) {
+      setMessage({ type: 'error', text: 'YouTube playlist URL is required' });
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/admin/mux-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceType: YOUTUBE_PLAYLIST_SOURCE_TYPE,
+          sourceUrl: youtubePlaylistUrl,
+          label: youtubePlaylistTitle || undefined,
+        }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        await loadMuxItems();
+        setMessage({ type: 'success', text: 'YouTube playlist added successfully' });
+        setYoutubePlaylistUrl('');
+        setYoutubePlaylistTitle('');
+
+        if (makeCurrent && data.item) {
+          await handleSetStream(
+            data.item.playback_id,
+            data.item.label,
+            data.item.kind,
+            data.item.source_type,
+            data.item.youtube_playlist_id,
+            data.item.source_url
+          );
+        }
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to add YouTube playlist' });
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Network error occurred' });
@@ -459,8 +531,13 @@ export default function StreamControl({
               <p className="text-xs text-twitch-text-alt uppercase tracking-wider mb-1">Currently Streaming</p>
               <p className="font-semibold text-lg text-twitch-text">{currentStream.title}</p>
               <p className="text-xs text-twitch-text-alt mt-2 font-mono">
-                {currentStream.playback_id} • {currentStream.kind}
+                {currentStream.playback_id} • {currentStream.kind} • {currentStream.source_type || MUX_SOURCE_TYPE}
               </p>
+              {currentStream.source_url && (
+                <p className="text-xs text-twitch-text-alt mt-1 break-all">
+                  {currentStream.source_url}
+                </p>
+              )}
               <p className="text-xs text-twitch-text-alt mt-1">
                 Last updated: {new Date(currentStream.updated_at).toLocaleString()}
               </p>
@@ -485,67 +562,87 @@ export default function StreamControl({
           <div>
             <h3 className="text-lg font-semibold mb-3 text-twitch-text">Select from Library</h3>
             {muxItems.length === 0 ? (
-              <p className="text-twitch-text-alt text-sm">No Mux items available. Add one below.</p>
+              <p className="text-twitch-text-alt text-sm">No media items available. Add one below.</p>
             ) : (
               <div className="space-y-2">
-                {muxItems.map(item => (
-                  <div key={item.id} className={`twitch-card p-4 ${holdScreenMuxItemId === item.id ? 'border-l-4 border-yellow-500' : ''}`}>
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-twitch-text">{item.label}</p>
-                          {holdScreenMuxItemId === item.id && (
-                            <span className="text-xs font-semibold px-2 py-1 rounded bg-yellow-500/20 text-yellow-500 flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                              Hold Screen
+                {muxItems.map(item => {
+                  const sourceType = item.source_type || MUX_SOURCE_TYPE;
+                  const isMux = sourceType === MUX_SOURCE_TYPE;
+
+                  return (
+                    <div key={item.id} className={`twitch-card p-4 ${isMux && holdScreenMuxItemId === item.id ? 'border-l-4 border-yellow-500' : ''}`}>
+                      <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <p className="font-medium text-twitch-text">{item.label}</p>
+                            <span className="text-xs font-semibold px-2 py-1 rounded bg-twitch-purple/20 text-twitch-purple">
+                              {isMux ? 'Mux' : 'YouTube Playlist'}
                             </span>
+                            {isMux && holdScreenMuxItemId === item.id && (
+                              <span className="text-xs font-semibold px-2 py-1 rounded bg-yellow-500/20 text-yellow-500 flex items-center gap-1">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                                Hold Screen
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-twitch-text-alt font-mono break-all">{item.playback_id}</p>
+                          {item.source_url && (
+                            <p className="text-xs text-twitch-text-alt break-all mt-1">{item.source_url}</p>
+                          )}
+                          {item.duration_seconds && (
+                            <p className="text-xs text-twitch-text-alt">
+                              Duration: {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
+                            </p>
                           )}
                         </div>
-                        <p className="text-xs text-twitch-text-alt font-mono break-all">{item.playback_id}</p>
-                        {item.duration_seconds && (
-                          <p className="text-xs text-twitch-text-alt">
-                            Duration: {Math.floor(item.duration_seconds / 60)}m {item.duration_seconds % 60}s
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
-                        <button
-                          onClick={() => handleSetStream(item.playback_id, item.label, item.kind)}
-                          disabled={loading || currentStream?.playback_id === item.playback_id}
-                          className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
-                            currentStream?.playback_id === item.playback_id
-                              ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
-                              : 'twitch-button'
-                          }`}
-                        >
-                          {currentStream?.playback_id === item.playback_id ? 'Current' : 'Make Current'}
-                        </button>
-                        <button
-                          onClick={() => handleSetHoldScreen(item.id, item.label)}
-                          disabled={loading || holdScreenMuxItemId === item.id}
-                          className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
-                            holdScreenMuxItemId === item.id
-                              ? 'bg-yellow-500/20 text-yellow-500 cursor-not-allowed border border-yellow-500'
-                              : 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                          }`}
-                          title="Set this as the hold screen video"
-                        >
-                          {holdScreenMuxItemId === item.id ? '★ Hold Screen' : 'Set Hold Screen'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMuxItem(item.id, item.label)}
-                          disabled={loading}
-                          className="px-4 py-2 rounded text-sm transition-colors bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed text-white min-h-[44px]"
-                          title="Delete this item from library"
-                        >
-                          Delete
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
+                          <button
+                            onClick={() => handleSetStream(
+                              item.playback_id,
+                              item.label,
+                              item.kind,
+                              sourceType,
+                              item.youtube_playlist_id,
+                              item.source_url
+                            )}
+                            disabled={loading || currentStream?.playback_id === item.playback_id}
+                            className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
+                              currentStream?.playback_id === item.playback_id
+                                ? 'bg-twitch-hover text-twitch-text-alt cursor-not-allowed'
+                                : 'twitch-button'
+                            }`}
+                          >
+                            {currentStream?.playback_id === item.playback_id ? 'Current' : 'Make Current'}
+                          </button>
+                          {isMux && (
+                            <button
+                              onClick={() => handleSetHoldScreen(item.id, item.label)}
+                              disabled={loading || holdScreenMuxItemId === item.id}
+                              className={`px-4 py-2 rounded text-sm transition-colors min-h-[44px] ${
+                                holdScreenMuxItemId === item.id
+                                  ? 'bg-yellow-500/20 text-yellow-500 cursor-not-allowed border border-yellow-500'
+                                  : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                              }`}
+                              title="Set this as the hold screen video"
+                            >
+                              {holdScreenMuxItemId === item.id ? '★ Hold Screen' : 'Set Hold Screen'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteMuxItem(item.id, item.label)}
+                            disabled={loading}
+                            className="px-4 py-2 rounded text-sm transition-colors bg-error hover:bg-red-600 disabled:bg-twitch-gray disabled:cursor-not-allowed text-white min-h-[44px]"
+                            title="Delete this item from library"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -594,6 +691,54 @@ export default function StreamControl({
                     }
                   }}
                   disabled={loading || !customPlaybackId || !customTitle}
+                  className="twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
+                >
+                  Add & Make Current
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="twitch-card p-4">
+            <h3 className="text-lg font-semibold mb-3 text-twitch-text">Add YouTube Playlist</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-twitch-text mb-2">
+                  Playlist URL
+                </label>
+                <input
+                  type="url"
+                  value={youtubePlaylistUrl}
+                  onChange={(e) => setYoutubePlaylistUrl(e.target.value)}
+                  className="twitch-input w-full"
+                  placeholder="https://www.youtube.com/playlist?list=..."
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-twitch-text mb-2">
+                  Title/Label
+                </label>
+                <input
+                  type="text"
+                  value={youtubePlaylistTitle}
+                  onChange={(e) => setYoutubePlaylistTitle(e.target.value)}
+                  className="twitch-input w-full"
+                  placeholder="e.g., Late Night Clips"
+                  disabled={loading}
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => handleAddYouTubePlaylist(false)}
+                  disabled={loading || !youtubePlaylistUrl}
+                  className="twitch-button-secondary disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
+                >
+                  Add to Library
+                </button>
+                <button
+                  onClick={() => handleAddYouTubePlaylist(true)}
+                  disabled={loading || !youtubePlaylistUrl}
                   className="twitch-button disabled:bg-twitch-gray disabled:cursor-not-allowed min-h-[44px]"
                 >
                   Add & Make Current
@@ -837,4 +982,3 @@ export default function StreamControl({
     </div>
   );
 }
-

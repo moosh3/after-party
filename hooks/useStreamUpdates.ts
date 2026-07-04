@@ -11,6 +11,7 @@ interface StreamUpdate {
   playbackId: string;
   title: string;
   kind: string;
+  sourceType?: string;
   updatedAt: string;
 }
 
@@ -29,6 +30,7 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
           playbackId: data.playbackId,
           title: data.title,
           kind: data.kind,
+          sourceType: data.sourceType,
           updatedAt: new Date().toISOString(),
         });
       }
@@ -72,6 +74,7 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
             playbackId: newData.playback_id,
             title: newData.title,
             kind: newData.kind,
+            sourceType: newData.source_type,
             updatedAt: newData.updated_at,
           });
         }
@@ -102,4 +105,3 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
 
   return streamData;
 }
-

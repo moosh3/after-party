@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { MUX_SOURCE_TYPE } from '@/lib/youtube';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const { data: current, error: currentError } = await supabaseAdmin
       .from('current_stream')
-      .select('playout_mode, playback_id, playback_state, playback_position, playback_updated_at, auto_advance_enabled, hold_screen_enabled')
+      .select('playout_mode, playback_id, source_type, playback_state, playback_position, playback_updated_at, auto_advance_enabled, hold_screen_enabled')
       .eq('id', 1)
       .single();
 
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
 
     if ((current.playout_mode || 'schedule') !== 'manual') {
       return NextResponse.json({ success: true, ignored: true, reason: 'schedule-mode' });
+    }
+
+    if ((current.source_type || MUX_SOURCE_TYPE) !== MUX_SOURCE_TYPE) {
+      return NextResponse.json({ success: true, ignored: true, reason: 'non-mux-source' });
     }
 
     if (!current.auto_advance_enabled) {

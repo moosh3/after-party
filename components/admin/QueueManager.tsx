@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { MUX_SOURCE_TYPE } from '@/lib/youtube';
 
 interface QueueItem {
   id: string;
@@ -13,20 +14,22 @@ interface QueueItem {
     label: string;
     kind: string;
     duration_seconds?: number;
+    source_type?: string;
   };
 }
 
-interface MuxItem {
+interface MediaItem {
   id: string;
   playback_id: string;
   label: string;
   kind: string;
   duration_seconds?: number;
+  source_type?: string;
 }
 
 export default function QueueManager() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [muxItems, setMuxItems] = useState<MuxItem[]>([]);
+  const [muxItems, setMuxItems] = useState<MediaItem[]>([]);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -278,6 +281,10 @@ export default function QueueManager() {
     return queue.some(item => item.mux_item_id === muxItemId);
   };
 
+  const queueableMuxItems = muxItems.filter(
+    (item) => (item.source_type || MUX_SOURCE_TYPE) === MUX_SOURCE_TYPE
+  );
+
   async function handleSetHoldScreen(muxItemId: string, label: string) {
     setLoading(true);
     setMessage(null);
@@ -422,7 +429,7 @@ export default function QueueManager() {
           {holdScreenMuxItemId && (
             <div className="text-xs text-twitch-text-alt bg-twitch-dark px-2 py-1 rounded">
               <span className="font-medium text-twitch-text">Selected: </span>
-              {muxItems.find(item => item.id === holdScreenMuxItemId)?.label || 'Unknown'}
+              {queueableMuxItems.find(item => item.id === holdScreenMuxItemId)?.label || 'Unknown'}
             </div>
           )}
           {!holdScreenMuxItemId && (
@@ -529,13 +536,13 @@ export default function QueueManager() {
           <p className="text-xs font-semibold text-twitch-text-alt uppercase tracking-wider mb-2">
             Add from Library
           </p>
-          {muxItems.length === 0 ? (
+          {queueableMuxItems.length === 0 ? (
             <p className="text-sm text-twitch-text-alt text-center py-4">
-              No videos in library. Add videos from the main controls.
+              No Mux videos in library. Add videos from the main controls.
             </p>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {muxItems.map((item) => (
+              {queueableMuxItems.map((item) => (
                 <div key={item.id} className="bg-twitch-darker border border-twitch-border rounded p-3">
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
@@ -585,4 +592,3 @@ export default function QueueManager() {
     </div>
   );
 }
-

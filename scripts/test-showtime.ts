@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { getCaptionTrack, srtToWebVtt } from '../lib/captions';
 import { loadShowtime, parseShowtimeYaml, resolveShowtimePlayoutFor } from '../lib/showtime';
+import {
+  extractYouTubePlaylistId,
+  makeYouTubePlaylistPlaybackId,
+  parseYouTubePlaylistPlaybackId,
+} from '../lib/youtube';
 
 const baseYaml = `
 event:
@@ -111,5 +116,23 @@ const overnight = parseShowtimeYaml(
   baseYaml.replace('end: "10:00"', 'end: "01:00"')
 );
 assert.equal(overnight.schedule[0].absoluteEndMinute, 1500);
+
+const playlistId = 'PL1234567890abcdef';
+assert.equal(
+  extractYouTubePlaylistId(`https://www.youtube.com/playlist?list=${playlistId}`),
+  playlistId
+);
+assert.equal(
+  extractYouTubePlaylistId(`https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=${playlistId}`),
+  playlistId
+);
+assert.equal(
+  extractYouTubePlaylistId(`https://youtu.be/dQw4w9WgXcQ?list=${playlistId}`),
+  playlistId
+);
+assert.equal(extractYouTubePlaylistId(playlistId), playlistId);
+assert.equal(parseYouTubePlaylistPlaybackId(makeYouTubePlaylistPlaybackId(playlistId)), playlistId);
+assert.throws(() => extractYouTubePlaylistId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), /list/);
+assert.throws(() => extractYouTubePlaylistId('not a playlist'), /Invalid/);
 
 console.log('showtime validation passed');

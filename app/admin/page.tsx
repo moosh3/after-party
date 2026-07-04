@@ -28,6 +28,9 @@ interface StreamData {
   scheduleStatus?: string | null;
   nextTransitionAt?: string | null;
   scheduleTitle?: string | null;
+  sourceType?: string;
+  youtubePlaylistId?: string | null;
+  sourceUrl?: string | null;
 }
 
 function formatTransition(value?: string | null) {
@@ -248,7 +251,7 @@ export default function AdminDashboard() {
               </div>
             </div>
             <p className="text-xs text-twitch-text-alt mt-3">
-              Current source: {streamData.title}
+              Current source: {streamData.title} • {streamData.sourceType || 'mux'}
             </p>
           </div>
         )}
@@ -264,11 +267,14 @@ export default function AdminDashboard() {
               </p>
               {streamData ? (
                 <VideoPlayer
-                  key={`${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
+                  key={`${streamData.sourceType || 'mux'}:${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
                   playbackId={streamData.playbackId}
                   token={streamData.token}
                   title={streamData.title}
                   kind={streamData.kind}
+                  sourceType={streamData.sourceType}
+                  youtubePlaylistId={streamData.youtubePlaylistId}
+                  sourceUrl={streamData.sourceUrl}
                   isAdmin={true}
                   allowAdminBroadcast={false}
                   isHoldScreen={streamData.isHoldScreen}

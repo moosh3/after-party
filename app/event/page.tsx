@@ -42,6 +42,9 @@ interface StreamData {
   activeSlotId?: string | null;
   scheduleStatus?: string | null;
   nextTransitionAt?: string | null;
+  sourceType?: string;
+  youtubePlaylistId?: string | null;
+  sourceUrl?: string | null;
 }
 
 function ScreenChrome({ children }: { children: React.ReactNode }) {
@@ -89,6 +92,7 @@ export default function EventPage() {
       playbackId: streamData.playbackId,
       title: streamData.title,
       kind: streamData.kind,
+      sourceType: streamData.sourceType,
       updatedAt: streamData.expiresAt || new Date().toISOString(),
     };
   }, [streamData]);
@@ -500,11 +504,14 @@ export default function EventPage() {
               }
             >
               <VideoPlayer
-                key={`${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
+                key={`${streamData.sourceType || 'mux'}:${streamData.playbackId}:${streamData.activeSlotId || 'no-slot'}:${streamData.isHoldScreen ? 'hold' : 'movie'}`}
                 playbackId={streamData.playbackId}
                 token={streamData.token}
                 title={streamData.title}
                 kind={streamData.kind}
+                sourceType={streamData.sourceType}
+                youtubePlaylistId={streamData.youtubePlaylistId}
+                sourceUrl={streamData.sourceUrl}
                 isHoldScreen={streamData.isHoldScreen}
                 playoutMode={streamData.playoutMode}
                 playbackState={streamData.playbackState}

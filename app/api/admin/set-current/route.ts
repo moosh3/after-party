@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/session';
+import {
+  MUX_SOURCE_TYPE,
+  YOUTUBE_PLAYLIST_SOURCE_TYPE,
+  extractYouTubePlaylistId,
+  makeYouTubePlaylistPlaybackId,
+  parseYouTubePlaylistPlaybackId,
+  type MediaSourceType,
+} from '@/lib/youtube';
 
 export async function POST(request: NextRequest) {
   // Verify admin authentication
@@ -11,11 +19,61 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { playbackId, title, kind = 'vod' } = await request.json();
+    const {
+      playbackId,
+      title,
+      kind = 'vod',
+      sourceType: rawSourceType,
+      source_type: rawSourceTypeSnake,
+      youtubePlaylistId,
+      youtube_playlist_id: youtubePlaylistIdSnake,
+      sourceUrl,
+      source_url: sourceUrlSnake,
+    } = await request.json();
+    const sourceType: MediaSourceType =
+      rawSourceType || rawSourceTypeSnake || MUX_SOURCE_TYPE;
+    let nextPlaybackId = playbackId;
+    let nextKind = kind;
+    let nextSourceType: MediaSourceType = MUX_SOURCE_TYPE;
+    let nextYoutubePlaylistId: string | null = null;
+    let nextSourceUrl: string | null = null;
 
-    if (!playbackId || !title) {
+    if (!title) {
       return NextResponse.json(
-        { error: 'playbackId and title are required' },
+        { error: 'title is required' },
+        { status: 400 }
+      );
+    }
+
+    if (sourceType === YOUTUBE_PLAYLIST_SOURCE_TYPE) {
+      const playbackPlaylistId = parseYouTubePlaylistPlaybackId(playbackId);
+      const playlistInput =
+        youtubePlaylistId || youtubePlaylistIdSnake || playbackPlaylistId || sourceUrl || sourceUrlSnake || playbackId;
+
+      try {
+        nextYoutubePlaylistId = extractYouTubePlaylistId(playlistInput || '');
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid YouTube playlist URL' },
+          { status: 400 }
+        );
+      }
+
+      nextPlaybackId = makeYouTubePlaylistPlaybackId(nextYoutubePlaylistId);
+      nextKind = 'vod';
+      nextSourceType = YOUTUBE_PLAYLIST_SOURCE_TYPE;
+      nextSourceUrl =
+        sourceUrl || sourceUrlSnake || `https://www.youtube.com/playlist?list=${nextYoutubePlaylistId}`;
+    } else if (sourceType === MUX_SOURCE_TYPE) {
+      if (!playbackId) {
+        return NextResponse.json(
+          { error: 'playbackId is required' },
+          { status: 400 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Invalid sourceType' },
         { status: 400 }
       );
     }
@@ -25,9 +83,12 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from('current_stream')
       .update({
-        playback_id: playbackId,
+        playback_id: nextPlaybackId,
         title: title,
-        kind: kind,
+        kind: nextKind,
+        source_type: nextSourceType,
+        youtube_playlist_id: nextYoutubePlaylistId,
+        source_url: nextSourceUrl,
         updated_at: new Date().toISOString(),
         updated_by: session.userId,
         // Reset playback state when changing videos manually
@@ -64,9 +125,12 @@ export async function POST(request: NextRequest) {
       action_type: 'stream_change',
       admin_user: session.userId,
       details: {
-        playback_id: playbackId,
+        playback_id: nextPlaybackId,
         title: title,
-        kind: kind,
+        kind: nextKind,
+        source_type: nextSourceType,
+        youtube_playlist_id: nextYoutubePlaylistId,
+        source_url: nextSourceUrl,
       },
     });
 
