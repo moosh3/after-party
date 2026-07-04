@@ -7,7 +7,7 @@ import { LL } from '@/components/lobby-lounge/tokens';
 import DoorsCountdown from '@/components/lobby-lounge/DoorsCountdown';
 import '@/components/lobby-lounge/lobby-lounge.css';
 
-const POSTER = '/assets/images/cage-a-thon.png';
+const POSTER = '/assets/images/ads/cage-a-thon-promo.jpg';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -39,11 +39,26 @@ export default function LandingPage() {
       className={`dm-lobby-lounge ${LL_FONT_VARS}`}
       style={{ background: LL.ink, color: LL.frost1, minHeight: '100vh' }}
     >
+      <style>{`
+        .ll-landing-bg {
+          background-image: linear-gradient(180deg, rgba(26,18,48,.05) 0%, rgba(26,18,48,.35) 55%, ${LL.ink} 96%), url(${POSTER});
+          background-size: cover;
+          background-position: center 70%;
+          background-repeat: no-repeat;
+        }
+        @media (max-width: 480px) {
+          .ll-landing-bg {
+            background-size: contain;
+            background-position: top center;
+          }
+        }
+      `}</style>
       <a className="skip-link" href="#ll-landing-main">
         Skip to content
       </a>
       <main
         id="ll-landing-main"
+        className="ll-landing-bg"
         style={{
           position: 'relative',
           minHeight: '100vh',
@@ -51,9 +66,6 @@ export default function LandingPage() {
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'center',
-          backgroundImage: `linear-gradient(180deg, rgba(26,18,48,.05) 0%, rgba(26,18,48,.35) 55%, ${LL.ink} 96%), url("${POSTER}")`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center 28%',
           padding: 'min(8vh, 56px) 20px',
         }}
       >
