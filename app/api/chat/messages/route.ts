@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -26,7 +29,16 @@ export async function GET(request: NextRequest) {
     // Reverse to get chronological order
     const sortedMessages = (messages || []).reverse();
 
-    return NextResponse.json({ messages: sortedMessages });
+    return NextResponse.json(
+      { messages: sortedMessages },
+      {
+        headers: {
+          // Mobile browsers heuristically cache GETs without this, serving a
+          // stale message list when the chat refetches after a reconnect.
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error fetching messages:', error);
     return NextResponse.json(

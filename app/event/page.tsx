@@ -45,6 +45,9 @@ interface StreamData {
   sourceType?: string;
   youtubePlaylistId?: string | null;
   sourceUrl?: string | null;
+  captionUrl?: string | null;
+  captionLabel?: string | null;
+  captionLanguage?: string | null;
 }
 
 function ScreenChrome({ children }: { children: React.ReactNode }) {
@@ -139,7 +142,8 @@ export default function EventPage() {
             previous.isHoldScreen !== next.isHoldScreen ||
             previous.activeSlotId !== next.activeSlotId ||
             previous.scheduleStatus !== next.scheduleStatus ||
-            previous.nextTransitionAt !== next.nextTransitionAt
+            previous.nextTransitionAt !== next.nextTransitionAt ||
+            previous.captionUrl !== next.captionUrl
           ) {
             return next;
           }
@@ -433,7 +437,7 @@ export default function EventPage() {
         }
         .ll-watch-below { display: contents; }
         .ll-watch-video { grid-area: video; }
-        .ll-watch-extras { grid-area: extras; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .ll-watch-extras { grid-area: extras; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         .ll-watch-chat { grid-area: chat; min-height: 0; }
 
         .ll-nowplaying { display: flex; gap: 14px; align-items: center; font-size: 14px; padding: 6px 16px; }
@@ -555,6 +559,9 @@ export default function EventPage() {
                 playbackUpdatedAt={streamData.playbackUpdatedAt}
                 playbackElapsedMs={streamData.playbackElapsedMs}
                 activeSlotId={streamData.activeSlotId}
+                captionUrl={streamData.captionUrl}
+                captionLabel={streamData.captionLabel}
+                captionLanguage={streamData.captionLanguage}
                 onPlaybackError={handlePlaybackError}
               />
             </ErrorBoundary>
@@ -587,12 +594,12 @@ export default function EventPage() {
                 className="f-display bevel-btn"
                 style={{
                   display: 'inline-block',
-                  padding: '10px 20px',
-                  borderRadius: 10,
+                  padding: '5px 12px',
+                  borderRadius: 8,
                   color: LL.ink,
                   background: `linear-gradient(180deg, ${LL.frost1} 0%, ${LL.mint} 60%, #7eb9a0 100%)`,
                   textDecoration: 'none',
-                  fontSize: 14,
+                  fontSize: 11,
                 }}
               >
                 ◄ CLIP SHOW ►
@@ -600,7 +607,7 @@ export default function EventPage() {
             </div>
 
             <div>
-              <h3 className="f-display" style={{ textAlign: 'center', color: LL.lime, fontSize: 16, marginBottom: 8 }}>
+              <h3 className="f-display" style={{ textAlign: 'center', color: LL.lime, fontSize: 12, marginBottom: 4 }}>
                 ★ POLLS ★
               </h3>
               <ErrorBoundary

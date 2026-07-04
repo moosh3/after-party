@@ -35,6 +35,9 @@ interface VideoPlayerProps {
   sourceType?: MediaSourceType | string;
   youtubePlaylistId?: string | null;
   sourceUrl?: string | null;
+  captionUrl?: string | null;
+  captionLabel?: string | null;
+  captionLanguage?: string | null;
   onPlaybackError?: () => void;
 }
 
@@ -374,6 +377,9 @@ export default function VideoPlayer({
   activeSlotId = null,
   sourceType = MUX_SOURCE_TYPE,
   youtubePlaylistId = null,
+  captionUrl = null,
+  captionLabel = null,
+  captionLanguage = null,
   onPlaybackError,
 }: VideoPlayerProps) {
   const playerRef = useRef<MuxPlayerElement>(null);
@@ -603,6 +609,43 @@ export default function VideoPlayer({
     manualEndedPlaybackRef.current = null;
     lastSyncedStateRef.current = null;
   }, [playbackId, activeSlotId]);
+
+  // Side-load the caption file (public/assets/captions/*) as a text track on
+  // the underlying media element. Mux assets here carry no embedded subtitles,
+  // so without this there is nothing for the caption UI to show. The
+  // requestCaptions effect below flips the track to 'showing' once it exists.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (sourceType !== MUX_SOURCE_TYPE || !player || !captionUrl) return;
+
+    let trackEl: HTMLTrackElement | null = null;
+    let timer: NodeJS.Timeout | null = null;
+
+    const attach = () => {
+      const media = (player as MuxPlayerElement & { media?: HTMLMediaElement | null }).media;
+      if (!media) {
+        timer = setTimeout(attach, 500);
+        return;
+      }
+
+      if (media.querySelector(`track[src="${captionUrl}"]`)) return;
+
+      trackEl = document.createElement('track');
+      trackEl.kind = 'subtitles';
+      trackEl.label = captionLabel || 'English';
+      trackEl.srclang = captionLanguage || 'en';
+      trackEl.src = captionUrl;
+      trackEl.default = true;
+      media.appendChild(trackEl);
+    };
+
+    attach();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      trackEl?.remove();
+    };
+  }, [sourceType, playbackId, captionUrl, captionLabel, captionLanguage]);
 
   useEffect(() => {
     const player = playerRef.current;
