@@ -52,6 +52,34 @@ interface StreamData {
   captionLanguage?: string | null;
 }
 
+function isStreamDataPayload(data: unknown): data is StreamData {
+  if (!data || typeof data !== 'object') return false;
+  const candidate = data as Record<string, unknown>;
+
+  return (
+    typeof candidate.playbackId === 'string' &&
+    typeof candidate.token === 'string' &&
+    typeof candidate.expiresAt === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.kind === 'string'
+  );
+}
+
+async function fetchCurrentStreamData() {
+  const response = await fetch('/api/current', { cache: 'no-store' });
+
+  if (!response.ok) {
+    throw new Error(`Current stream request failed with ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!isStreamDataPayload(data)) {
+    throw new Error('Current stream response was missing playback fields');
+  }
+
+  return data;
+}
+
 function ScreenChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className={`dm-lobby-lounge ${LL_FONT_VARS}`} style={{ minHeight: '100vh', background: LL.ink, color: LL.frost1 }}>
@@ -123,11 +151,8 @@ export default function EventPage() {
       console.log('Stream changed, fetching new token...');
 
       // Fetch new stream data with token
-      fetch('/api/current')
-        .then(res => res.json())
-        .then(data => {
-          setStreamData(data);
-        })
+      fetchCurrentStreamData()
+        .then(setStreamData)
         .catch(err => {
           console.error('Failed to fetch updated stream:', err);
         });
@@ -141,10 +166,7 @@ export default function EventPage() {
 
     const refreshScheduleStream = async () => {
       try {
-        const response = await fetch('/api/current');
-        if (!response.ok) return;
-
-        const next = await response.json();
+        const next = await fetchCurrentStreamData();
         setStreamData((previous) => {
           if (
             !previous ||
@@ -204,11 +226,8 @@ export default function EventPage() {
             newData.last_command_id !== oldData.last_command_id
           ) {
             console.log('Stream state changed, refetching stream data...');
-            fetch('/api/current')
-              .then(res => res.json())
-              .then(data => {
-                setStreamData(data);
-              })
+            fetchCurrentStreamData()
+              .then(setStreamData)
               .catch(err => {
                 console.error('Failed to fetch updated stream:', err);
               });
@@ -228,7 +247,7 @@ export default function EventPage() {
   useEffect(() => {
     async function checkPosterMode() {
       try {
-        const response = await fetch('/api/current');
+        const response = await fetch('/api/current', { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
           setShowPoster(data.showPoster || false);
@@ -286,7 +305,7 @@ export default function EventPage() {
 
     async function loadStream() {
       try {
-        const response = await fetch('/api/current');
+        const response = await fetch('/api/current', { cache: 'no-store' });
 
         if (response.status === 401) {
           router.push('/');
@@ -298,6 +317,9 @@ export default function EventPage() {
         }
 
         const data = await response.json();
+        if (!isStreamDataPayload(data)) {
+          throw new Error('Current stream response was missing playback fields');
+        }
         setStreamData(data);
       } catch (err) {
         setError('Failed to load event. Please try again.');
@@ -441,9 +463,8 @@ export default function EventPage() {
   // First Mux playback error is likely a stale signed token (e.g. after the
   // phone slept) — refetch stream data so the player gets a fresh one.
   const handlePlaybackError = useCallback(() => {
-    fetch('/api/current')
-      .then((res) => res.json())
-      .then((data) => setStreamData(data))
+    fetchCurrentStreamData()
+      .then(setStreamData)
       .catch((err) => {
         console.error('Failed to refresh stream after player error:', err);
       });

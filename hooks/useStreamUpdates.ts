@@ -15,6 +15,24 @@ interface StreamUpdate {
   updatedAt: string;
 }
 
+const STREAM_POLL_INTERVAL_MS = 3000;
+
+function isStreamUpdatePayload(data: unknown): data is {
+  playbackId: string;
+  title: string;
+  kind: string;
+  sourceType?: string;
+} {
+  if (!data || typeof data !== 'object') return false;
+  const candidate = data as Record<string, unknown>;
+
+  return (
+    typeof candidate.playbackId === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.kind === 'string'
+  );
+}
+
 export function useStreamUpdates(initialData: StreamUpdate | null) {
   const [streamData, setStreamData] = useState(initialData);
   const [usePolling, setUsePolling] = useState(false);
@@ -23,9 +41,14 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
   // Polling mechanism (fallback)
   const poll = useCallback(async () => {
     try {
-      const response = await fetch('/api/current');
+      const response = await fetch('/api/current', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
+        if (!isStreamUpdatePayload(data)) {
+          console.warn('Ignoring invalid stream update payload:', data);
+          return;
+        }
+
         setStreamData({
           playbackId: data.playbackId,
           title: data.title,
@@ -52,6 +75,7 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
     if (hasSubscribedRef.current || !initialData) return;
 
     hasSubscribedRef.current = true;
+    let disposed = false;
 
     // Try Supabase Realtime first
     const channel = supabase
@@ -80,27 +104,48 @@ export function useStreamUpdates(initialData: StreamUpdate | null) {
         }
       )
       .subscribe((status) => {
+        if (disposed) return;
+
         if (status === 'SUBSCRIBED') {
           console.log('Subscribed to stream updates');
           setUsePolling(false);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           console.log('Realtime failed, falling back to polling');
           setUsePolling(true);
+          poll();
         }
       });
 
     return () => {
+      disposed = true;
       supabase.removeChannel(channel);
       hasSubscribedRef.current = false;
     };
-  }, [initialData?.playbackId]); // Only re-subscribe if playbackId changes (actual stream change)
+  }, [initialData?.playbackId, poll]); // Only re-subscribe if playbackId changes (actual stream change)
 
   // Polling interval
   useEffect(() => {
     if (!usePolling) return;
 
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, STREAM_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
+  }, [usePolling, poll]);
+
+  useEffect(() => {
+    if (!usePolling) return;
+
+    const handleResume = () => {
+      if (document.visibilityState === 'visible') {
+        poll();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('pageshow', handleResume);
+    return () => {
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('pageshow', handleResume);
+    };
   }, [usePolling, poll]);
 
   return streamData;
