@@ -366,6 +366,10 @@ export default function EventPage() {
     if (activeElement instanceof HTMLElement) {
       activeElement.blur();
     }
+
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+    window.setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }), 180);
+    window.setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }), 360);
   }, []);
 
   useEffect(() => {
@@ -547,36 +551,13 @@ export default function EventPage() {
           .ll-nowplaying { font-size: 12px; gap: 8px; padding: 4px 10px; }
           .ll-nowplaying-avatars { display: none; }
 
-          .ll-watch-root.ll-watch-chat-focused .ll-header--compact,
-          .ll-watch-root.ll-watch-chat-focused .ll-nowplaying,
-          .ll-watch-root.ll-watch-chat-focused .ll-watch-video,
-          .ll-watch-root.ll-watch-chat-focused .ll-watch-extras {
-            display: none;
-          }
-
-          .ll-watch-root.ll-watch-chat-focused .ll-watch-grid {
+          .ll-watch-root.ll-watch-chat-focused .ll-watch-chat {
             position: fixed;
             z-index: 1000;
             inset: 0 0 var(--ll-keyboard-inset, 0px) 0;
-            display: block;
-            padding: 0;
-            overflow: hidden;
-            background: ${LL.ink};
-          }
-
-          .ll-watch-root.ll-watch-chat-focused .ll-watch-below {
-            display: block;
-            height: 100%;
-            min-height: 0;
-            overflow: hidden;
-          }
-
-          .ll-watch-root.ll-watch-chat-focused .ll-watch-chat {
-            display: block;
-            height: 100%;
-            min-height: 0;
             padding: 8px;
             box-sizing: border-box;
+            background: ${LL.ink};
           }
         }
       `}</style>
