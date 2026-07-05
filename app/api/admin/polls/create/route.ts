@@ -68,18 +68,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create poll
-    const { data: poll, error: pollError } = await supabaseAdmin
-      .from('polls')
-      .insert({
+    const createPoll = (includeType: boolean) => {
+      const pollInsert = {
         room,
         question: question.trim(),
-        type,
         is_open: true,
         created_by: session.userId,
-      })
-      .select()
-      .single();
+        ...(includeType ? { type } : {}),
+      };
+
+      return supabaseAdmin
+        .from('polls')
+        .insert(pollInsert)
+        .select()
+        .single();
+    };
+
+    // Create poll. Older deployments may not have sql/016_open_answer_polls.sql
+    // applied yet, so fixed-choice polls can fall back to the original schema.
+    let { data: poll, error: pollError } = await createPoll(true);
+
+    if (pollError?.code === '42703' && pollError.message.includes('type')) {
+      if (type === 'open') {
+        return NextResponse.json(
+          { error: 'Open-answer polls require database migration sql/016_open_answer_polls.sql' },
+          { status: 500 }
+        );
+      }
+
+      const legacyResult = await createPoll(false);
+      poll = legacyResult.data;
+      pollError = legacyResult.error;
+    }
 
     if (pollError || !poll) {
       console.error('Failed to create poll:', pollError);
@@ -113,7 +133,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create poll message in chat
-    await createPollMessage(room, poll.id);
+    try {
+      await createPollMessage(room, poll.id);
+    } catch (messageError) {
+      await supabaseAdmin.from('polls').delete().eq('id', poll.id);
+      return NextResponse.json(
+        { error: 'Failed to create poll message' },
+        { status: 500 }
+      );
+    }
 
     // Log action
     await supabaseAdmin.from('admin_actions').insert({
@@ -130,6 +158,7 @@ export async function POST(request: NextRequest) {
           question: poll.question,
           room: poll.room,
           is_open: poll.is_open,
+          type: poll.type || 'fixed',
         },
       },
       { status: 201 }
@@ -142,4 +171,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
