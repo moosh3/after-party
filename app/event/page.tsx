@@ -379,6 +379,7 @@ export default function EventPage() {
         const viewportLoss = Math.max(0, screenHeight - viewportHeight);
 
         root.style.setProperty('--ll-watch-viewport-height', `${viewportHeight}px`);
+        root.style.setProperty('--ll-watch-viewport-top', `${viewportOffsetTop}px`);
         setKeyboardOpen(isTextField && isCoarsePointer && (keyboardInset > 80 || viewportLoss > 180));
       });
     };
@@ -411,23 +412,9 @@ export default function EventPage() {
       document.removeEventListener('focusin', updateViewportMetrics);
       document.removeEventListener('focusout', handleFocusOut);
       root.style.removeProperty('--ll-watch-viewport-height');
+      root.style.removeProperty('--ll-watch-viewport-top');
     };
   }, []);
-
-  useEffect(() => {
-    if (!keyboardOpen) return;
-
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyOverflow = document.body.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    window.requestAnimationFrame(() => window.scrollTo(0, 0));
-
-    return () => {
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.overflow = previousBodyOverflow;
-    };
-  }, [keyboardOpen]);
 
   // First Mux playback error is likely a stale signed token (e.g. after the
   // phone slept) — refetch stream data so the player gets a fresh one.
@@ -523,7 +510,6 @@ export default function EventPage() {
         .ll-watch-root {
           height: 100vh;
           height: 100dvh;
-          height: var(--ll-watch-viewport-height, 100dvh);
         }
 
         /* Desktop: video top-left, extras under it, chat spans the right column. */
@@ -556,11 +542,6 @@ export default function EventPage() {
           .ll-nowplaying { font-size: 12px; gap: 8px; padding: 4px 10px; }
           .ll-nowplaying-avatars { display: none; }
 
-          .ll-watch-root.ll-watch-keyboard-open {
-            height: var(--ll-watch-viewport-height, 100dvh);
-            min-height: var(--ll-watch-viewport-height, 100dvh);
-          }
-
           .ll-watch-root.ll-watch-keyboard-open .ll-header--compact,
           .ll-watch-root.ll-watch-keyboard-open .ll-nowplaying,
           .ll-watch-root.ll-watch-keyboard-open .ll-watch-video,
@@ -569,22 +550,24 @@ export default function EventPage() {
           }
 
           .ll-watch-root.ll-watch-keyboard-open .ll-watch-grid {
-            flex: 1;
-            gap: 0;
-            min-height: 0;
-            padding: 8px;
-            overflow: hidden;
+            overflow: visible;
           }
 
           .ll-watch-root.ll-watch-keyboard-open .ll-watch-below {
-            flex: 1;
-            min-height: 0;
-            overflow: hidden;
+            overflow: visible;
           }
 
           .ll-watch-root.ll-watch-keyboard-open .ll-watch-chat {
-            height: 100%;
+            position: fixed;
+            z-index: 1000;
+            top: var(--ll-watch-viewport-top, 0px);
+            left: 0;
+            right: 0;
+            height: var(--ll-watch-viewport-height, 100dvh);
             min-height: 0;
+            padding: 8px;
+            box-sizing: border-box;
+            background: ${LL.ink};
           }
         }
       `}</style>

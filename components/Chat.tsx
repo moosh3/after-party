@@ -560,6 +560,10 @@ export default function Chat({
             --ll-chat-shadow: none;
           }
 
+          .ll-watch-keyboard-open .ll-chat-nowplaying-card {
+            display: none;
+          }
+
           .ll-watch-keyboard-open .ll-chat-messages {
             scroll-padding-bottom: 12px;
           }
