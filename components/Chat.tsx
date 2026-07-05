@@ -56,6 +56,7 @@ interface ChatProps {
   nowPlayingTitle?: string | null;
   nowPlayingKey?: string | null;
   onComposerFocusChange?: (focused: boolean) => void;
+  onComposerDismiss?: () => void;
 }
 
 function NowPlayingChatCard({ title }: { title: string }) {
@@ -80,6 +81,7 @@ export default function Chat({
   nowPlayingTitle = null,
   nowPlayingKey = null,
   onComposerFocusChange,
+  onComposerDismiss,
 }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [nowPlayingAnnouncements, setNowPlayingAnnouncements] = useState<NowPlayingAnnouncement[]>([]);
@@ -307,6 +309,12 @@ export default function Chat({
     }, 120);
   }, [clearComposerBlurTimer, onComposerFocusChange]);
 
+  const handleComposerDismiss = useCallback(() => {
+    clearComposerBlurTimer();
+    onComposerDismiss?.();
+    onComposerFocusChange?.(false);
+  }, [clearComposerBlurTimer, onComposerDismiss, onComposerFocusChange]);
+
   useEffect(() => {
     return () => {
       clearComposerBlurTimer();
@@ -527,6 +535,10 @@ export default function Chat({
           min-height: 44px;
         }
 
+        .ll-chat-focus-bar {
+          display: none;
+        }
+
         .ll-chat-nowplaying-card {
           position: relative;
           margin: 8px 10px 10px;
@@ -605,6 +617,25 @@ export default function Chat({
             display: none;
           }
 
+          .ll-watch-chat-focused .ll-chat-focus-bar {
+            display: flex;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 0 8px;
+          }
+
+          .ll-chat-done-button {
+            border: 2px solid #1a1230;
+            border-radius: 999px;
+            background: #c9ff2d;
+            color: #1a1230;
+            font-weight: 850;
+            padding: 5px 14px;
+            min-height: 34px;
+            box-shadow: 2px 2px 0 rgba(26,18,48,.35);
+          }
+
           .ll-watch-chat-focused .ll-chat-messages {
             padding: 8px 0 4px;
             scroll-padding-bottom: 12px;
@@ -618,6 +649,16 @@ export default function Chat({
       {/* Header */}
       <div className="ll-chat-header flex-shrink-0" style={{ padding: '7px 12px', background: '#1a1230', borderBottom: '2px solid #1a1230' }}>
         <h2 className="f-display" style={{ margin: 0, fontSize: 13, letterSpacing: '.04em', color: '#c9ff2d' }}>💬 CHAT</h2>
+      </div>
+
+      <div className="ll-chat-focus-bar">
+        <button
+          type="button"
+          className="ll-chat-done-button"
+          onClick={handleComposerDismiss}
+        >
+          Done
+        </button>
       </div>
 
       {/* Messages */}
