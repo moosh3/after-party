@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import VideoPlayer from '@/components/VideoPlayer';
@@ -87,7 +87,8 @@ export default function EventPage() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
   const [showPoster, setShowPoster] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [chatComposerFocused, setChatComposerFocused] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   // Token refresh hook
   const tokenRefreshError = useTokenRefresh(streamData, setStreamData);
@@ -348,11 +349,14 @@ export default function EventPage() {
   }, []);
 
   useEffect(() => {
-    let animationFrame = 0;
-    let focusOutTimeout = 0;
-    const root = document.documentElement;
+    if (!chatComposerFocused) {
+      setKeyboardInset(0);
+      return;
+    }
 
-    const updateViewportMetrics = () => {
+    let animationFrame = 0;
+
+    const updateKeyboardInset = () => {
       if (animationFrame) {
         window.cancelAnimationFrame(animationFrame);
       }
@@ -360,61 +364,34 @@ export default function EventPage() {
       animationFrame = window.requestAnimationFrame(() => {
         animationFrame = 0;
         const visualViewport = window.visualViewport;
-        const viewportHeight = Math.max(
-          240,
-          Math.round(visualViewport?.height ?? window.innerHeight)
-        );
-        const viewportOffsetTop = Math.max(0, Math.round(visualViewport?.offsetTop ?? 0));
-        const keyboardInset = Math.max(
-          0,
-          window.innerHeight - viewportHeight - viewportOffsetTop
-        );
-        const activeElement = document.activeElement;
-        const isTextField =
-          activeElement instanceof HTMLInputElement ||
-          activeElement instanceof HTMLTextAreaElement ||
-          (activeElement instanceof HTMLElement && activeElement.isContentEditable);
-        const isCoarsePointer = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-        const screenHeight = window.screen?.height || window.innerHeight;
-        const viewportLoss = Math.max(0, screenHeight - viewportHeight);
 
-        root.style.setProperty('--ll-watch-viewport-height', `${viewportHeight}px`);
-        root.style.setProperty('--ll-watch-viewport-top', `${viewportOffsetTop}px`);
-        setKeyboardOpen(isTextField && isCoarsePointer && (keyboardInset > 80 || viewportLoss > 180));
+        if (!visualViewport) {
+          setKeyboardInset(0);
+          return;
+        }
+
+        setKeyboardInset(Math.max(
+          0,
+          Math.round(window.innerHeight - visualViewport.height - visualViewport.offsetTop)
+        ));
       });
     };
 
-    const handleFocusOut = () => {
-      if (focusOutTimeout) {
-        window.clearTimeout(focusOutTimeout);
-      }
-      focusOutTimeout = window.setTimeout(updateViewportMetrics, 120);
-    };
+    updateKeyboardInset();
 
-    updateViewportMetrics();
-
-    window.visualViewport?.addEventListener('resize', updateViewportMetrics);
-    window.visualViewport?.addEventListener('scroll', updateViewportMetrics);
-    window.addEventListener('resize', updateViewportMetrics);
-    document.addEventListener('focusin', updateViewportMetrics);
-    document.addEventListener('focusout', handleFocusOut);
+    window.visualViewport?.addEventListener('resize', updateKeyboardInset);
+    window.visualViewport?.addEventListener('scroll', updateKeyboardInset);
+    window.addEventListener('resize', updateKeyboardInset);
 
     return () => {
       if (animationFrame) {
         window.cancelAnimationFrame(animationFrame);
       }
-      if (focusOutTimeout) {
-        window.clearTimeout(focusOutTimeout);
-      }
-      window.visualViewport?.removeEventListener('resize', updateViewportMetrics);
-      window.visualViewport?.removeEventListener('scroll', updateViewportMetrics);
-      window.removeEventListener('resize', updateViewportMetrics);
-      document.removeEventListener('focusin', updateViewportMetrics);
-      document.removeEventListener('focusout', handleFocusOut);
-      root.style.removeProperty('--ll-watch-viewport-height');
-      root.style.removeProperty('--ll-watch-viewport-top');
+      window.visualViewport?.removeEventListener('resize', updateKeyboardInset);
+      window.visualViewport?.removeEventListener('scroll', updateKeyboardInset);
+      window.removeEventListener('resize', updateKeyboardInset);
     };
-  }, []);
+  }, [chatComposerFocused]);
 
   // First Mux playback error is likely a stale signed token (e.g. after the
   // phone slept) — refetch stream data so the player gets a fresh one.
@@ -501,9 +478,17 @@ export default function EventPage() {
         chatNowPlayingTitle,
       ].join(':')
     : null;
+  const watchRootStyle = {
+    background: LL.ink,
+    color: LL.frost1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    '--ll-keyboard-inset': `${keyboardInset}px`,
+  } as CSSProperties;
 
   return (
-    <div className={`dm-lobby-lounge ${LL_FONT_VARS} ll-watch-root${keyboardOpen ? ' ll-watch-keyboard-open' : ''}`} style={{ background: LL.ink, color: LL.frost1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className={`dm-lobby-lounge ${LL_FONT_VARS} ll-watch-root${chatComposerFocused ? ' ll-watch-chat-focused' : ''}`} style={watchRootStyle}>
       <style>{`
         /* Height lives here (not inline) so the dvh fallback chain applies:
            dvh tracks Chrome mobile's collapsing URL bar. */
@@ -542,32 +527,36 @@ export default function EventPage() {
           .ll-nowplaying { font-size: 12px; gap: 8px; padding: 4px 10px; }
           .ll-nowplaying-avatars { display: none; }
 
-          .ll-watch-root.ll-watch-keyboard-open .ll-header--compact,
-          .ll-watch-root.ll-watch-keyboard-open .ll-nowplaying,
-          .ll-watch-root.ll-watch-keyboard-open .ll-watch-video,
-          .ll-watch-root.ll-watch-keyboard-open .ll-watch-extras {
+          .ll-watch-root.ll-watch-chat-focused .ll-header--compact,
+          .ll-watch-root.ll-watch-chat-focused .ll-nowplaying,
+          .ll-watch-root.ll-watch-chat-focused .ll-watch-video,
+          .ll-watch-root.ll-watch-chat-focused .ll-watch-extras {
             display: none;
           }
 
-          .ll-watch-root.ll-watch-keyboard-open .ll-watch-grid {
-            overflow: visible;
-          }
-
-          .ll-watch-root.ll-watch-keyboard-open .ll-watch-below {
-            overflow: visible;
-          }
-
-          .ll-watch-root.ll-watch-keyboard-open .ll-watch-chat {
+          .ll-watch-root.ll-watch-chat-focused .ll-watch-grid {
             position: fixed;
             z-index: 1000;
-            top: var(--ll-watch-viewport-top, 0px);
-            left: 0;
-            right: 0;
-            height: var(--ll-watch-viewport-height, 100dvh);
+            inset: 0 0 var(--ll-keyboard-inset, 0px) 0;
+            display: block;
+            padding: 0;
+            overflow: hidden;
+            background: ${LL.ink};
+          }
+
+          .ll-watch-root.ll-watch-chat-focused .ll-watch-below {
+            display: block;
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          .ll-watch-root.ll-watch-chat-focused .ll-watch-chat {
+            display: block;
+            height: 100%;
             min-height: 0;
             padding: 8px;
             box-sizing: border-box;
-            background: ${LL.ink};
           }
         }
       `}</style>
@@ -704,6 +693,7 @@ export default function EventPage() {
                 userId={userId}
                 nowPlayingTitle={chatNowPlayingTitle}
                 nowPlayingKey={chatNowPlayingKey}
+                onComposerFocusChange={setChatComposerFocused}
               />
             </ErrorBoundary>
           </aside>

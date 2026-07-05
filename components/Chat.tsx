@@ -55,6 +55,7 @@ interface ChatProps {
   userId: string;
   nowPlayingTitle?: string | null;
   nowPlayingKey?: string | null;
+  onComposerFocusChange?: (focused: boolean) => void;
 }
 
 function NowPlayingChatCard({ title }: { title: string }) {
@@ -78,6 +79,7 @@ export default function Chat({
   userId,
   nowPlayingTitle = null,
   nowPlayingKey = null,
+  onComposerFocusChange,
 }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [nowPlayingAnnouncements, setNowPlayingAnnouncements] = useState<NowPlayingAnnouncement[]>([]);
@@ -92,6 +94,7 @@ export default function Chat({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastNowPlayingKeyRef = useRef<string | null>(null);
+  const composerBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Load user name from viewer registration data
@@ -283,6 +286,34 @@ export default function Chat({
     window.setTimeout(() => scrollToBottom('auto'), 360);
   }, [scrollToBottom]);
 
+  const clearComposerBlurTimer = useCallback(() => {
+    if (composerBlurTimerRef.current) {
+      clearTimeout(composerBlurTimerRef.current);
+      composerBlurTimerRef.current = null;
+    }
+  }, []);
+
+  const handleComposerFocus = useCallback(() => {
+    clearComposerBlurTimer();
+    onComposerFocusChange?.(true);
+    keepChatBottomVisible();
+  }, [clearComposerBlurTimer, keepChatBottomVisible, onComposerFocusChange]);
+
+  const handleComposerBlur = useCallback(() => {
+    clearComposerBlurTimer();
+    composerBlurTimerRef.current = setTimeout(() => {
+      onComposerFocusChange?.(false);
+      composerBlurTimerRef.current = null;
+    }, 120);
+  }, [clearComposerBlurTimer, onComposerFocusChange]);
+
+  useEffect(() => {
+    return () => {
+      clearComposerBlurTimer();
+      onComposerFocusChange?.(false);
+    };
+  }, [clearComposerBlurTimer, onComposerFocusChange]);
+
   useEffect(() => {
     if (autoScroll) {
       scrollToBottom();
@@ -297,8 +328,10 @@ export default function Chat({
     };
 
     window.visualViewport?.addEventListener('resize', handleViewportResize);
+    window.addEventListener('resize', handleViewportResize);
     return () => {
       window.visualViewport?.removeEventListener('resize', handleViewportResize);
+      window.removeEventListener('resize', handleViewportResize);
     };
   }, [autoScroll, scrollToBottom]);
 
@@ -488,6 +521,12 @@ export default function Chat({
           -webkit-overflow-scrolling: touch;
         }
 
+        .ll-chat-input {
+          font-size: 16px;
+          line-height: 1.25;
+          min-height: 44px;
+        }
+
         .ll-chat-nowplaying-card {
           position: relative;
           margin: 8px 10px 10px;
@@ -555,26 +594,29 @@ export default function Chat({
             font-size: 14px;
           }
 
-          .ll-watch-keyboard-open .ll-chat-panel {
+          .ll-watch-chat-focused .ll-chat-panel {
             --ll-chat-radius: 10px;
             --ll-chat-shadow: none;
           }
 
-          .ll-watch-keyboard-open .ll-chat-nowplaying-card {
+          .ll-watch-chat-focused .ll-chat-header,
+          .ll-watch-chat-focused .ll-chat-identity,
+          .ll-watch-chat-focused .ll-chat-nowplaying-card {
             display: none;
           }
 
-          .ll-watch-keyboard-open .ll-chat-messages {
+          .ll-watch-chat-focused .ll-chat-messages {
+            padding: 8px 0 4px;
             scroll-padding-bottom: 12px;
           }
 
-          .ll-watch-keyboard-open .ll-chat-composer {
-            padding-bottom: max(8px, env(safe-area-inset-bottom));
+          .ll-watch-chat-focused .ll-chat-composer {
+            padding: 8px;
           }
         }
       `}</style>
       {/* Header */}
-      <div className="flex-shrink-0" style={{ padding: '7px 12px', background: '#1a1230', borderBottom: '2px solid #1a1230' }}>
+      <div className="ll-chat-header flex-shrink-0" style={{ padding: '7px 12px', background: '#1a1230', borderBottom: '2px solid #1a1230' }}>
         <h2 className="f-display" style={{ margin: 0, fontSize: 13, letterSpacing: '.04em', color: '#c9ff2d' }}>💬 CHAT</h2>
       </div>
 
@@ -760,16 +802,17 @@ export default function Chat({
         )}
 
         <form onSubmit={handleSend} className="flex flex-col gap-2">
-          <div className="text-xs mb-1 f-mono" style={{ color: '#2a1a55' }}>
+          <div className="ll-chat-identity text-xs mb-1 f-mono" style={{ color: '#2a1a55' }}>
             Chatting as: <span className="font-medium">{userName}</span>
           </div>
           <input
             type="text"
             value={messageBody}
             onChange={(e) => setMessageBody(e.target.value)}
-            onFocus={keepChatBottomVisible}
+            onFocus={handleComposerFocus}
+            onBlur={handleComposerBlur}
             placeholder="say something..."
-            className="ll-chat-input w-full text-sm"
+            className="ll-chat-input w-full"
             style={{ border: '2px solid #1a1230', borderRadius: 6, padding: '7px 10px', background: '#fff', color: '#1a1230' }}
             disabled={sending || rateLimitSeconds > 0}
             maxLength={MAX_MESSAGE_LENGTH}
