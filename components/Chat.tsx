@@ -387,8 +387,7 @@ export default function Chat({
     return [...messageItems, ...nowPlayingItems].sort((a, b) => a.sortTime - b.sortTime);
   }, [messages, nowPlayingAnnouncements]);
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSend() {
     if (!messageBody.trim() || sending || rateLimitSeconds > 0) return;
 
     setSending(true);
@@ -842,14 +841,24 @@ export default function Chat({
           </div>
         )}
 
-        <form onSubmit={handleSend} className="flex flex-col gap-2">
+        <div
+          className="flex flex-col gap-2"
+          data-form-type="other"
+        >
           <div className="ll-chat-identity text-xs mb-1 f-mono" style={{ color: '#2a1a55' }}>
             Chatting as: <span className="font-medium">{userName}</span>
           </div>
           <input
             type="text"
+            name="chat-message-body"
+            id="chat-message-body"
             value={messageBody}
             onChange={(e) => setMessageBody(e.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+              event.preventDefault();
+              void handleSend();
+            }}
             onFocus={handleComposerFocus}
             onBlur={handleComposerBlur}
             placeholder="say something..."
@@ -859,8 +868,18 @@ export default function Chat({
             maxLength={MAX_MESSAGE_LENGTH}
             enterKeyHint="send"
             autoComplete="off"
+            autoCorrect="on"
+            autoCapitalize="sentences"
+            spellCheck={true}
+            inputMode="text"
+            aria-autocomplete="none"
+            data-1p-ignore="true"
+            data-bwignore="true"
+            data-form-type="other"
+            data-lpignore="true"
+            aria-label="Chat message"
           />
-        </form>
+        </div>
       </div>
     </div>
   );
