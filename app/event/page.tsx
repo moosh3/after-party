@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import VideoPlayer from '@/components/VideoPlayer';
@@ -53,6 +53,9 @@ interface StreamData {
   captionLanguage?: string | null;
 }
 
+const KEYBOARD_OPEN_INSET_PX = 160;
+const KEYBOARD_DISMISSED_INSET_PX = 120;
+
 function ScreenChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className={`dm-lobby-lounge ${LL_FONT_VARS}`} style={{ minHeight: '100vh', background: LL.ink, color: LL.frost1 }}>
@@ -89,6 +92,8 @@ export default function EventPage() {
   const [showPoster, setShowPoster] = useState(false);
   const [chatComposerFocused, setChatComposerFocused] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const keyboardWasOpenRef = useRef(false);
+  const keyboardDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Token refresh hook
   const tokenRefreshError = useTokenRefresh(streamData, setStreamData);
@@ -348,8 +353,43 @@ export default function EventPage() {
     document.title = 'Watch · Da Movies';
   }, []);
 
+  const clearKeyboardDismissTimer = useCallback(() => {
+    if (keyboardDismissTimerRef.current) {
+      clearTimeout(keyboardDismissTimerRef.current);
+      keyboardDismissTimerRef.current = null;
+    }
+  }, []);
+
+  const restoreWatchFromChatFocus = useCallback(() => {
+    clearKeyboardDismissTimer();
+    keyboardWasOpenRef.current = false;
+    setKeyboardInset(0);
+    setChatComposerFocused(false);
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
+  }, [clearKeyboardDismissTimer]);
+
+  const handleChatComposerFocusChange = useCallback((focused: boolean) => {
+    clearKeyboardDismissTimer();
+
+    if (focused) {
+      keyboardWasOpenRef.current = false;
+      setChatComposerFocused(true);
+      return;
+    }
+
+    keyboardWasOpenRef.current = false;
+    setKeyboardInset(0);
+    setChatComposerFocused(false);
+  }, [clearKeyboardDismissTimer]);
+
   useEffect(() => {
     if (!chatComposerFocused) {
+      clearKeyboardDismissTimer();
+      keyboardWasOpenRef.current = false;
       setKeyboardInset(0);
       return;
     }
@@ -370,10 +410,28 @@ export default function EventPage() {
           return;
         }
 
-        setKeyboardInset(Math.max(
+        const nextKeyboardInset = Math.max(
           0,
           Math.round(window.innerHeight - visualViewport.height - visualViewport.offsetTop)
-        ));
+        );
+
+        setKeyboardInset(nextKeyboardInset);
+
+        if (nextKeyboardInset > KEYBOARD_OPEN_INSET_PX) {
+          clearKeyboardDismissTimer();
+          keyboardWasOpenRef.current = true;
+          return;
+        }
+
+        if (
+          keyboardWasOpenRef.current &&
+          nextKeyboardInset <= KEYBOARD_DISMISSED_INSET_PX &&
+          !keyboardDismissTimerRef.current
+        ) {
+          keyboardDismissTimerRef.current = setTimeout(() => {
+            restoreWatchFromChatFocus();
+          }, 160);
+        }
       });
     };
 
@@ -387,11 +445,12 @@ export default function EventPage() {
       if (animationFrame) {
         window.cancelAnimationFrame(animationFrame);
       }
+      clearKeyboardDismissTimer();
       window.visualViewport?.removeEventListener('resize', updateKeyboardInset);
       window.visualViewport?.removeEventListener('scroll', updateKeyboardInset);
       window.removeEventListener('resize', updateKeyboardInset);
     };
-  }, [chatComposerFocused]);
+  }, [chatComposerFocused, clearKeyboardDismissTimer, restoreWatchFromChatFocus]);
 
   // First Mux playback error is likely a stale signed token (e.g. after the
   // phone slept) — refetch stream data so the player gets a fresh one.
@@ -693,7 +752,7 @@ export default function EventPage() {
                 userId={userId}
                 nowPlayingTitle={chatNowPlayingTitle}
                 nowPlayingKey={chatNowPlayingKey}
-                onComposerFocusChange={setChatComposerFocused}
+                onComposerFocusChange={handleChatComposerFocusChange}
               />
             </ErrorBoundary>
           </aside>
