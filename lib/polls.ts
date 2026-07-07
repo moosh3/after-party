@@ -34,13 +34,18 @@ export async function createPollMessage(
   pollId: string
 ): Promise<void> {
   try {
-    await supabaseAdmin.from('messages').insert({
+    const { error } = await supabaseAdmin.from('messages').insert({
       room,
       user_id: 'system',
       user_name: 'System',
       kind: 'poll',
       body: pollId, // Store poll ID in message body
     });
+
+    if (error) {
+      console.error('Failed to create poll message:', error);
+      throw new Error(error.message);
+    }
   } catch (error) {
     console.error('Failed to create poll message:', error);
     throw error;
@@ -393,4 +398,3 @@ export async function getDetailedVoteResults(
     return null;
   }
 }
-
